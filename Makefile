@@ -13,7 +13,7 @@ APXS	:= /home/billy/Applications/grassroots-0/apache/bin/apxs
 INSTALL_DIR  ?= /usr/lib64/httpd/modules
 INSTALLED    := $(INSTALL_DIR)/mod_$(MODNAME).so
 
-CFILES := mod_davrods.c auth.c common.c config.c prop.c propdb.c repo.c
+CFILES := mod_davrods.c auth.c common.c config.c prop.c propdb.c repo.c meta.c
 HFILES := mod_davrods.h auth.h common.h config.h prop.h propdb.h repo.h
 
 # The DAV providers supported by default (you can override this in the shell using DAV_PROVIDERS="..." make).
