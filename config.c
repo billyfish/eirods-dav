@@ -72,6 +72,14 @@ void *davrods_create_dir_config(apr_pool_t *p, char *dir) {
         // longer than the maximum keepalive time. (We don't ever use
         // a temporary password more than once).
         conf->rods_auth_ttl          = 1; // In hours.
+
+
+        conf -> theme.ht_head_s = NULL;
+        conf -> theme.ht_top_s = NULL;
+        conf -> theme.ht_bottom_s = NULL;
+        conf -> theme.ht_collection_icon_s = NULL;
+        conf -> theme.ht_object_icon_s = NULL;
+        conf -> theme.ht_show_metadata = 0;
     }
     return conf;
 }
@@ -106,6 +114,14 @@ void *davrods_merge_dir_config(apr_pool_t *p, void *_parent, void *_child) {
 
     DAVRODS_PROP_MERGE(tmpfile_rollback);
     DAVRODS_PROP_MERGE(locallock_lockdb_path);
+
+
+    DAVRODS_PROP_MERGE(theme.ht_head_s);
+    DAVRODS_PROP_MERGE(theme.ht_top_s);
+    DAVRODS_PROP_MERGE(theme.ht_bottom_s);
+    DAVRODS_PROP_MERGE(theme.ht_collection_icon_s);
+    DAVRODS_PROP_MERGE(theme.ht_object_icon_s);
+    DAVRODS_PROP_MERGE(theme.ht_show_metadata);
 
     assert(set_exposed_root(conf, exposed_root) >= 0);
 
@@ -280,6 +296,74 @@ static const char *cmd_davrodslockdb(
     return NULL;
 }
 
+
+
+
+static const char *cmd_davrods_html_header (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    conf_p -> theme.ht_head_s = arg_p;
+
+    return NULL;
+}
+
+
+
+static const char *cmd_davrods_html_top (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    conf_p -> theme.ht_top_s = arg_p;
+
+    return NULL;
+}
+
+
+
+static const char *cmd_davrods_html_bottom (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    conf_p -> theme.ht_bottom_s = arg_p;
+
+    return NULL;
+}
+
+
+
+static const char *cmd_davrods_html_collection_icon (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    conf_p -> theme.ht_collection_icon_s = arg_p;
+
+    return NULL;
+}
+
+
+
+static const char *cmd_davrods_html_object_icon (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    conf_p -> theme.ht_object_icon_s = arg_p;
+
+    return NULL;
+}
+
+
+static const char *cmd_davrods_html_metadata (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    conf_p -> theme.ht_show_metadata = atoi (arg_p);
+
+    return NULL;
+}
+
+
+
 // }}}
 
 const command_rec davrods_directives[] = {
@@ -328,5 +412,35 @@ const command_rec davrods_directives[] = {
         NULL, ACCESS_CONF, "Lock database location, used by the davrods-locallock DAV provider"
     ),
 
+	AP_INIT_RAW_ARGS(
+        DAVRODS_CONFIG_PREFIX "HTMLHead", cmd_davrods_html_header,
+        NULL, ACCESS_CONF, "Extra HTML to place within the <head> tag"
+    ),
+
+	AP_INIT_RAW_ARGS(
+        DAVRODS_CONFIG_PREFIX "HTMLTop", cmd_davrods_html_top,
+        NULL, ACCESS_CONF, "HTML to put before the collection listing"
+    ),
+
+	AP_INIT_RAW_ARGS(
+        DAVRODS_CONFIG_PREFIX "HTMLBottom", cmd_davrods_html_bottom,
+        NULL, ACCESS_CONF, "HTML to put after the collection listingg"
+    ),
+
+    AP_INIT_TAKE1(
+        DAVRODS_CONFIG_PREFIX "HTMLCollectionIcon", cmd_davrods_html_collection_icon,
+        NULL, ACCESS_CONF, "Icon to use for collections"
+    ),
+
+    AP_INIT_TAKE1(
+        DAVRODS_CONFIG_PREFIX "HTMLObjectIcon", cmd_davrods_html_object_icon,
+        NULL, ACCESS_CONF, "Icon to use for data objects"
+    ),
+
+
+    AP_INIT_TAKE1(
+        DAVRODS_CONFIG_PREFIX "HTMLMetadata", cmd_davrods_html_metadata,
+        NULL, ACCESS_CONF, "Options for displaying metadata"
+    ),
     { NULL }
 };

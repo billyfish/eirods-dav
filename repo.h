@@ -28,6 +28,7 @@
 #include <irods/rodsClient.h>
 #include <irods/rods.h>
 
+
 /**
  * \brief Private implementation-specific resource information.
  *
@@ -60,6 +61,8 @@ struct dav_resource_private {
 
     rodsObjStat_t *stat;
     const char *root_dir;
+
+    struct html_theme theme;
 
     // }}}
 };

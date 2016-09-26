@@ -6,6 +6,8 @@ MODNAME      ?= davrods
 SHARED_FNAME := mod_$(MODNAME).so
 SHARED       := ./.libs/$(SHARED_FNAME)
 
+APXS	:= /home/billy/Applications/grassroots-0/apache/bin/apxs
+
 # XXX: These are currently unused as we rely on the apxs utility for module
 #      installation.
 INSTALL_DIR  ?= /usr/lib64/httpd/modules
@@ -38,7 +40,6 @@ LIBS :=                  \
 	dl               \
 	m                \
 	pthread          \
-	ssl              \
 	crypto           \
 	RodsAPIs         \
 	irods_client_plugins \
@@ -48,10 +49,12 @@ LIBS :=                  \
 	boost_regex      \
 	boost_thread     \
 	boost_chrono     \
+	ssl              \
 	jansson
 
-LIBPATHS :=
-
+LIBPATHS := \
+	/usr/lib/irods/externals
+	
 WARNINGS :=                           \
 	all                           \
 	extra                         \
@@ -63,7 +66,8 @@ WARNINGS :=                           \
 MACROS := \
 	$(addprefix DAVRODS_ENABLE_PROVIDER_, $(DAV_PROVIDERS))      \
 	DAVRODS_PROVIDER_NAME=\\\"$(DAV_PROVIDER_NAME_PREFIX)\\\"    \
-	DAVRODS_CONFIG_PREFIX=\\\"$(DAV_CONFIG_DIRECTIVE_PREFIX)\\\"
+	DAVRODS_CONFIG_PREFIX=\\\"$(DAV_CONFIG_DIRECTIVE_PREFIX)\\\" \
+	DAVRODS_DEBUG_VERY_DESPERATE=1
 
 ifdef DEBUG
 MACROS += DAVRODS_DEBUG_VERY_DESPERATE
@@ -76,7 +80,8 @@ CFLAGS +=                              \
 	-std=c99                       \
 	-pedantic                      \
 	$(addprefix -W, $(WARNINGS))   \
-	$(addprefix -D, $(MACROS))
+	$(addprefix -D, $(MACROS)) \
+	
 
 LDFLAGS +=                           \
 	$(addprefix -l, $(LIBS))     \
@@ -89,13 +94,13 @@ comma := ,
 all: shared
 
 install: $(SHARED)
-	sudo apxs -i -n $(MODNAME)_module $(SHARED)
+	sudo $(APXS) -i -n $(MODNAME)_module $(SHARED)
 	sudo service httpd restart
 
 shared: $(SHARED)
 
 $(SHARED): $(SRCFILES)
-	apxs -c                                  \
+	$(APXS) -c                                  \
 		$(addprefix -Wc$(comma), $(CFLAGS))  \
 		$(addprefix -Wl$(comma), $(LDFLAGS)) \
 		-o $(SHARED_FNAME) $(SRCFILES)

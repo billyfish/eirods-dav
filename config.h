@@ -24,6 +24,23 @@
 
 #include "mod_davrods.h"
 
+
+struct html_theme
+{
+	const char *ht_head_s;
+
+	const char *ht_top_s;
+
+	const char *ht_bottom_s;
+
+	const char *ht_collection_icon_s;
+
+	const char *ht_object_icon_s;
+
+	int ht_show_metadata;
+};
+
+
 /**
  * \brief Davrods per-directory config structure.
  */
@@ -60,6 +77,8 @@ typedef struct {
         DAVRODS_ROOT_HOME_DIR,       //             Home             => /<zone>/home (not the user's home collection!)
         DAVRODS_ROOT_USER_DIR,       //             User             => /<zone>/home/<user>
     } rods_exposed_root_type;
+
+    struct html_theme theme;
 
 } davrods_dir_conf_t;
 
