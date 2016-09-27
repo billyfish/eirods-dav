@@ -1201,12 +1201,12 @@ static dav_error *deliver_directory_themed (const dav_resource *resource, ap_fil
                        ap_escape_html(pool, resource->info->conf->rods_zone));
 
 
-    WHISPER("head \"%s\"", theme_p -> ht_head_s);
-    WHISPER("top \"%s\"", theme_p -> ht_top_s);
-    WHISPER("bottom \"%s\"", theme_p -> ht_bottom_s);
-    WHISPER("coll \"%s\"", theme_p -> ht_collection_icon_s);
-    WHISPER("obj \"%s\"", theme_p -> ht_object_icon_s);
-    WHISPER("metadata \"%d\"", theme_p -> ht_show_metadata);
+//    WHISPER("head \"%s\"", theme_p -> ht_head_s);
+//    WHISPER("top \"%s\"", theme_p -> ht_top_s);
+//    WHISPER("bottom \"%s\"", theme_p -> ht_bottom_s);
+//    WHISPER("coll \"%s\"", theme_p -> ht_collection_icon_s);
+//    WHISPER("obj \"%s\"", theme_p -> ht_object_icon_s);
+//    WHISPER("metadata \"%d\"", theme_p -> ht_show_metadata);
 
     if (theme_p -> ht_head_s)
     {
@@ -1260,14 +1260,14 @@ static dav_error *deliver_directory_themed (const dav_resource *resource, ap_fil
                          "<th class=\"icon\"></th>");
     }
 
-    apr_brigade_puts(bb, NULL, NULL, "<th class=\"name\">Name</th><th class=\"size\">Size</th><th class=\"owner\">Owner</th><th class=\"datestamp\">Last modified</th></tr>");
+    apr_brigade_puts(bb, NULL, NULL, "<th class=\"name\">Name</th><th class=\"size\">Size</th><th class=\"owner\">Owner</th><th class=\"datestamp\">Last modified</th>");
 
     if (theme_p -> ht_show_metadata)
     	{
         apr_brigade_puts(bb, NULL, NULL, "<th class=\"metadata\">Properties</th>");
     	}
 
-    apr_brigade_puts(bb, NULL, NULL, "\n</thead>\n<tbody>\n");
+    apr_brigade_puts(bb, NULL, NULL, "</tr>\n</thead>\n<tbody>\n");
 
     // Actually print the directory listing, one table row at a time.
     do {
@@ -1388,7 +1388,7 @@ static dav_error *deliver_directory_themed (const dav_resource *resource, ap_fil
     } while (status >= 0);
 
     // End HTML document.
-    apr_brigade_puts(bb, NULL, NULL, "</tbody>\n</table>\n</body>\n");
+    apr_brigade_puts(bb, NULL, NULL, "</tbody>\n</table>\n");
 
     if (theme_p -> ht_bottom_s)
     {
@@ -1403,7 +1403,7 @@ static dav_error *deliver_directory_themed (const dav_resource *resource, ap_fil
     	}	/* if (apr_ret != APR_SUCCESS) */
     }
 
-    apr_brigade_puts(bb, NULL, NULL, "\n</html>\n");
+    apr_brigade_puts(bb, NULL, NULL, "\n</body>\n</html>\n");
 
     // Flush.
     if ((status = ap_pass_brigade(output, bb)) != APR_SUCCESS) {
@@ -1431,18 +1431,27 @@ static void PrintMetadata (apr_bucket_brigade *bb_p, apr_array_header_t *metadat
 {
 	int i;
 
-  for (i = 0; i < metadata_array_p -> nelts; ++ i)
+  if (metadata_array_p -> nelts > 0)
   	{
-  		IrodsMetadata *metadata_p = ((IrodsMetadata **) metadata_array_p -> elts) [i];
+			apr_brigade_puts (bb_p, NULL, NULL, "<ul class=\"metadata\">");
 
-      apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"key\">%s</span> <span class=\"value\">%s</span>", metadata_p -> im_key_s, metadata_p -> im_value_s);
+  		for (i = 0; i < metadata_array_p -> nelts; ++ i)
+  	  	{
+  	  		IrodsMetadata *metadata_p = ((IrodsMetadata **) metadata_array_p -> elts) [i];
 
-      if (metadata_p -> im_units_s)
-      	{
-          apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"units\">%s</span>", metadata_p -> im_units_s);
-      	}
+  	      apr_brigade_printf (bb_p, NULL, NULL, "<li><span class=\"key\">%s</span> = <span class=\"value\">%s</span>", metadata_p -> im_key_s, metadata_p -> im_value_s);
 
+  	      if (metadata_p -> im_units_s)
+  	      	{
+  	          apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"units\">%s</span>", metadata_p -> im_units_s);
+  	      	}
+
+  				apr_brigade_puts (bb_p, NULL, NULL, "</li>");
+  	  	}
+
+			apr_brigade_puts (bb_p, NULL, NULL, "</ul>");
   	}
+
 }
 
 
@@ -1462,9 +1471,22 @@ static dav_error *dav_repo_deliver(
     }
 
     if (resource->collection)
-        return deliver_directory_themed(resource, output);
+    	{
+    		davrods_dir_conf_t *conf_p = resource -> info -> conf;
+
+    		if (conf_p -> themed_listings)
+    			{
+    				return deliver_directory_themed (resource, output);
+    			}
+    		else
+    			{
+    				return deliver_directory (resource, output);
+    			}
+    	}
     else
+    	{
         return deliver_file(resource, output);
+    	}
 }
 
 static dav_error *dav_repo_create_collection(dav_resource *resource) {

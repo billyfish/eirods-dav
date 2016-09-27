@@ -74,6 +74,7 @@ void *davrods_create_dir_config(apr_pool_t *p, char *dir) {
         conf->rods_auth_ttl          = 1; // In hours.
 
 
+        conf -> themed_listings = 0;
         conf -> theme.ht_head_s = NULL;
         conf -> theme.ht_top_s = NULL;
         conf -> theme.ht_bottom_s = NULL;
@@ -116,6 +117,7 @@ void *davrods_merge_dir_config(apr_pool_t *p, void *_parent, void *_child) {
     DAVRODS_PROP_MERGE(locallock_lockdb_path);
 
 
+    DAVRODS_PROP_MERGE(themed_listings);
     DAVRODS_PROP_MERGE(theme.ht_head_s);
     DAVRODS_PROP_MERGE(theme.ht_top_s);
     DAVRODS_PROP_MERGE(theme.ht_bottom_s);
@@ -357,7 +359,7 @@ static const char *cmd_davrods_html_metadata (cmd_parms *cmd_p, void *config_p, 
 {
     davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-    if (!strcasecmp (arg_p, "yes"))
+    if (!strcasecmp (arg_p, "true"))
     	{
     		conf_p -> theme.ht_show_metadata = 1;
     	}
@@ -366,6 +368,17 @@ static const char *cmd_davrods_html_metadata (cmd_parms *cmd_p, void *config_p, 
 }
 
 
+static const char *cmd_davrods_html_themed_listings (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    if (!strcasecmp (arg_p, "true"))
+    	{
+    		conf_p -> themed_listings = 1;
+    	}
+
+    return NULL;
+}
 
 // }}}
 
@@ -415,6 +428,11 @@ const command_rec davrods_directives[] = {
         NULL, ACCESS_CONF, "Lock database location, used by the davrods-locallock DAV provider"
     ),
 
+    AP_INIT_TAKE1(
+        DAVRODS_CONFIG_PREFIX "ThemedListings", cmd_davrods_html_themed_listings,
+        NULL, ACCESS_CONF, "Set to true for themed listings, default is false"
+    ),
+
 	AP_INIT_RAW_ARGS(
         DAVRODS_CONFIG_PREFIX "HTMLHead", cmd_davrods_html_header,
         NULL, ACCESS_CONF, "Extra HTML to place within the <head> tag"
@@ -445,5 +463,7 @@ const command_rec davrods_directives[] = {
         DAVRODS_CONFIG_PREFIX "HTMLMetadata", cmd_davrods_html_metadata,
         NULL, ACCESS_CONF, "Options for displaying metadata"
     ),
-    { NULL }
+
+
+		{ NULL }
 };

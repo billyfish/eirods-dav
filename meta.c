@@ -23,7 +23,7 @@ static genQueryOut_t *ExecuteGenQuery (rcComm_t *connection_p, genQueryInp_t * c
 static char *GetQuotedValue (const char * const input_s, apr_pool_t *pool_p);
 
 
-void printBasicGenQueryOut( genQueryOut_t *genQueryOut);
+void PrintBasicGenQueryOut( genQueryOut_t *genQueryOut);
 
 /*************************************/
 
@@ -94,7 +94,7 @@ apr_array_header_t *GetMetadataForDataObject (const dav_resource *resource_p, co
 											success_code = SetMetadataQuery (&in_query);
 
 											fprintf (stderr, "initial results:\n");
-											printBasicGenQueryOut (meta_id_results_p);
+											PrintBasicGenQueryOut (meta_id_results_p);
 
 											if (success_code == 0)
 												{
@@ -105,14 +105,14 @@ apr_array_header_t *GetMetadataForDataObject (const dav_resource *resource_p, co
 													if (meta_id_results_p -> attriCnt == 1)
 														{
 															int i;
+															char *meta_id_s = meta_id_results_p -> sqlResult [0].value;
 
 															/*
 															 * Iterate over the metadata id results from our previous query and get
 															 * the name value pairs
 															 */
-															for (i = 0; i < meta_id_results_p -> rowCnt; ++ i)
+															for (i = 0; i < meta_id_results_p -> rowCnt; ++ i, meta_id_s += meta_id_results_p -> sqlResult [0].len)
 																{
-																	char *meta_id_s = meta_id_results_p -> sqlResult [0].value;
 
 																	if (i == 0)
 																		{
@@ -125,7 +125,7 @@ apr_array_header_t *GetMetadataForDataObject (const dav_resource *resource_p, co
 
 																			if (quoted_id_s)
 																				{
-																					free (in_query.sqlCondInp.value [0]);
+																					//free (in_query.sqlCondInp.value [0]);
 																					in_query.sqlCondInp.value [0] = quoted_id_s;
 
 																					success_code = 0;
@@ -148,22 +148,40 @@ apr_array_header_t *GetMetadataForDataObject (const dav_resource *resource_p, co
 
 																			if (metadata_query_results_p)
 																				{
-																					char *key_s = NULL;
-																					char *value_s = NULL;
-																					char *units_s = NULL;
-
 																					fprintf (stderr, "output results:\n");
-																					printBasicGenQueryOut (metadata_query_results_p);
+																					PrintBasicGenQueryOut (metadata_query_results_p);
 
-
-																					IrodsMetadata *metadata_p = AllocateIrodsMetadata (key_s, value_s, units_s, resource_p -> pool);
-
-																					if (metadata_p)
+																					/*
+																					 * We requested 3 metadata attributes (name, value and units)
+																					 * so make sure we have 3 here
+																					 */
+																					if (metadata_query_results_p -> attriCnt == 3)
 																						{
-																							APR_ARRAY_PUSH (metadata_array_p, IrodsMetadata *) = metadata_p;
+																							int j;
+																							char *key_s = metadata_query_results_p -> sqlResult [0].value;
+																							char *value_s = metadata_query_results_p -> sqlResult [1].value;
+																							char *units_s = metadata_query_results_p -> sqlResult [2].value;
+
+
+																							for (j = 0; j < metadata_query_results_p -> rowCnt; ++ j)
+																								{
+																									IrodsMetadata *metadata_p = NULL;
+
+																									metadata_p = AllocateIrodsMetadata (key_s, value_s, units_s, resource_p -> pool);
+
+																									if (metadata_p)
+																										{
+																											APR_ARRAY_PUSH (metadata_array_p, IrodsMetadata *) = metadata_p;
+																										}
+
+																									key_s += metadata_query_results_p -> sqlResult [0].len;
+																									value_s += metadata_query_results_p -> sqlResult [1].len;
+																									units_s += metadata_query_results_p -> sqlResult [2].len;
+																								}
+
 																						}
 
-																					freeGenQueryOut (&metadata_query_results_p);
+																					//freeGenQueryOut (&metadata_query_results_p);
 																				}		/* metadata_query_results_p */
 
 																		}		/* if (success_code == 0) */
@@ -180,7 +198,7 @@ apr_array_header_t *GetMetadataForDataObject (const dav_resource *resource_p, co
 												}
 
 
-											freeGenQueryOut (&meta_id_results_p);
+											//freeGenQueryOut (&meta_id_results_p);
 										}		/* if (meta_id_results_p) */
 								}
 						}
@@ -198,7 +216,6 @@ static char *GetQuotedValue (const char * const input_s, apr_pool_t *pool_p)
 {
 	size_t input_length = strlen (input_s);
 	char *output_s = (char *) apr_palloc (pool_p, (input_length + 5) * sizeof (char));
-	char *cursor_s = output_s;
 
 	sprintf (output_s, "= \'%s\'", input_s);
 	* (output_s + input_length + 4) = '\0';
@@ -316,22 +333,27 @@ int printGenQI( genQueryInp_t *genQueryInp ) {
 	return 0;
 }
 
-void
-printBasicGenQueryOut( genQueryOut_t *genQueryOut) {
-    int i, j;
+void PrintBasicGenQueryOut( genQueryOut_t *genQueryOut)
+{
+	int i;
 
-        for ( i = 0; i < genQueryOut->rowCnt; i++ ) {
-            if ( i > 0 ) {
-                fprintf(stderr,  "----\n" );
-            }
-            for ( j = 0; j < genQueryOut->attriCnt; j++ ) {
-                char *tResult;
-                tResult = genQueryOut->sqlResult[j].value;
-                tResult += i * genQueryOut->sqlResult[j].len;
-                fprintf(stderr,  "i: %d, j: %d -> \"%s\"\n", i, j, tResult );
-            }
-        }
+	for (i = 0; i < genQueryOut -> rowCnt; ++ i)
+		{
+			int j;
+
+			fprintf(stderr,  "\n----\n" );
+
+			for (j = 0; j < genQueryOut->attriCnt; j++ )
+				{
+					char *result_s = genQueryOut->sqlResult[j].value;
+					result_s += i * genQueryOut->sqlResult[j].len;
+					fprintf(stderr,  "i: %d, j: %d -> \"%s\"\n", i, j, result_s );
+			}
+	}
+
+	fprintf(stderr,  "\n----\n" );
 }
+
 
 IrodsMetadata *AllocateIrodsMetadata (const char * const key_s, const char * const value_s, const char * const units_s, apr_pool_t *pool_p)
 {

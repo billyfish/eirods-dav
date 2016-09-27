@@ -78,6 +78,7 @@ typedef struct {
         DAVRODS_ROOT_USER_DIR,       //             User             => /<zone>/home/<user>
     } rods_exposed_root_type;
 
+    int themed_listings;
     struct html_theme theme;
 
 } davrods_dir_conf_t;
