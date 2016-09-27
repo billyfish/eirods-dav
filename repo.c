@@ -24,10 +24,21 @@
 #include <http_request.h>
 #include <http_protocol.h>
 
+#include "meta.h"
+
+
+/************************************/
+
+static void PrintMetadata (apr_bucket_brigade *bb_p, apr_array_header_t *metadata_array_p);
+
+/************************************/
+
+
 #ifdef DAVRODS_ENABLE_PROVIDER_LOCALLOCK
 // TODO: Move locklocal_get_locked_entries declaration.
 #include "lock_local.h"
 #endif /* DAVRODS_ENABLE_PROVIDER_LOCALLOCK */
+
 
 APLOG_USE_MODULE(davrods);
 
@@ -1195,7 +1206,7 @@ static dav_error *deliver_directory_themed (const dav_resource *resource, ap_fil
     WHISPER("bottom \"%s\"", theme_p -> ht_bottom_s);
     WHISPER("coll \"%s\"", theme_p -> ht_collection_icon_s);
     WHISPER("obj \"%s\"", theme_p -> ht_object_icon_s);
-    WHISPER("metadata \"%s\"", theme_p -> ht_show_metadata);
+    WHISPER("metadata \"%d\"", theme_p -> ht_show_metadata);
 
     if (theme_p -> ht_head_s)
     {
@@ -1249,9 +1260,14 @@ static dav_error *deliver_directory_themed (const dav_resource *resource, ap_fil
                          "<th class=\"icon\"></th>");
     }
 
-    apr_brigade_puts(bb, NULL, NULL,
-                     "<th class=\"name\">Name</th><th class=\"size\">Size</th><th class=\"owner\">Owner</th><th class=\"datestamp\">Last modified</th></tr>\n"
-                     "</thead>\n<tbody>\n");
+    apr_brigade_puts(bb, NULL, NULL, "<th class=\"name\">Name</th><th class=\"size\">Size</th><th class=\"owner\">Owner</th><th class=\"datestamp\">Last modified</th></tr>");
+
+    if (theme_p -> ht_show_metadata)
+    	{
+        apr_brigade_puts(bb, NULL, NULL, "<th class=\"metadata\">Properties</th>");
+    	}
+
+    apr_brigade_puts(bb, NULL, NULL, "\n</thead>\n<tbody>\n");
 
     // Actually print the directory listing, one table row at a time.
     do {
@@ -1271,6 +1287,8 @@ static dav_error *deliver_directory_themed (const dav_resource *resource, ap_fil
                                      "Could not read a collection entry from a collection.");
             }
         } else {
+        		apr_array_header_t *metadata_array_p = NULL;
+
             apr_brigade_puts(bb, NULL, NULL, "  <tr>");
 
             const char *name = coll_entry.objType == DATA_OBJ_T
@@ -1283,7 +1301,7 @@ static dav_error *deliver_directory_themed (const dav_resource *resource, ap_fil
 
             	if (theme_p -> ht_collection_icon_s)
             	{
-                    apr_brigade_printf(bb, NULL, NULL, "<td class=\"icon\"><img src=\"%s\"></td>",
+            			apr_brigade_printf(bb, NULL, NULL, "<td class=\"icon\"><img src=\"%s\"></td>",
                                        ap_escape_html(pool, theme_p -> ht_collection_icon_s));
             	}
 
@@ -1307,6 +1325,7 @@ static dav_error *deliver_directory_themed (const dav_resource *resource, ap_fil
 
             // Print data object size.
             if (coll_entry.objType == DATA_OBJ_T) {
+
                 char size_buf[5] = { 0 };
                 // Fancy file size formatting.
                 apr_strfsize(coll_entry.dataSize, size_buf);
@@ -1343,6 +1362,26 @@ static dav_error *deliver_directory_themed (const dav_resource *resource, ap_fil
                 apr_brigade_printf(bb, NULL, NULL, "<td class=\"datestamp\">%s</td>",
                                    ap_escape_html(pool, status >= 0 ? date_str : "Thu, 01 Jan 1970 00:00:00 GMT"));
             }
+
+            if (theme_p -> ht_show_metadata)
+            	{
+								apr_brigade_puts(bb, NULL, NULL, "<td class=\"metadata\">");
+
+								if (coll_entry.objType == DATA_OBJ_T)
+									{
+										if (coll_entry.dataId)
+											{
+												metadata_array_p = GetMetadataForDataObject (resource, coll_entry.objType, coll_entry.dataId);
+
+												if (metadata_array_p)
+													{
+														PrintMetadata (bb, metadata_array_p);
+													}
+											}
+									}
+
+								apr_brigade_puts(bb, NULL, NULL, "</td>");
+            	}
 
             apr_brigade_puts(bb, NULL, NULL, "</tr>\n");
         }
@@ -1387,6 +1426,24 @@ static dav_error *deliver_directory_themed (const dav_resource *resource, ap_fil
     return NULL;
 }
 
+
+static void PrintMetadata (apr_bucket_brigade *bb_p, apr_array_header_t *metadata_array_p)
+{
+	int i;
+
+  for (i = 0; i < metadata_array_p -> nelts; ++ i)
+  	{
+  		IrodsMetadata *metadata_p = ((IrodsMetadata **) metadata_array_p -> elts) [i];
+
+      apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"key\">%s</span> <span class=\"value\">%s</span>", metadata_p -> im_key_s, metadata_p -> im_value_s);
+
+      if (metadata_p -> im_units_s)
+      	{
+          apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"units\">%s</span>", metadata_p -> im_units_s);
+      	}
+
+  	}
+}
 
 
 static dav_error *dav_repo_deliver(

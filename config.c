@@ -357,7 +357,10 @@ static const char *cmd_davrods_html_metadata (cmd_parms *cmd_p, void *config_p, 
 {
     davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-    conf_p -> theme.ht_show_metadata = atoi (arg_p);
+    if (!strcasecmp (arg_p, "yes"))
+    	{
+    		conf_p -> theme.ht_show_metadata = 1;
+    	}
 
     return NULL;
 }

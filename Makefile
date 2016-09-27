@@ -35,13 +35,18 @@ endif
 SRCFILES := $(CFILES) $(HFILES)
 OUTFILES := $(CFILES:%.c=%.o) $(CFILES:%.c=%.lo) $(CFILES:%.c=%.slo) $(CFILES:%.c=%.la)
 
+INCLUDE_PATHS := /usr/include/irods 
+
+
 # Most of these are iRODS client lib dependencies.
 LIBS :=                  \
 	dl               \
 	m                \
 	pthread          \
 	crypto           \
-	RodsAPIs         \
+	irods_client_core    \
+	irods_client_api \
+	irods_client_api_table \
 	irods_client_plugins \
 	stdc++           \
 	boost_system     \
@@ -49,11 +54,11 @@ LIBS :=                  \
 	boost_regex      \
 	boost_thread     \
 	boost_chrono     \
+	boost_program_options \
 	ssl              \
 	jansson
 
-LIBPATHS := \
-	/usr/lib/irods/externals
+LIBPATHS := /usr/lib/irods/externals
 	
 WARNINGS :=                           \
 	all                           \
@@ -74,14 +79,13 @@ MACROS += DAVRODS_DEBUG_VERY_DESPERATE
 endif
 
 CFLAGS +=                              \
-	-O2                            \
 	-g3                            \
 	-ggdb                          \
 	-std=c99                       \
 	-pedantic                      \
 	$(addprefix -W, $(WARNINGS))   \
 	$(addprefix -D, $(MACROS)) \
-	
+	$(addprefix -I, $(INCLUDE_PATHS))
 
 LDFLAGS +=                           \
 	$(addprefix -l, $(LIBS))     \
