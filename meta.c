@@ -28,7 +28,14 @@ void GetMetadataForDataObject (const dav_resource *resource_p, const char * cons
 	  			/*
 	  			 * Get all of the meta_id values for a given object_id.
 	  			 *
-	  			 * SELECT meta_id FROM r_objt_metamap WHERE object_id = ' ';
+	  			 * in psql:
+	  			 *
+	  			 * 		SELECT meta_id FROM r_objt_metamap WHERE object_id = '10002';
+	  			 *
+	  			 * in iquest:
+	  			 *
+	  			 * 		iquest "SELECT META_DATA_ATTR_ID WHERE DATA_ID = '10002'";
+	  			 *
 	  			 */
 	    		apr_status_t status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "SELECT meta_id FROM r_objt_metamap WHERE object_id = '%s'", data_id_s);
 
@@ -45,12 +52,31 @@ void GetMetadataForDataObject (const dav_resource *resource_p, const char * cons
 
 	  	    				if (out_query_p)
 	  	    					{
-											/*
-											 * Now we all of the meta_id keys, let's get the
-											 * metadata
-											 *
-											 * SELECT meta_namespace, meta_attr_name, meta_attr_value, meta_attr_unit FROM r_meta_main WHERE meta_id = ' ';
-											 */
+	  	    						int i;
+
+	  	    						for (i = 0; i < out_query_p -> rowCnt; ++ i)
+	  	    							{
+	  	    								int j;
+
+	  	    								/*
+	  	    								 * Since our search was just for the meta_id values
+	  	    								 * there should only be one attribute
+	  	    								 */
+	  	    								if (out_query_p -> attriCnt == 1)
+	  	    									{
+
+	  	  											/*
+	  	  											 * Now we iterate over each of the meta_id keys,
+	  	  											 * and get the metadata values
+	  	  											 *
+	  	  											 * SELECT meta_namespace, meta_attr_name, meta_attr_value, meta_attr_unit FROM r_meta_main WHERE meta_id = ' ';
+	  	  											 */
+	  	    										char *meta_id_s = out_query_p -> sqlResult [0].value;
+	  	    									}
+
+	  	    							}
+
+
 	  	    					}
 
 	    					}
