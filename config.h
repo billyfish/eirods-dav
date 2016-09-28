@@ -37,6 +37,8 @@ struct html_theme
 
 	const char *ht_object_icon_s;
 
+	const char *ht_parent_icon_s;
+
 	int ht_show_metadata;
 };
 

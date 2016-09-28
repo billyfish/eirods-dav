@@ -1164,9 +1164,10 @@ static dav_error *deliver_directory(
 
 static dav_error *deliver_directory_themed (const dav_resource *resource, ap_filter_t *output)
 {
-    // Print a basic HTML directory listing.
+	struct dav_resource_private *davrods_resource_p = (struct dav_resource_private *) resource -> info;
+	// Print a basic HTML directory listing.
     collInp_t coll_inp = {{ 0 }};
-    strcpy(coll_inp.collName, resource->info->rods_path);
+    strcpy(coll_inp.collName, davrods_resource_p ->rods_path);
 
     collHandle_t coll_handle = { 0 };
 
@@ -1180,14 +1181,14 @@ static dav_error *deliver_directory_themed (const dav_resource *resource, ap_fil
     );
 
     if (status < 0) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_SUCCESS, davrods_resource_p->r,
                       "rcOpenCollection failed: %d = %s", status, get_rods_error_msg(status));
 
         return dav_new_error(resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0, status,
                              "Could not open a collection");
     }
 
-    davrods_dir_conf_t *conf_p = resource -> info -> conf;
+    davrods_dir_conf_t *conf_p = davrods_resource_p-> conf;
     struct html_theme *theme_p = & (conf_p -> theme);
 
     // Make brigade.
@@ -1197,8 +1198,8 @@ static dav_error *deliver_directory_themed (const dav_resource *resource, ap_fil
 
     // Send start of HTML document.
     apr_brigade_printf(bb, NULL, NULL, "<!DOCTYPE html>\n<html>\n<head><title>Index of %s on %s</title>\n",
-                       ap_escape_html(pool, resource->info->relative_uri),
-                       ap_escape_html(pool, resource->info->conf->rods_zone));
+                       ap_escape_html(pool, davrods_resource_p->relative_uri),
+                       ap_escape_html(pool, conf_p->rods_zone));
 
 
 //    WHISPER("head \"%s\"", theme_p -> ht_head_s);
@@ -1214,7 +1215,7 @@ static dav_error *deliver_directory_themed (const dav_resource *resource, ap_fil
 
     	if (apr_ret != APR_SUCCESS)
     	{
-            ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
+            ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, davrods_resource_p->r,
                           "Failed to add html to <head> section \"%s\"",
 						  theme_p -> ht_head_s);
 
@@ -1236,7 +1237,7 @@ static dav_error *deliver_directory_themed (const dav_resource *resource, ap_fil
 
     	if (apr_ret != APR_SUCCESS)
     	{
-            ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
+            ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, davrods_resource_p->r,
                           "Failed to add html to top section \"%s\"",
 						  theme_p -> ht_top_s);
 
@@ -1244,12 +1245,28 @@ static dav_error *deliver_directory_themed (const dav_resource *resource, ap_fil
     }
 
 
-    apr_brigade_printf (bb, NULL, NULL, "<h1>Index of %s on %s</h1>\n",
-                     ap_escape_html(pool, resource->info->relative_uri),
-                     ap_escape_html(pool, resource->info->conf->rods_zone));
+    apr_brigade_printf (bb, NULL, NULL, "<main>\n<h1>You are logged in as %s and browsing the index of %s on %s</h1>\n",
+    		davrods_resource_p -> rods_conn -> clientUser.userName,
+				ap_escape_html(pool, davrods_resource_p->relative_uri),
+				ap_escape_html(pool, conf_p->rods_zone));
 
-    if (strcmp(resource->info->relative_uri, "/"))
-        apr_brigade_puts(bb, NULL, NULL, "<p><a href=\"..\">↖ Parent collection</a></p>\n");
+    if (strcmp(davrods_resource_p->relative_uri, "/"))
+    	{
+				apr_brigade_puts (bb, NULL, NULL, "<p><a href=\"..\">");
+
+				if (theme_p -> ht_parent_icon_s)
+    			{
+						apr_brigade_printf (bb, NULL, NULL, "<img src=\"%s\" />", ap_escape_html (pool, theme_p -> ht_parent_icon_s));
+    			}
+    		else
+    			{
+    				apr_brigade_puts (bb, NULL, NULL, "↖");
+    			}
+
+    		apr_brigade_puts (bb, NULL, NULL, " Parent collection</a></p>\n");
+
+
+    	}
 
     apr_brigade_puts(bb, NULL, NULL,
                      "<table class=\"listing\">\n<thead>\n<tr>");
@@ -1271,15 +1288,15 @@ static dav_error *deliver_directory_themed (const dav_resource *resource, ap_fil
 
     // Actually print the directory listing, one table row at a time.
     do {
-        status = rclReadCollection(resource->info->rods_conn, &coll_handle, &coll_entry);
+        status = rclReadCollection(davrods_resource_p->rods_conn, &coll_handle, &coll_entry);
 
         if (status < 0) {
             if (status == CAT_NO_ROWS_FOUND) {
                 // End of collection.
             } else {
-                ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
+                ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_SUCCESS, davrods_resource_p->r,
                               "rcReadCollection failed for collection <%s> with error <%s>",
-                              resource->info->rods_path, get_rods_error_msg(status));
+															davrods_resource_p->rods_path, get_rods_error_msg(status));
 
                 apr_brigade_destroy(bb);
 
@@ -1330,9 +1347,9 @@ static dav_error *deliver_directory_themed (const dav_resource *resource, ap_fil
                 // Fancy file size formatting.
                 apr_strfsize(coll_entry.dataSize, size_buf);
                 if (size_buf[0])
-                    apr_brigade_printf(bb, NULL, NULL, "<td class=\"size\">%s</td>", size_buf);
+                    apr_brigade_printf(bb, NULL, NULL, "<td class=\"size\">%sB</td>", size_buf);
                 else
-                    apr_brigade_printf(bb, NULL, NULL, "<td class=\"size\">%lu</td>", coll_entry.dataSize);
+                    apr_brigade_printf(bb, NULL, NULL, "<td class=\"size\">%luB</td>", coll_entry.dataSize);
             } else {
                 apr_brigade_puts(bb, NULL, NULL, "<td class=\"size\"></td>");
             }
@@ -1388,7 +1405,7 @@ static dav_error *deliver_directory_themed (const dav_resource *resource, ap_fil
     } while (status >= 0);
 
     // End HTML document.
-    apr_brigade_puts(bb, NULL, NULL, "</tbody>\n</table>\n");
+    apr_brigade_puts(bb, NULL, NULL, "</tbody>\n</table>\n</main>\n");
 
     if (theme_p -> ht_bottom_s)
     {
@@ -1396,7 +1413,7 @@ static dav_error *deliver_directory_themed (const dav_resource *resource, ap_fil
 
     	if (apr_ret != APR_SUCCESS)
     	{
-            ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
+            ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, davrods_resource_p->r,
                           "Failed to add html to bottom section \"%s\"",
 						  theme_p -> ht_bottom_s);
 
