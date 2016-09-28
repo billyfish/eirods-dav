@@ -9,6 +9,7 @@
 #include "rodsGenQueryNames.h"
 #include "meta.h"
 
+#include "apr_strings.h"
 
 /*************************************/
 
@@ -29,55 +30,118 @@ void PrintBasicGenQueryOut( genQueryOut_t *genQueryOut);
 
 
 
-apr_array_header_t *GetMetadataForDataObject (const dav_resource *resource_p, const objType_t object_type, const char * const id_s)
+apr_array_header_t *GetMetadata (const dav_resource *resource_p, const collEnt_t *entry_p)
 {
 	apr_array_header_t *metadata_array_p = apr_array_make (resource_p -> pool, S_INITIAL_ARRAY_SIZE, sizeof (IrodsMetadata *));
 
 	if (metadata_array_p)
 		{
+			int select_col = -1;
+			int where_col = -1;
+			char *where_value_s = NULL;
+			int success_code;
 			genQueryInp_t in_query;
 
 			InitGenQuery (&in_query);
 
-			/*
-			 * Get all of the meta_id values for a given object_id.
-			 *
-			 * in psql:
-			 *
-			 * 		SELECT meta_id FROM r_objt_metamap WHERE object_id = '10002';
-			 *
-			 * in iquest:
-			 *
-			 * 		iquest "SELECT META_DATA_ATTR_ID WHERE DATA_ID = '10002'";
-			 *
-			 */
-
-			int success_code = addInxIval (& (in_query.selectInp), COL_META_DATA_ATTR_ID, 1);
-
-			if (success_code == 0)
+			switch (entry_p -> objType)
 				{
-					int col = -1;
-
-					switch (object_type)
-					{
+					/*
+					 * Get all of the meta_id values for a given object_id.
+					 *
+					 * in psql:
+					 *
+					 * 		SELECT meta_id FROM r_objt_metamap WHERE object_id = '10002';
+					 *
+					 * in iquest:
+					 *
+					 * 		iquest "SELECT META_DATA_ATTR_ID WHERE DATA_ID = '10002'";
+					 *
+					 */
 					case DATA_OBJ_T:
-						col = COL_D_DATA_ID;
+						select_col = COL_META_DATA_ATTR_ID;
+						where_col = COL_D_DATA_ID;
+						where_value_s = entry_p -> dataId;
 						break;
 
+					/*
+					 * For a collection we need to do an intermediate search to get the
+					 * object id from the collection name
+					 *
+					 * SELECT coll_id FROM r_coll_main WHERE coll_name = ' ';
+					 */
 					case COLL_OBJ_T:
-						col = COL_COLL_ID;
+						{
+							genQueryInp_t collection_id_query;
+
+							InitGenQuery (&collection_id_query);
+
+							success_code = addInxIval (& (collection_id_query.selectInp), COL_COLL_ID, 1);
+
+							if (success_code == 0)
+								{
+									char *quoted_id_s = GetQuotedValue (entry_p -> collName, resource_p -> pool);
+
+									if (quoted_id_s)
+										{
+											success_code = addInxVal (& (collection_id_query.sqlCondInp), COL_COLL_NAME, quoted_id_s);
+
+											if (success_code == 0)
+												{
+													genQueryOut_t *coll_id_results_p = NULL;
+
+													fprintf (stderr, "collection query:");
+													printGenQI (&collection_id_query);
+
+													coll_id_results_p = ExecuteGenQuery (resource_p -> info -> rods_conn, &collection_id_query);
+
+													if (coll_id_results_p)
+														{
+															fprintf (stderr, "collection results:\n");
+															PrintBasicGenQueryOut (coll_id_results_p);
+
+															if ((coll_id_results_p -> attriCnt == 1) && (coll_id_results_p -> rowCnt == 1))
+																{
+																	char *coll_id_s = coll_id_results_p -> sqlResult [0].value;
+
+																	if (coll_id_s)
+																		{
+																			where_value_s = apr_pstrdup (resource_p -> pool, coll_id_s);
+
+																			if (where_value_s)
+																				{
+																					where_col = COL_COLL_ID;
+																					select_col = COL_META_COLL_ATTR_ID;
+																				}
+																		}
+																}
+
+															freeGenQueryOut (&coll_id_results_p);
+														}
+												}
+
+										}
+								}
+
+						}
 						break;
 
 					default:
 						break;
-					}		/* switch (object_type) */
+				}		/* switch (object_type) */
 
-					/* Did we get the column for the condition? */
-					if (col != -1)
+			/*
+			 * Did we get all of the required values?
+			 */
+			if ((select_col != -1) && (where_col != -1) && (where_value_s != NULL))
+				{
+					int success_code = addInxIval (& (in_query.selectInp), select_col, 1);
+
+					if (success_code == 0)
 						{
-							char *quoted_id_s = GetQuotedValue (id_s, resource_p -> pool);
+							char *condition_and_where_value_s = GetQuotedValue (where_value_s, resource_p -> pool);
 
-							success_code = addInxVal (& (in_query.sqlCondInp), COL_D_DATA_ID, quoted_id_s);
+							success_code = addInxVal (& (in_query.sqlCondInp), where_col, condition_and_where_value_s);
 
 							if (success_code == 0)
 								{
@@ -116,17 +180,17 @@ apr_array_header_t *GetMetadataForDataObject (const dav_resource *resource_p, co
 
 																	if (i == 0)
 																		{
-																			quoted_id_s = GetQuotedValue (meta_id_s, resource_p -> pool);
-																			success_code = addInxVal (& (in_query.sqlCondInp), COL_META_DATA_ATTR_ID, quoted_id_s);
+																			condition_and_where_value_s = GetQuotedValue (meta_id_s, resource_p -> pool);
+																			success_code = addInxVal (& (in_query.sqlCondInp), COL_META_DATA_ATTR_ID, condition_and_where_value_s);
 																		}
 																	else
 																		{
-																			quoted_id_s = GetQuotedValue (meta_id_s, resource_p -> pool);
+																			condition_and_where_value_s = GetQuotedValue (meta_id_s, resource_p -> pool);
 
-																			if (quoted_id_s)
+																			if (condition_and_where_value_s)
 																				{
 																					//free (in_query.sqlCondInp.value [0]);
-																					in_query.sqlCondInp.value [0] = quoted_id_s;
+																					in_query.sqlCondInp.value [0] = condition_and_where_value_s;
 
 																					success_code = 0;
 																				}
@@ -165,9 +229,7 @@ apr_array_header_t *GetMetadataForDataObject (const dav_resource *resource_p, co
 
 																							for (j = 0; j < metadata_query_results_p -> rowCnt; ++ j)
 																								{
-																									IrodsMetadata *metadata_p = NULL;
-
-																									metadata_p = AllocateIrodsMetadata (key_s, value_s, units_s, resource_p -> pool);
+																									IrodsMetadata *metadata_p = AllocateIrodsMetadata (key_s, value_s, units_s, resource_p -> pool);
 
 																									if (metadata_p)
 																										{
@@ -194,14 +256,16 @@ apr_array_header_t *GetMetadataForDataObject (const dav_resource *resource_p, co
 
 														}
 
-												}
+												}		/* if (success_code == 0) */
 
 											freeGenQueryOut (&meta_id_results_p);
 										}		/* if (meta_id_results_p) */
-								}
-						}
 
-				}		/* if (success_code == 0) */
+								}		/* if (success_code == 0) */
+
+						}		/* if (success_code == 0) */
+
+				}		/* if ((select_col != -1) && (where_col != -1) && (where_value_s != NULL)) */
 
 		}		/* if (metadata_array_p) */
 

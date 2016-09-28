@@ -13,7 +13,7 @@
 
 /************************************/
 
-static void PrintMetadata (apr_bucket_brigade *bb_p, const IrodsMetadata **metadata_pp, int size);
+static void PrintMetadata (apr_bucket_brigade *bb_p, IrodsMetadata **metadata_pp, int size);
 
 static int CompareIrodsMetadata (const void *v0_p, const void *v1_p);
 
@@ -305,45 +305,41 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 					if (theme_p->ht_show_metadata)
 						{
+
 							apr_brigade_puts(bb_p, NULL, NULL, "<td class=\"metadata\">");
 
-							if (coll_entry.objType == DATA_OBJ_T)
+							metadata_array_p = GetMetadata (resource_p, &coll_entry);
+
+							if (metadata_array_p)
 								{
-									if (coll_entry.dataId)
+									/*
+									 * Sort the metadata keys into alphabetical order
+									 */
+									if (!apr_is_empty_array (metadata_array_p))
 										{
-											metadata_array_p = GetMetadataForDataObject (resource_p, coll_entry.objType, coll_entry.dataId);
+											IrodsMetadata **metadata_pp = (IrodsMetadata **) apr_palloc (pool_p, (metadata_array_p -> nelts) * sizeof (IrodsMetadata **));
 
-											if (metadata_array_p)
+											if (metadata_pp)
 												{
-													/*
-													 * Sort the metadata keys into alphabetical order
-													 */
-													if (!apr_is_empty_array (metadata_array_p))
+													int i;
+													IrodsMetadata **md_pp = metadata_pp;
+
+													for (i = 0; i < metadata_array_p -> nelts; ++ i, ++ md_pp)
 														{
-															IrodsMetadata **metadata_pp = (IrodsMetadata **) apr_palloc (pool_p, (metadata_array_p -> nelts) * sizeof (IrodsMetadata **));
-
-															if (metadata_pp)
-																{
-																	int i;
-																	IrodsMetadata **md_pp = metadata_pp;
-
-																	for (i = 0; i < metadata_array_p -> nelts; ++ i, ++ md_pp)
-																		{
-																			*md_pp = ((IrodsMetadata **) metadata_array_p -> elts) [i];
-																		}
-
-																	qsort (metadata_pp, metadata_array_p -> nelts, sizeof (IrodsMetadata **), CompareIrodsMetadata);
-
-																	md_pp = metadata_pp;
-
-																	PrintMetadata (bb_p, metadata_pp, metadata_array_p -> nelts);
-
-																}		/* if (metadata_pp) */
-
+															*md_pp = ((IrodsMetadata **) metadata_array_p -> elts) [i];
 														}
-												}
-										}
-								}
+
+													qsort (metadata_pp, metadata_array_p -> nelts, sizeof (IrodsMetadata **), CompareIrodsMetadata);
+
+													md_pp = metadata_pp;
+
+													PrintMetadata (bb_p, metadata_pp, metadata_array_p -> nelts);
+
+												}		/* if (metadata_pp) */
+
+										}		/* if (!apr_is_empty_array (metadata_array_p)) */
+
+								}		/* if (metadata_array_p) */
 
 							apr_brigade_puts(bb_p, NULL, NULL, "</td>");
 						}
@@ -393,7 +389,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 }
 
 
-static void PrintMetadata (apr_bucket_brigade *bb_p, const IrodsMetadata **metadata_pp, int size)
+static void PrintMetadata (apr_bucket_brigade *bb_p, IrodsMetadata **metadata_pp, int size)
 {
 	apr_brigade_puts (bb_p, NULL, NULL, "<ul class=\"metadata\">");
 
@@ -401,7 +397,7 @@ static void PrintMetadata (apr_bucket_brigade *bb_p, const IrodsMetadata **metad
 		{
 			const IrodsMetadata *metadata_p = *metadata_pp;
 
-			apr_brigade_printf (bb_p, NULL, NULL, "<li><span class=\"key\">%s</span> = <span class=\"value\">%s</span>", metadata_p -> im_key_s, metadata_p -> im_value_s);
+			apr_brigade_printf (bb_p, NULL, NULL, "<li><span class=\"key\">%s</span>: <span class=\"value\">%s</span>", metadata_p -> im_key_s, metadata_p -> im_value_s);
 
 			if (metadata_p -> im_units_s)
 				{

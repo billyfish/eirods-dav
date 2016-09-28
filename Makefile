@@ -81,6 +81,7 @@ endif
 CFLAGS +=                              \
 	-g3                            \
 	-ggdb                          \
+	-O0							\
 	-std=c99                       \
 	-pedantic                      \
 	$(addprefix -W, $(WARNINGS))   \

@@ -14,6 +14,7 @@
 #include "apr_tables.h"
 
 #include "rodsGenQuery.h"
+#include "miscUtil.h"
 
 typedef struct IrodsMetadata
 {
@@ -30,8 +31,8 @@ extern "C"
 {
 #endif
 
-apr_array_header_t *GetMetadataForDataObject (const dav_resource *resource_p, const objType_t object_type, const char * const id_s);
 
+apr_array_header_t *GetMetadata (const dav_resource *resource_p, const collEnt_t *entry_p);
 
 int printGenQI( genQueryInp_t *genQueryInp );
 
