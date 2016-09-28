@@ -20,6 +20,7 @@
  * along with Davrods.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "config.h"
+#include "theme.h"
 
 #include <apr_strings.h>
 
@@ -75,13 +76,7 @@ void *davrods_create_dir_config(apr_pool_t *p, char *dir) {
 
 
         conf -> themed_listings = 0;
-        conf -> theme.ht_head_s = NULL;
-        conf -> theme.ht_top_s = NULL;
-        conf -> theme.ht_bottom_s = NULL;
-        conf -> theme.ht_collection_icon_s = NULL;
-        conf -> theme.ht_object_icon_s = NULL;
-        conf -> theme.ht_parent_icon_s = NULL;
-        conf -> theme.ht_show_metadata = 0;
+        InitHtmlTheme (& (conf -> theme));
     }
     return conf;
 }
@@ -125,7 +120,9 @@ void *davrods_merge_dir_config(apr_pool_t *p, void *_parent, void *_child) {
     DAVRODS_PROP_MERGE(theme.ht_collection_icon_s);
     DAVRODS_PROP_MERGE(theme.ht_object_icon_s);
     DAVRODS_PROP_MERGE(theme.ht_parent_icon_s);
+    DAVRODS_PROP_MERGE(theme.ht_listing_class_s);
     DAVRODS_PROP_MERGE(theme.ht_show_metadata);
+
 
     assert(set_exposed_root(conf, exposed_root) >= 0);
 
@@ -367,6 +364,17 @@ static const char *cmd_davrods_html_parent_icon (cmd_parms *cmd_p, void *config_
     return NULL;
 }
 
+
+static const char *cmd_davrods_html_listing_class (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    conf_p -> theme.ht_listing_class_s = arg_p;
+
+    return NULL;
+}
+
+
 static const char *cmd_davrods_html_metadata (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
     davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
@@ -473,6 +481,11 @@ const command_rec davrods_directives[] = {
     AP_INIT_TAKE1(
         DAVRODS_CONFIG_PREFIX "HTMLParentIcon", cmd_davrods_html_parent_icon,
         NULL, ACCESS_CONF, "Icon to use for parent link in the directory listings"
+    ),
+
+		AP_INIT_RAW_ARGS(
+        DAVRODS_CONFIG_PREFIX "HTMLListingClass", cmd_davrods_html_listing_class,
+        NULL, ACCESS_CONF, "CSS class to use for the listing <table> element"
     ),
 
     AP_INIT_TAKE1(

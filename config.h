@@ -24,24 +24,7 @@
 
 #include "mod_davrods.h"
 
-
-struct html_theme
-{
-	const char *ht_head_s;
-
-	const char *ht_top_s;
-
-	const char *ht_bottom_s;
-
-	const char *ht_collection_icon_s;
-
-	const char *ht_object_icon_s;
-
-	const char *ht_parent_icon_s;
-
-	int ht_show_metadata;
-};
-
+#include "theme.h"
 
 /**
  * \brief Davrods per-directory config structure.
@@ -81,7 +64,7 @@ typedef struct {
     } rods_exposed_root_type;
 
     int themed_listings;
-    struct html_theme theme;
+    struct HtmlTheme theme;
 
 } davrods_dir_conf_t;
 

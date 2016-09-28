@@ -13,6 +13,7 @@
 #include "apr_pools.h"
 #include "apr_tables.h"
 
+#include "rodsGenQuery.h"
 
 typedef struct IrodsMetadata
 {

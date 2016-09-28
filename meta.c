@@ -181,13 +181,12 @@ apr_array_header_t *GetMetadataForDataObject (const dav_resource *resource_p, co
 
 																						}
 
-																					//freeGenQueryOut (&metadata_query_results_p);
+																					freeGenQueryOut (&metadata_query_results_p);
 																				}		/* metadata_query_results_p */
 
 																		}		/* if (success_code == 0) */
 
 																}		/* for (i = 0; i < meta_id_results_p -> rowCnt; ++ i) */
-
 
 														}		/* if (meta_id_results_p -> attriCnt == 1) */
 													else
@@ -197,8 +196,7 @@ apr_array_header_t *GetMetadataForDataObject (const dav_resource *resource_p, co
 
 												}
 
-
-											//freeGenQueryOut (&meta_id_results_p);
+											freeGenQueryOut (&meta_id_results_p);
 										}		/* if (meta_id_results_p) */
 								}
 						}

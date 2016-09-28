@@ -62,11 +62,23 @@ struct dav_resource_private {
     rodsObjStat_t *stat;
     const char *root_dir;
 
-    struct html_theme theme;
 
     // }}}
 };
 
 extern const dav_hooks_repository davrods_hooks_repository;
+
+
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+const char *get_basename(const char *path);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _DAVRODS_REPO_H */
