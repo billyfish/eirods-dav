@@ -2,11 +2,16 @@
 # Author: Chris Smeele
 # Copyright (c) 2016, Utrecht University
 
+-include user.prefs
+
 MODNAME      ?= davrods
 SHARED_FNAME := mod_$(MODNAME).so
 SHARED       := ./.libs/$(SHARED_FNAME)
 
-APXS	:= /home/billy/Applications/grassroots-0/apache/bin/apxs
+ifeq ($(strip $(APXS)),)
+APXS	:= $(shell which apxs)
+endif
+
 
 # XXX: These are currently unused as we rely on the apxs utility for module
 #      installation.
@@ -94,7 +99,7 @@ LDFLAGS +=                           \
 
 comma := ,
 
-.PHONY: all shared install test clean
+.PHONY: all shared install test clean apxs
 
 all: shared
 
@@ -104,7 +109,7 @@ install: $(SHARED)
 
 shared: $(SHARED)
 
-$(SHARED): $(SRCFILES)
+$(SHARED): apxs $(SRCFILES)
 	$(APXS) -c                                  \
 		$(addprefix -Wc$(comma), $(CFLAGS))  \
 		$(addprefix -Wl$(comma), $(LDFLAGS)) \
@@ -113,3 +118,10 @@ $(SHARED): $(SRCFILES)
 clean:
 	rm -vf $(OUTFILES)
 	rm -rvf .libs
+	
+apxs:
+ifeq ($(strip $(APXS)),)
+	echo "No APXS variable has been set, cannot compile"
+	exit 1
+endif
+

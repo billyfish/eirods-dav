@@ -1,0 +1,4 @@
+# copy this file to user.prefs and customise any values you need
+
+APXS := ~/Applications/grassroots-0/apache/bin/apxs
+
