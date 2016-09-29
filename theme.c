@@ -13,9 +13,15 @@
 
 /************************************/
 
-static void PrintMetadata (apr_bucket_brigade *bb_p, IrodsMetadata **metadata_pp, int size);
+static int GetAndAddMetadata (const collEnt_t *entry_p, apr_bucket_brigade *bb_p, const dav_resource *resource_p, apr_pool_t *pool_p);
+
+static int PrintMetadata (apr_bucket_brigade *bb_p, IrodsMetadata **metadata_pp, int size);
 
 static int CompareIrodsMetadata (const void *v0_p, const void *v1_p);
+
+static int DisplayIcons (const struct HtmlTheme *theme_p);
+
+static const char *GetIconForCollEntry (const struct HtmlTheme * const theme_p, collEnt_t *coll_entry_p);
 
 /*************************************/
 
@@ -30,6 +36,8 @@ void InitHtmlTheme (struct HtmlTheme *theme_p)
   theme_p -> ht_parent_icon_s = NULL;
   theme_p -> ht_listing_class_s = NULL;
   theme_p -> ht_show_metadata = 0;
+
+  theme_p -> ht_icons_map_p = NULL;
 }
 
 
@@ -154,7 +162,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 	/*
 	 * If we are going to display icons, add the column
 	 */
-	if ((theme_p -> ht_collection_icon_s) || (theme_p -> ht_object_icon_s))
+	if (DisplayIcons (theme_p))
 		{
 			apr_ret = apr_brigade_puts (bb_p, NULL, NULL, "<th class=\"icon\"></th>");
 
@@ -208,47 +216,52 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 				}
 			else
 				{
-					apr_array_header_t *metadata_array_p = NULL;
+
+					const char *name_s = NULL;
+					const char *alt_s = NULL;
+					const char *link_suffix_s = NULL;
 
 					apr_brigade_puts(bb_p, NULL, NULL, "  <tr>");
 
-					const char *name =
-							coll_entry.objType == DATA_OBJ_T ?
-									coll_entry.dataName : get_basename(coll_entry.collName);
-
-					// Generate link.
-					if (coll_entry.objType == COLL_OBJ_T)
+					switch (coll_entry.objType)
 						{
+							case DATA_OBJ_T:
+								name_s = coll_entry.dataName;
+								alt_s = "iRods Data Object";
+								break;
+
+							case COLL_OBJ_T:
+								name_s = get_basename (coll_entry.collName);
+								alt_s = "iRods Collection";
+								link_suffix_s = "/";
+								break;
+
+							default:
+								break;
+						}
+
+					if (name_s && alt_s)
+						{
+							const char *icon_s = GetIconForCollEntry (theme_p, &coll_entry);
+
 							// Collection links need a trailing slash for the '..' links to work correctly.
-
-							if (theme_p->ht_collection_icon_s)
+							if (icon_s)
 								{
 									apr_brigade_printf(bb_p, NULL, NULL,
-											"<td class=\"icon\"><img src=\"%s\" alt=\"iRods Collection\"></td>",
-											ap_escape_html(pool_p, theme_p->ht_collection_icon_s));
+											"<td class=\"icon\"><img src=\"%s\" alt=\"%s\"></td>",
+											ap_escape_html (pool_p, icon_s),
+											alt_s);
 								}
 
 							apr_brigade_printf(bb_p, NULL, NULL,
-									"<td class=\"name\"><a href=\"%s/\">%s/</a></td>",
-									ap_escape_html(pool_p, ap_escape_uri(pool_p, name)),
-									ap_escape_html(pool_p, name));
+									"<td class=\"name\"><a href=\"%s%s\">%s%s</a></td>",
+									ap_escape_html(pool_p, ap_escape_uri(pool_p, name_s)),
+									link_suffix_s ? link_suffix_s : "",
+									ap_escape_html(pool_p, name_s),
+									link_suffix_s ? link_suffix_s : "");
 
-						}
-					else
-						{
+						}		/* if (name_s && alt_s) */
 
-							if (theme_p->ht_object_icon_s)
-								{
-									apr_brigade_printf(bb_p, NULL, NULL,
-											"<td class=\"icon\"><img src=\"%s\" alt=\"iRods Data Object\"></td>",
-											ap_escape_html(pool_p, theme_p->ht_object_icon_s));
-								}
-
-							apr_brigade_printf(bb_p, NULL, NULL,
-									"<td class=\"name\"><a href=\"%s\">%s</a></td>",
-									ap_escape_html(pool_p, ap_escape_uri(pool_p, name)),
-									ap_escape_html(pool_p, name));
-						}
 
 					// Print data object size.
 					if (coll_entry.objType == DATA_OBJ_T)
@@ -303,45 +316,12 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 													date_str : "Thu, 01 Jan 1970 00:00:00 GMT"));
 						}
 
-					if (theme_p->ht_show_metadata)
+					if (theme_p -> ht_show_metadata)
 						{
-
-							apr_brigade_puts(bb_p, NULL, NULL, "<td class=\"metadata\">");
-
-							metadata_array_p = GetMetadata (resource_p, &coll_entry);
-
-							if (metadata_array_p)
+							if (GetAndAddMetadata (&coll_entry, bb_p, resource_p, pool_p) != 0)
 								{
-									/*
-									 * Sort the metadata keys into alphabetical order
-									 */
-									if (!apr_is_empty_array (metadata_array_p))
-										{
-											IrodsMetadata **metadata_pp = (IrodsMetadata **) apr_palloc (pool_p, (metadata_array_p -> nelts) * sizeof (IrodsMetadata **));
 
-											if (metadata_pp)
-												{
-													int i;
-													IrodsMetadata **md_pp = metadata_pp;
-
-													for (i = 0; i < metadata_array_p -> nelts; ++ i, ++ md_pp)
-														{
-															*md_pp = ((IrodsMetadata **) metadata_array_p -> elts) [i];
-														}
-
-													qsort (metadata_pp, metadata_array_p -> nelts, sizeof (IrodsMetadata **), CompareIrodsMetadata);
-
-													md_pp = metadata_pp;
-
-													PrintMetadata (bb_p, metadata_pp, metadata_array_p -> nelts);
-
-												}		/* if (metadata_pp) */
-
-										}		/* if (!apr_is_empty_array (metadata_array_p)) */
-
-								}		/* if (metadata_array_p) */
-
-							apr_brigade_puts(bb_p, NULL, NULL, "</td>");
+								}
 						}
 
 					apr_brigade_puts(bb_p, NULL, NULL, "</tr>\n");
@@ -389,25 +369,77 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 }
 
 
-static void PrintMetadata (apr_bucket_brigade *bb_p, IrodsMetadata **metadata_pp, int size)
+
+static int GetAndAddMetadata (const collEnt_t *entry_p, apr_bucket_brigade *bb_p, const dav_resource *resource_p, apr_pool_t *pool_p)
 {
-	apr_brigade_puts (bb_p, NULL, NULL, "<ul class=\"metadata\">");
+	int status = -1;
+	apr_array_header_t *metadata_array_p = GetMetadata (resource_p, entry_p);
 
-	for ( ; size > 0; -- size, ++ metadata_pp)
+	apr_brigade_puts (bb_p, NULL, NULL, "<td class=\"metadata\">");
+
+	if (metadata_array_p)
 		{
-			const IrodsMetadata *metadata_p = *metadata_pp;
-
-			apr_brigade_printf (bb_p, NULL, NULL, "<li><span class=\"key\">%s</span>: <span class=\"value\">%s</span>", metadata_p -> im_key_s, metadata_p -> im_value_s);
-
-			if (metadata_p -> im_units_s)
+			/*
+			 * Sort the metadata keys into alphabetical order
+			 */
+			if (!apr_is_empty_array (metadata_array_p))
 				{
-					apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"units\">%s</span>", metadata_p -> im_units_s);
+					IrodsMetadata **metadata_pp = (IrodsMetadata **) apr_palloc (pool_p, (metadata_array_p -> nelts) * sizeof (IrodsMetadata **));
+
+					if (metadata_pp)
+						{
+							int i;
+							IrodsMetadata **md_pp = metadata_pp;
+
+							for (i = 0; i < metadata_array_p -> nelts; ++ i, ++ md_pp)
+								{
+									*md_pp = ((IrodsMetadata **) metadata_array_p -> elts) [i];
+								}
+
+							qsort (metadata_pp, metadata_array_p -> nelts, sizeof (IrodsMetadata **), CompareIrodsMetadata);
+
+							md_pp = metadata_pp;
+
+							status = PrintMetadata (bb_p, metadata_pp, metadata_array_p -> nelts);
+
+						}		/* if (metadata_pp) */
+
+				}		/* if (!apr_is_empty_array (metadata_array_p)) */
+
+		}		/* if (metadata_array_p) */
+
+	apr_brigade_puts(bb_p, NULL, NULL, "</td>");
+
+	return status;
+}
+
+
+static int PrintMetadata (apr_bucket_brigade *bb_p, IrodsMetadata **metadata_pp, int size)
+{
+	int status = 0;
+	apr_status_t apr_stat = apr_brigade_puts (bb_p, NULL, NULL, "<ul class=\"metadata\">");
+
+	if (apr_stat == 0)
+		{
+			for ( ; size > 0; -- size, ++ metadata_pp)
+				{
+					const IrodsMetadata *metadata_p = *metadata_pp;
+
+					apr_brigade_printf (bb_p, NULL, NULL, "<li><span class=\"key\">%s</span>: <span class=\"value\">%s</span>", metadata_p -> im_key_s, metadata_p -> im_value_s);
+
+					if (metadata_p -> im_units_s)
+						{
+							apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"units\">%s</span>", metadata_p -> im_units_s);
+						}
+
+					apr_brigade_puts (bb_p, NULL, NULL, "</li>");
 				}
 
-			apr_brigade_puts (bb_p, NULL, NULL, "</li>");
+			apr_brigade_puts (bb_p, NULL, NULL, "</ul>");
+
 		}
 
-	apr_brigade_puts (bb_p, NULL, NULL, "</ul>");
+	return status;
 }
 
 
@@ -425,4 +457,59 @@ static int CompareIrodsMetadata (const void *v0_p, const void *v1_p)
 		}
 
 	return res;
+}
+
+
+static int DisplayIcons (const struct HtmlTheme *theme_p)
+{
+	return ((theme_p -> ht_collection_icon_s) || (theme_p -> ht_object_icon_s) || (theme_p -> ht_icons_map_p)) ? 1 : 0;
+}
+
+
+static const char *GetIconForCollEntry (const struct HtmlTheme * const theme_p, collEnt_t *coll_entry_p)
+{
+	const char *icon_s = NULL;
+
+	if (theme_p -> ht_icons_map_p)
+		{
+			char *key_s = NULL;
+
+			switch (coll_entry_p -> objType)
+				{
+					case DATA_OBJ_T:
+						key_s = strrchr (coll_entry_p -> dataName, '.');
+						break;
+
+					case COLL_OBJ_T:
+						key_s = get_basename (coll_entry_p -> collName);
+						break;
+
+					default:
+						break;
+				}
+
+			if (key_s)
+				{
+					icon_s = apr_table_get (theme_p -> ht_icons_map_p, key_s);
+				}
+		}
+
+	if (!icon_s)
+		{
+			switch (coll_entry_p -> objType)
+				{
+					case DATA_OBJ_T:
+						icon_s = theme_p -> ht_object_icon_s;
+						break;
+
+					case COLL_OBJ_T:
+						icon_s = theme_p -> ht_collection_icon_s;
+						break;
+
+					default:
+						break;
+				}
+		}
+
+	return icon_s;
 }

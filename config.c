@@ -123,6 +123,28 @@ void *davrods_merge_dir_config(apr_pool_t *p, void *_parent, void *_child) {
     DAVRODS_PROP_MERGE(theme.ht_listing_class_s);
     DAVRODS_PROP_MERGE(theme.ht_show_metadata);
 
+    if (child -> theme.ht_icons_map_p)
+    	{
+    		if (parent -> theme.ht_icons_map_p)
+    			{
+    				conf -> theme.ht_icons_map_p = apr_table_overlay (p, parent -> theme.ht_icons_map_p, child -> theme.ht_icons_map_p);
+    			}
+    		else
+    			{
+    				conf -> theme.ht_icons_map_p = child -> theme.ht_icons_map_p;
+    			}
+    	}
+    else
+    	{
+    		if (parent -> theme.ht_icons_map_p)
+    			{
+    				conf -> theme.ht_icons_map_p = parent -> theme.ht_icons_map_p;
+    			}
+    		else
+    			{
+    				conf -> theme.ht_icons_map_p = NULL;
+    			}
+    	}
 
     assert(set_exposed_root(conf, exposed_root) >= 0);
 
@@ -400,6 +422,21 @@ static const char *cmd_davrods_html_themed_listings (cmd_parms *cmd_p, void *con
     return NULL;
 }
 
+static const char *cmd_davrods_html_add_icon (cmd_parms *cmd_p, void *config_p, const char *icon_s, const char *suffix_s)
+{
+  davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+  if (! (conf_p -> theme.ht_icons_map_p))
+  	{
+  		const int INITIAL_TABLE_SIZE = 16;
+  		conf_p -> theme.ht_icons_map_p = apr_table_make (cmd_p -> pool, INITIAL_TABLE_SIZE);
+  	}
+
+  apr_table_set (conf_p -> theme.ht_icons_map_p, suffix_s, icon_s);
+
+  return NULL;
+}
+
 // }}}
 
 const command_rec davrods_directives[] = {
@@ -493,6 +530,7 @@ const command_rec davrods_directives[] = {
         NULL, ACCESS_CONF, "Options for displaying metadata"
     ),
 
-
+    AP_INIT_ITERATE2 (DAVRODS_CONFIG_PREFIX "AddIcon", cmd_davrods_html_add_icon, NULL, ACCESS_CONF,
+                     "an icon URL followed by one or more filenames"),
 		{ NULL }
 };

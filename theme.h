@@ -11,7 +11,7 @@
 #include "mod_dav.h"
 #include "util_filter.h"
 
-
+#include "apr_tables.h"
 
 struct HtmlTheme
 {
@@ -30,6 +30,8 @@ struct HtmlTheme
 	const char *ht_listing_class_s;
 
 	int ht_show_metadata;
+
+	apr_table_t *ht_icons_map_p;
 };
 
 
