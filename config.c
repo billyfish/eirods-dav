@@ -387,6 +387,18 @@ static const char *cmd_davrods_html_parent_icon (cmd_parms *cmd_p, void *config_
 }
 
 
+static const char *cmd_davrods_html_rest_api_uri (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    conf_p -> theme.ht_rest_api_s = arg_p;
+
+    return NULL;
+}
+
+
+
+
 static const char *cmd_davrods_html_listing_class (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
     davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
@@ -532,5 +544,12 @@ const command_rec davrods_directives[] = {
 
     AP_INIT_ITERATE2 (DAVRODS_CONFIG_PREFIX "AddIcon", cmd_davrods_html_add_icon, NULL, ACCESS_CONF,
                      "an icon URL followed by one or more filenames"),
-		{ NULL }
+
+		AP_INIT_TAKE1(
+				DAVRODS_CONFIG_PREFIX "HTMLRestAPI", cmd_davrods_html_rest_api_uri,
+				NULL, ACCESS_CONF, "Set the location for the REST API to be available at"
+		),
+
+
+										 { NULL }
 };

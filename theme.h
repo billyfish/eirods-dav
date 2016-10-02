@@ -31,6 +31,8 @@ struct HtmlTheme
 
 	int ht_show_metadata;
 
+	const char *ht_rest_api_s;
+
 	apr_table_t *ht_icons_map_p;
 };
 

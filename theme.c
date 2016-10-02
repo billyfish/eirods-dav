@@ -46,6 +46,7 @@ void InitHtmlTheme (struct HtmlTheme *theme_p)
   theme_p -> ht_parent_icon_s = NULL;
   theme_p -> ht_listing_class_s = NULL;
   theme_p -> ht_show_metadata = 0;
+  theme_p -> ht_rest_api_s = NULL;
 
   theme_p -> ht_icons_map_p = NULL;
 }

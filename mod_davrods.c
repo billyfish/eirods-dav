@@ -23,12 +23,16 @@
 #include "config.h"
 #include "auth.h"
 #include "common.h"
+#include "rest.h"
+
 
 APLOG_USE_MODULE(davrods);
 
 static void register_hooks(apr_pool_t *p) {
     davrods_auth_register(p);
     davrods_dav_register(p);
+
+    ap_hook_handler (DavrodsRestHandler, NULL, NULL, APR_HOOK_MIDDLE);
 }
 
 module AP_MODULE_DECLARE_DATA davrods_module = {
