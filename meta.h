@@ -32,7 +32,10 @@ extern "C"
 #endif
 
 
-apr_array_header_t *GetMetadata (const dav_resource *resource_p, const collEnt_t *entry_p);
+apr_array_header_t *GetMetadataForCollEntry (const dav_resource *resource_p, const collEnt_t *entry_p);
+
+apr_array_header_t *GetMetadata (const dav_resource *resource_p, const objType_t object_type, const char *id_s, const char *coll_name_s);
+
 
 int printGenQI( genQueryInp_t *genQueryInp );
 

@@ -23,6 +23,17 @@ static genQueryOut_t *ExecuteGenQuery (rcComm_t *connection_p, genQueryInp_t * c
 
 static char *GetQuotedValue (const char * const input_s, apr_pool_t *pool_p);
 
+static genQueryOut_t *RunQuery (rcComm_t *connection_p, const int *select_columns_p, const int *where_columns_p, const char **where_values_ss, const size_t num_where_columns, apr_pool_t *pool_p);
+
+static int AddClausesToQuery (genQueryInp_t *query_p, const int *select_columns_p, const int *where_columns_p, const char **where_values_ss, const size_t num_where_columns, apr_pool_t *pool_p);
+
+
+static int AddSelectClausesToQuery (genQueryInp_t *query_p, const int *select_columns_p);
+
+static int AddWhereClausesToQuery (genQueryInp_t *query_p, const int *where_columns_p, const char **where_values_ss, const size_t num_columns, apr_pool_t *pool_p);
+
+static void ClearPooledMemoryFromGenQuery (genQueryInp_t *query_p);
+
 
 void PrintBasicGenQueryOut( genQueryOut_t *genQueryOut);
 
@@ -30,7 +41,13 @@ void PrintBasicGenQueryOut( genQueryOut_t *genQueryOut);
 
 
 
-apr_array_header_t *GetMetadata (const dav_resource *resource_p, const collEnt_t *entry_p)
+apr_array_header_t *GetMetadataForCollEntry (const dav_resource *resource_p, const collEnt_t *entry_p)
+{
+	return GetMetadata (resource_p, entry_p -> objType, entry_p -> dataId, entry_p -> collName);
+}
+
+
+apr_array_header_t *GetMetadata (const dav_resource *resource_p, const objType_t object_type, const char *id_s, const char *coll_name_s)
 {
 	apr_array_header_t *metadata_array_p = apr_array_make (resource_p -> pool, S_INITIAL_ARRAY_SIZE, sizeof (IrodsMetadata *));
 
@@ -38,13 +55,12 @@ apr_array_header_t *GetMetadata (const dav_resource *resource_p, const collEnt_t
 		{
 			int select_col = -1;
 			int where_col = -1;
-			char *where_value_s = NULL;
-			int success_code;
+			const char *where_value_s = NULL;
 			genQueryInp_t in_query;
 
 			InitGenQuery (&in_query);
 
-			switch (entry_p -> objType)
+			switch (object_type)
 				{
 					/*
 					 * Get all of the meta_id values for a given object_id.
@@ -61,7 +77,7 @@ apr_array_header_t *GetMetadata (const dav_resource *resource_p, const collEnt_t
 					case DATA_OBJ_T:
 						select_col = COL_META_DATA_ATTR_ID;
 						where_col = COL_D_DATA_ID;
-						where_value_s = entry_p -> dataId;
+						where_value_s = id_s;
 						break;
 
 					/*
@@ -72,57 +88,35 @@ apr_array_header_t *GetMetadata (const dav_resource *resource_p, const collEnt_t
 					 */
 					case COLL_OBJ_T:
 						{
-							genQueryInp_t collection_id_query;
+							int select_columns_p [] = { COL_COLL_ID };
+							int where_columns_p [] = { COL_COLL_NAME };
+							const char *where_values_ss [] = { coll_name_s };
 
-							InitGenQuery (&collection_id_query);
+							genQueryOut_t *coll_id_results_p = RunQuery (resource_p -> info -> rods_conn, select_columns_p, where_columns_p, where_values_ss, 1, resource_p -> pool);
 
-							success_code = addInxIval (& (collection_id_query.selectInp), COL_COLL_ID, 1);
-
-							if (success_code == 0)
+							if (coll_id_results_p)
 								{
-									char *quoted_id_s = GetQuotedValue (entry_p -> collName, resource_p -> pool);
+									fprintf (stderr, "collection results:\n");
+									PrintBasicGenQueryOut (coll_id_results_p);
 
-									if (quoted_id_s)
+									if ((coll_id_results_p -> attriCnt == 1) && (coll_id_results_p -> rowCnt == 1))
 										{
-											success_code = addInxVal (& (collection_id_query.sqlCondInp), COL_COLL_NAME, quoted_id_s);
+											char *coll_id_s = coll_id_results_p -> sqlResult [0].value;
 
-											if (success_code == 0)
+											if (coll_id_s)
 												{
-													genQueryOut_t *coll_id_results_p = NULL;
+													where_value_s = apr_pstrdup (resource_p -> pool, coll_id_s);
 
-													fprintf (stderr, "collection query:");
-													printGenQI (&collection_id_query);
-
-													coll_id_results_p = ExecuteGenQuery (resource_p -> info -> rods_conn, &collection_id_query);
-
-													if (coll_id_results_p)
+													if (where_value_s)
 														{
-															fprintf (stderr, "collection results:\n");
-															PrintBasicGenQueryOut (coll_id_results_p);
-
-															if ((coll_id_results_p -> attriCnt == 1) && (coll_id_results_p -> rowCnt == 1))
-																{
-																	char *coll_id_s = coll_id_results_p -> sqlResult [0].value;
-
-																	if (coll_id_s)
-																		{
-																			where_value_s = apr_pstrdup (resource_p -> pool, coll_id_s);
-
-																			if (where_value_s)
-																				{
-																					where_col = COL_COLL_ID;
-																					select_col = COL_META_COLL_ATTR_ID;
-																				}
-																		}
-																}
-
-															freeGenQueryOut (&coll_id_results_p);
+															where_col = COL_COLL_ID;
+															select_col = COL_META_COLL_ATTR_ID;
 														}
 												}
-
 										}
-								}
 
+									freeGenQueryOut (&coll_id_results_p);
+								}
 						}
 						break;
 
@@ -274,6 +268,247 @@ apr_array_header_t *GetMetadata (const dav_resource *resource_p, const collEnt_t
 
 
 
+static genQueryOut_t *RunQuery (rcComm_t *connection_p, const int *select_columns_p, const int *where_columns_p, const char **where_values_ss, size_t num_where_columns, apr_pool_t *pool_p)
+{
+	genQueryOut_t *out_query_p = NULL;
+	genQueryInp_t in_query;
+	int success_code;
+
+	InitGenQuery (&in_query);
+
+	success_code = AddClausesToQuery (&in_query, select_columns_p, where_columns_p, where_values_ss, num_where_columns, pool_p);
+
+	if (success_code == 0)
+		{
+			int status = rcGenQuery (connection_p, &in_query, &out_query_p);
+
+			/* Did we run it successfully? */
+			if (status == 0)
+				{
+
+				}
+			else if (status == CAT_NO_ROWS_FOUND)
+				{
+
+					printf ("No rows found\n");
+				}
+			else if (status < 0 )
+				{
+					printf ("error status: %d\n", status);
+				}
+			else
+				{
+					//printBasicGenQueryOut (out_query_p, "result: \"%s\" \"%s\"\n");
+				}
+
+		}
+
+	ClearPooledMemoryFromGenQuery (&in_query);
+	clearGenQueryInp (&in_query);
+
+	return out_query_p;
+}
+
+
+static int AddClausesToQuery (genQueryInp_t *query_p, const int *select_columns_p, const int *where_columns_p, const char **where_values_ss, size_t num_where_columns, apr_pool_t *pool_p)
+{
+	int success_code = AddSelectClausesToQuery (query_p, select_columns_p);
+
+	if (success_code == 0)
+		{
+			success_code = AddWhereClausesToQuery (query_p, where_columns_p, where_values_ss, num_where_columns, pool_p);
+		}
+
+	return success_code;
+}
+
+
+static int AddSelectClausesToQuery (genQueryInp_t *query_p, const int *select_columns_p)
+{
+	int success_code = 0;
+
+	while ((*select_columns_p != -1) && (success_code == 0))
+		{
+			success_code = addInxIval (& (query_p -> selectInp), *select_columns_p, 1);
+
+			if (success_code == 0)
+				{
+					++ select_columns_p;
+				}
+			else
+				{
+				}
+		}
+
+	return success_code;
+}
+
+
+static int AddWhereClausesToQuery (genQueryInp_t *query_p, const int *where_columns_p, const char **where_values_ss, size_t num_columns, apr_pool_t *pool_p)
+{
+	int success_code = 0;
+
+	while ((num_columns > 0) && (success_code == 0))
+		{
+			char *quoted_id_s = GetQuotedValue (*where_values_ss, pool_p);
+
+			if (quoted_id_s)
+				{
+					success_code = addInxVal (& (query_p -> sqlCondInp), *where_columns_p, quoted_id_s);
+
+					if (success_code == 0)
+						{
+							++ where_columns_p;
+							++ where_values_ss;
+							-- num_columns;
+						}
+					else
+						{
+
+						}
+				}
+			else
+				{
+
+				}
+		}
+
+	return success_code;
+}
+
+
+
+void DoMetadataSearch (const char * const key_s, const char *value_s, apr_pool_t *pool_p, rcComm_t *connection_p)
+{
+    /*
+     * SELECT meta_id FROM r_meta_main WHERE meta_attr_name = ' ' AND meta_attr_value = ' ';
+     *
+     * SELECT object_id FROM r_objt_metamap WHERE meta_id = ' ';
+     *
+     * object_id is for data object and collection
+     *
+     * Get the full path to the object and then use
+     *
+     * rcObjStat     (rcComm_t *conn, dataObjInp_t *dataObjInp, rodsObjStat_t **rodsObjStatOut)
+     *
+     * to get the info we need for a listing
+     */
+	int num_where_columns = 2;
+	int where_columns_p [] =  { COL_META_DATA_ATTR_NAME, COL_META_DATA_ATTR_VALUE };
+	const char *where_values_ss [] = { key_s, value_s };
+	int select_columns_p [] =  { COL_META_DATA_ATTR_ID, -1};
+	genQueryInp_t meta_id_query;
+	genQueryOut_t *meta_id_results_p = NULL;
+
+
+	InitGenQuery (&meta_id_query);
+
+	/*
+	 * SELECT meta_id FROM r_meta_main WHERE meta_attr_name = ' ' AND meta_attr_value = ' ';
+	 */
+	meta_id_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, num_where_columns, pool_p);
+
+	if (meta_id_results_p)
+		{
+			fprintf (stderr, "meta_id_results_p:\n");
+			PrintBasicGenQueryOut (meta_id_results_p);
+
+			if (meta_id_results_p -> attriCnt == 1)
+				{
+					int i;
+
+					for (i = 0; i < meta_id_results_p -> rowCnt; ++ i)
+						{
+							int where_columns_p [] = { COL_META_DATA_ATTR_ID, -1 };
+							const char *where_values_ss [] =  { meta_id_results_p -> sqlResult [i].value };
+							int object_id_select_columns_p [] = { COL_D_DATA_ID, -1 };
+							genQueryOut_t *object_id_results_p = RunQuery (connection_p, object_id_select_columns_p, where_columns_p, where_values_ss, 1, pool_p);
+
+							if (object_id_results_p)
+								{
+									int j;
+
+									for (j = 0; j < object_id_results_p -> rowCnt; ++ j)
+										{
+											char *path_s = NULL;
+											int num_select_columns = 4;
+											int select_columns_p [] = { COL_D_DATA_PATH, COL_D_OWNER_NAME, COL_DATA_SIZE, COL_D_MODIFY_TIME, -1};
+											genQueryOut_t *data_id_results_p = NULL;
+
+											where_values_ss [0] = object_id_results_p -> sqlResult [j].value;
+											where_columns_p [0] = COL_D_DATA_ID;
+
+											/*
+											 * The id can be the data id, coll id, etc. so we have to work
+											 * out what it is.111
+											 *
+											 * Start with testing it as data object id.
+											 *
+											 * 		SELECT data_id, data_path, data_owner_name, data_size, modify_ts FROM r_data_main where data_id = 10001;
+											 *
+											 */
+											data_id_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, 1, pool_p);
+
+											if (data_id_results_p)
+												{
+													if (data_id_results_p -> rowCnt > 0)
+														{
+															if (data_id_results_p -> attriCnt == num_select_columns)
+																{
+																	/* we have a data id match */
+																}
+														}
+
+													freeGenQueryOut (&data_id_results_p);
+												}
+
+											if (!path_s)
+												{
+													/*
+													 * See if the id refers to a collection
+													 *
+													 * 		SELECT coll_id, coll_name, coll_owner_name, modify_ts FROM r_coll_main WHERE coll_id = '10001';
+													 *
+													 */
+													select_columns_p [0] = COL_COLL_NAME;
+													select_columns_p [1] = COL_COLL_OWNER_NAME;
+													select_columns_p [2] = COL_COLL_MODIFY_TIME;
+
+													where_columns_p [0] = COL_D_COLL_ID;
+
+													num_select_columns = 3;
+
+													data_id_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, 1, pool_p);
+
+													if (data_id_results_p)
+														{
+															if (data_id_results_p -> rowCnt > 0)
+																{
+																	if (data_id_results_p -> attriCnt == num_select_columns)
+																		{
+																			/* we have a data id match */
+																		}
+																}
+
+															freeGenQueryOut (&data_id_results_p);
+														}
+
+												}
+
+
+											freeGenQueryOut (&data_id_results_p);
+										}
+
+									freeGenQueryOut (&object_id_results_p);
+
+								}		/* if (object_id_results_p) */
+
+						}
+				}
+		}
+}
+
+
 static char *GetQuotedValue (const char * const input_s, apr_pool_t *pool_p)
 {
 	size_t input_length = strlen (input_s);
@@ -291,6 +526,12 @@ static void InitGenQuery (genQueryInp_t *query_p)
 	memset (query_p, 0, sizeof (genQueryInp_t));
 	query_p -> maxRows = MAX_SQL_ROWS;
 	query_p -> continueInx = 0;
+}
+
+
+static void ClearPooledMemoryFromGenQuery (genQueryInp_t *query_p)
+{
+	memset (query_p -> sqlCondInp.value, 0, (query_p -> sqlCondInp.len) * sizeof (char *));
 }
 
 

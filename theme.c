@@ -13,7 +13,11 @@
 
 /************************************/
 
-static int GetAndAddMetadata (const collEnt_t *entry_p, apr_bucket_brigade *bb_p, const dav_resource *resource_p, apr_pool_t *pool_p);
+
+static int GetAndAddMetadata (const objType_t object_type, const char *id_s, const char *coll_name_s, apr_bucket_brigade *bb_p, const dav_resource *resource_p, apr_pool_t *pool_p);
+
+static int GetAndAddMetadataForCollEntry (const collEnt_t *entry_p, apr_bucket_brigade *bb_p, const dav_resource *resource_p, apr_pool_t *pool_p);
+
 
 static int PrintMetadata (apr_bucket_brigade *bb_p, IrodsMetadata **metadata_pp, int size);
 
@@ -22,6 +26,12 @@ static int CompareIrodsMetadata (const void *v0_p, const void *v1_p);
 static int DisplayIcons (const struct HtmlTheme *theme_p);
 
 static const char *GetIconForCollEntry (const struct HtmlTheme * const theme_p, collEnt_t *coll_entry_p);
+
+static const char *GetIcon (const struct HtmlTheme * const theme_p, const objType_t object_type, const char * const name_s);
+
+static int PrintItem (struct HtmlTheme *theme_p, const objType_t obj_type, const char *id_s, const char * const name_s, const char *collection_s, const char * const owner_name_s, const char *last_modified_time_s, const rodsLong_t size, apr_bucket_brigade *bb_p, apr_pool_t *pool_p, const dav_resource *resource_p);
+
+
 
 /*************************************/
 
@@ -192,10 +202,13 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 	// Actually print the directory listing, one table row at a time.
 	do
 		{
-			status = rclReadCollection(davrods_resource_p->rods_conn, &coll_handle,
-					&coll_entry);
+			status = rclReadCollection (davrods_resource_p -> rods_conn, &coll_handle, &coll_entry);
 
-			if (status < 0)
+			if (status >= 0)
+				{
+					int success_code = PrintItem (theme_p, coll_entry.objType, coll_entry.dataId, coll_entry.dataName, coll_entry.collName, coll_entry.ownerName, coll_entry.modifyTime, coll_entry.dataSize, bb_p, pool_p, resource_p);
+				}
+			else
 				{
 					if (status == CAT_NO_ROWS_FOUND)
 						{
@@ -213,118 +226,6 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 							return dav_new_error(pool_p, HTTP_INTERNAL_SERVER_ERROR,
 									0, 0, "Could not read a collection entry from a collection.");
 						}
-				}
-			else
-				{
-
-					const char *name_s = NULL;
-					const char *alt_s = NULL;
-					const char *link_suffix_s = NULL;
-
-					apr_brigade_puts(bb_p, NULL, NULL, "  <tr>");
-
-					switch (coll_entry.objType)
-						{
-							case DATA_OBJ_T:
-								name_s = coll_entry.dataName;
-								alt_s = "iRods Data Object";
-								break;
-
-							case COLL_OBJ_T:
-								name_s = get_basename (coll_entry.collName);
-								alt_s = "iRods Collection";
-								link_suffix_s = "/";
-								break;
-
-							default:
-								break;
-						}
-
-					if (name_s && alt_s)
-						{
-							const char *icon_s = GetIconForCollEntry (theme_p, &coll_entry);
-
-							// Collection links need a trailing slash for the '..' links to work correctly.
-							if (icon_s)
-								{
-									apr_brigade_printf(bb_p, NULL, NULL,
-											"<td class=\"icon\"><img src=\"%s\" alt=\"%s\"></td>",
-											ap_escape_html (pool_p, icon_s),
-											alt_s);
-								}
-
-							apr_brigade_printf(bb_p, NULL, NULL,
-									"<td class=\"name\"><a href=\"%s%s\">%s%s</a></td>",
-									ap_escape_html(pool_p, ap_escape_uri(pool_p, name_s)),
-									link_suffix_s ? link_suffix_s : "",
-									ap_escape_html(pool_p, name_s),
-									link_suffix_s ? link_suffix_s : "");
-
-						}		/* if (name_s && alt_s) */
-
-
-					// Print data object size.
-					if (coll_entry.objType == DATA_OBJ_T)
-						{
-
-							char size_buf [5] = { 0 };
-							// Fancy file size formatting.
-							apr_strfsize(coll_entry.dataSize, size_buf);
-							if (size_buf [0])
-								apr_brigade_printf(bb_p, NULL, NULL,
-										"<td class=\"size\">%sB</td>", size_buf);
-							else
-								apr_brigade_printf(bb_p, NULL, NULL,
-										"<td class=\"size\">%luB</td>", coll_entry.dataSize);
-						}
-					else
-						{
-							apr_brigade_puts(bb_p, NULL, NULL, "<td class=\"size\"></td>");
-						}
-
-					// Print owner.
-					apr_brigade_printf(bb_p, NULL, NULL, "<td class=\"owner\">%s</td>",
-							ap_escape_html(pool_p, coll_entry.ownerName));
-
-					// Print modified-date string.
-					uint64_t timestamp = atoll(coll_entry.modifyTime);
-					apr_time_t apr_time = 0;
-					apr_time_exp_t exploded = { 0 };
-					char date_str [64] = { 0 };
-
-					apr_time_ansi_put(&apr_time, timestamp);
-					apr_time_exp_lt(&exploded, apr_time);
-
-					size_t ret_size;
-					if (!apr_strftime(date_str, &ret_size, sizeof(date_str),
-							"%Y-%m-%d %H:%M", &exploded))
-						{
-							apr_brigade_printf(bb_p, NULL, NULL,
-									"<td class=\"datestamp\">%s</td>",
-									ap_escape_html(pool_p, date_str));
-						}
-					else
-						{
-							// Fallback, just in case.
-							static_assert(sizeof(date_str) >= APR_RFC822_DATE_LEN,
-									"Size of date_str buffer too low for RFC822 date");
-							int status = apr_rfc822_date(date_str, timestamp * 1000 * 1000);
-							apr_brigade_printf(bb_p, NULL, NULL,
-									"<td class=\"datestamp\">%s</td>",
-									ap_escape_html(pool_p,
-											status >= 0 ?
-													date_str : "Thu, 01 Jan 1970 00:00:00 GMT"));
-						}
-
-					if (theme_p -> ht_show_metadata)
-						{
-							if (GetAndAddMetadata (&coll_entry, bb_p, resource_p, pool_p) != 0)
-								{
-
-								}
-						}
-
-					apr_brigade_puts(bb_p, NULL, NULL, "</tr>\n");
 				}
 		}
 	while (status >= 0);
@@ -370,10 +271,127 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 
 
-static int GetAndAddMetadata (const collEnt_t *entry_p, apr_bucket_brigade *bb_p, const dav_resource *resource_p, apr_pool_t *pool_p)
+static int PrintItem (struct HtmlTheme *theme_p, const objType_t obj_type, const char *id_s, const char * const data_s, const char *collection_s, const char * const owner_name_s, const char *last_modified_time_s, const rodsLong_t size, apr_bucket_brigade *bb_p, apr_pool_t *pool_p, const dav_resource *resource_p)
+{
+	int success_code = 0;
+	const char *alt_s = NULL;
+	const char *link_suffix_s = NULL;
+	const char *name_s = NULL;
+
+	apr_brigade_puts (bb_p, NULL, NULL, " <tr>");
+
+	switch (obj_type)
+		{
+			case DATA_OBJ_T:
+				name_s = data_s;
+				alt_s = "iRods Data Object";
+				break;
+
+			case COLL_OBJ_T:
+				name_s = get_basename (collection_s);
+				alt_s = "iRods Collection";
+				link_suffix_s = "/";
+				break;
+
+			default:
+				break;
+		}
+
+	if (name_s && alt_s)
+		{
+			const char *icon_s = GetIcon (theme_p, obj_type, name_s);
+
+			// Collection links need a trailing slash for the '..' links to work correctly.
+			if (icon_s)
+				{
+					apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"icon\"><img src=\"%s\" alt=\"%s\"></td>", ap_escape_html (pool_p, icon_s), alt_s);
+				}
+
+			apr_brigade_printf(bb_p, NULL, NULL,
+					"<td class=\"name\"><a href=\"%s%s\">%s%s</a></td>",
+					ap_escape_html(pool_p, ap_escape_uri (pool_p, name_s)),
+					link_suffix_s ? link_suffix_s : "",
+					ap_escape_html (pool_p, name_s),
+					link_suffix_s ? link_suffix_s : "");
+
+		}		/* if (name_s && alt_s) */
+
+
+	// Print data object size.
+	if (obj_type == DATA_OBJ_T)
+		{
+			char size_buf [5] = { 0 };
+
+			// Fancy file size formatting.
+			apr_strfsize (size, size_buf);
+
+			if (size_buf [0])
+				{
+					apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"size\">%sB</td>", size_buf);
+				}
+			else
+				{
+					apr_brigade_printf(bb_p, NULL, NULL, "<td class=\"size\">%luB</td>", size);
+				}
+		}
+	else
+		{
+			apr_brigade_puts(bb_p, NULL, NULL, "<td class=\"size\"></td>");
+		}
+
+	// Print owner.
+	apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"owner\">%s</td>", ap_escape_html (pool_p, owner_name_s));
+
+	// Print modified-date string.
+	uint64_t timestamp = atoll (last_modified_time_s);
+	apr_time_t apr_time = 0;
+	apr_time_exp_t exploded = { 0 };
+	char date_str [64] = { 0 };
+
+	apr_time_ansi_put (&apr_time, timestamp);
+	apr_time_exp_lt (&exploded, apr_time);
+
+	size_t ret_size;
+
+	if (!apr_strftime (date_str, &ret_size, sizeof (date_str), "%Y-%m-%d %H:%M", &exploded))
+		{
+			apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"datestamp\">%s</td>", ap_escape_html (pool_p, date_str));
+		}
+	else
+		{
+			// Fallback, just in case.
+			static_assert(sizeof(date_str) >= APR_RFC822_DATE_LEN, "Size of date_str buffer too low for RFC822 date");
+
+			int status = apr_rfc822_date (date_str, timestamp * 1000 * 1000);
+
+			apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"datestamp\">%s</td>", ap_escape_html (pool_p, status >= 0 ? date_str : "Thu, 01 Jan 1970 00:00:00 GMT"));
+		}
+
+	if (theme_p -> ht_show_metadata)
+		{
+			if (GetAndAddMetadata (obj_type, id_s, collection_s, bb_p, resource_p, pool_p) != 0)
+				{
+
+				}
+		}
+
+	apr_brigade_puts (bb_p, NULL, NULL, "</tr>\n");
+
+	return success_code;
+}
+
+
+static int GetAndAddMetadataForCollEntry (const collEnt_t *entry_p, apr_bucket_brigade *bb_p, const dav_resource *resource_p, apr_pool_t *pool_p)
+{
+	return GetAndAddMetadata (entry_p -> objType, entry_p -> dataId, entry_p -> collName, bb_p, resource_p, pool_p);
+}
+
+
+
+static int GetAndAddMetadata (const objType_t object_type, const char *id_s, const char *coll_name_s, apr_bucket_brigade *bb_p, const dav_resource *resource_p, apr_pool_t *pool_p)
 {
 	int status = -1;
-	apr_array_header_t *metadata_array_p = GetMetadata (resource_p, entry_p);
+	apr_array_header_t *metadata_array_p = GetMetadata (resource_p, object_type, id_s, coll_name_s);
 
 	apr_brigade_puts (bb_p, NULL, NULL, "<td class=\"metadata\">");
 
@@ -468,20 +486,47 @@ static int DisplayIcons (const struct HtmlTheme *theme_p)
 
 static const char *GetIconForCollEntry (const struct HtmlTheme * const theme_p, collEnt_t *coll_entry_p)
 {
+	const char *name_s = NULL;
+
+	switch (coll_entry_p -> objType)
+		{
+			case DATA_OBJ_T:
+				name_s = coll_entry_p -> dataName;
+				break;
+
+			case COLL_OBJ_T:
+				name_s = coll_entry_p -> collName;
+				break;
+
+			default:
+				break;
+		}
+
+	if (name_s)
+		{
+			name_s = GetIcon (theme_p, coll_entry_p -> objType, name_s);
+		}
+
+	return name_s;
+}
+
+
+static const char *GetIcon (const struct HtmlTheme * const theme_p, const objType_t object_type, const char * const name_s)
+{
 	const char *icon_s = NULL;
 
 	if (theme_p -> ht_icons_map_p)
 		{
-			char *key_s = NULL;
+			const char *key_s = NULL;
 
-			switch (coll_entry_p -> objType)
+			switch (object_type)
 				{
 					case DATA_OBJ_T:
-						key_s = strrchr (coll_entry_p -> dataName, '.');
+						key_s = strrchr (name_s, '.');
 						break;
 
 					case COLL_OBJ_T:
-						key_s = get_basename (coll_entry_p -> collName);
+						key_s = get_basename (name_s);
 						break;
 
 					default:
@@ -496,7 +541,7 @@ static const char *GetIconForCollEntry (const struct HtmlTheme * const theme_p, 
 
 	if (!icon_s)
 		{
-			switch (coll_entry_p -> objType)
+			switch (object_type)
 				{
 					case DATA_OBJ_T:
 						icon_s = theme_p -> ht_object_icon_s;
