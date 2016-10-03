@@ -17,6 +17,8 @@
 #include "rodsGenQuery.h"
 #include "miscUtil.h"
 
+#include "config.h"
+
 typedef struct IrodsMetadata
 {
 	char *im_key_s;
@@ -35,7 +37,7 @@ extern "C"
 
 apr_array_header_t *GetMetadataForCollEntry (const dav_resource *resource_p, const collEnt_t *entry_p);
 
-apr_array_header_t *GetMetadata (const dav_resource *resource_p, const objType_t object_type, const char *id_s, const char *coll_name_s);
+apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t object_type, const char *id_s, const char *coll_name_s, apr_pool_t *pool_p);
 
 
 int printGenQI( genQueryInp_t *genQueryInp );
@@ -44,7 +46,7 @@ int printGenQI( genQueryInp_t *genQueryInp );
 IrodsMetadata *AllocateIrodsMetadata (const char * const key_s, const char * const value_s, const char * const units_s, apr_pool_t *pool_p);
 
 
-void DoMetadataSearch (const char * const key_s, const char *value_s, apr_pool_t *pool_p, rcComm_t *connection_p, struct apr_bucket_alloc_t *bucket_allocator_p);
+void DoMetadataSearch (const char * const key_s, const char *value_s, apr_pool_t *pool_p, rcComm_t *connection_p, struct apr_bucket_alloc_t *bucket_allocator_p, davrods_dir_conf_t *conf_p);
 
 
 #ifdef __cplusplus

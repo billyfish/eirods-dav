@@ -115,7 +115,7 @@ static int SearchMetadata (request_rec *req_p, apr_table_t *params_p, davrods_di
 
 					if (rods_connection_p)
 						{
-							DoMetadataSearch (key_s, value_s, req_p -> pool, rods_connection_p, req_p -> connection -> bucket_alloc);
+							DoMetadataSearch (key_s, value_s, req_p -> pool, rods_connection_p, req_p -> connection -> bucket_alloc, config_p);
 						}
 				}
 

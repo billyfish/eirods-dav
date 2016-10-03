@@ -43,14 +43,12 @@ void PrintBasicGenQueryOut( genQueryOut_t *genQueryOut);
 
 apr_array_header_t *GetMetadataForCollEntry (const dav_resource *resource_p, const collEnt_t *entry_p)
 {
-	return GetMetadata (resource_p, entry_p -> objType, entry_p -> dataId, entry_p -> collName);
+	return GetMetadata (resource_p -> info ->  rods_conn, entry_p -> objType, entry_p -> dataId, entry_p -> collName, resource_p -> pool);
 }
 
 
-apr_array_header_t *GetMetadata (const dav_resource *resource_p, const objType_t object_type, const char *id_s, const char *coll_name_s)
+apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t object_type, const char *id_s, const char *coll_name_s, apr_pool_t *pool_p)
 {
-	apr_pool_t *pool_p = resource_p -> pool;
-	rcComm_t *irods_connection_p = resource_p -> info -> rods_conn;
 	apr_array_header_t *metadata_array_p = apr_array_make (pool_p, S_INITIAL_ARRAY_SIZE, sizeof (IrodsMetadata *));
 
 	if (metadata_array_p)
@@ -90,7 +88,7 @@ apr_array_header_t *GetMetadata (const dav_resource *resource_p, const objType_t
 					 */
 					case COLL_OBJ_T:
 						{
-							int select_columns_p [] = { COL_COLL_ID };
+							int select_columns_p [] = { COL_COLL_ID, -1};
 							int where_columns_p [] = { COL_COLL_NAME };
 							const char *where_values_ss [] = { coll_name_s };
 
@@ -379,7 +377,8 @@ static int AddWhereClausesToQuery (genQueryInp_t *query_p, const int *where_colu
 }
 
 
-void DoMetadataSearch (const char * const key_s, const char *value_s, apr_pool_t *pool_p, rcComm_t *connection_p, struct apr_bucket_alloc_t *bucket_allocator_p)
+
+void DoMetadataSearch (const char * const key_s, const char *value_s, apr_pool_t *pool_p, rcComm_t *connection_p, struct apr_bucket_alloc_t *bucket_allocator_p, davrods_dir_conf_t *conf_p)
 {
     /*
      * SELECT meta_id FROM r_meta_main WHERE meta_attr_name = ' ' AND meta_attr_value = ' ';
@@ -436,7 +435,7 @@ void DoMetadataSearch (const char * const key_s, const char *value_s, apr_pool_t
 										{
 											char *path_s = NULL;
 											int num_select_columns = 4;
-											int select_columns_p [] = { COL_D_DATA_PATH, COL_D_OWNER_NAME, COL_DATA_SIZE, COL_D_MODIFY_TIME, -1};
+											int select_columns_p [] = { COL_D_DATA_PATH, COL_D_OWNER_NAME, COL_D_MODIFY_TIME, COL_DATA_SIZE, -1};
 											genQueryOut_t *data_id_results_p = NULL;
 											const char *id_s = object_id_results_p -> sqlResult [j].value;
 
@@ -449,29 +448,43 @@ void DoMetadataSearch (const char * const key_s, const char *value_s, apr_pool_t
 											 *
 											 * Start with testing it as data object id.
 											 *
-											 * 		SELECT data_id, data_path, data_owner_name, data_size, modify_ts FROM r_data_main where data_id = 10001;
+											 * 		SELECT data_path, data_owner_name, modify_ts, data_size FROM r_data_main where data_id = 10001;
 											 *
 											 */
 											data_id_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, 1, pool_p);
 
 											if (data_id_results_p)
 												{
-													if (data_id_results_p -> rowCnt > 0)
+													if (data_id_results_p -> rowCnt == 1)
 														{
+															/* we have a data id match */
 															if (data_id_results_p -> attriCnt == num_select_columns)
 																{
-																	/* we have a data id match */
-																	const char *path_s = NULL;
-																	const char *collection_s = NULL;
+																	char *res_s = data_id_results_p -> sqlResult [0].value;
+																	const int attr_length = data_id_results_p -> sqlResult [0].len;
+
+																	const char *path_s = res_s;
 																	const char *owner_s = NULL;
+																	const char *collection_s = NULL;
 																	const char *modified_s = NULL;
 																	rodsLong_t size = 0;
 																	struct HtmlTheme *theme_p = NULL;
-																	const dav_resource *resource_p = NULL;
 
-																	int success_code = PrintItem (theme_p, DATA_OBJ_T, id_s, path_s, collection_s, owner_s, modified_s, size, buckets_p, pool_p, resource_p);
+																	path_s = res_s;
 
+																	res_s += attr_length;
+																	owner_s = res_s;
 
+																	res_s += attr_length;
+																	collection_s = res_s;
+
+																	res_s += attr_length;
+																	modified_s = res_s;
+
+																	/* Convert size string to rodsLong_t */
+																	size = 0;
+
+																	int success_code = PrintItem (& (conf_p -> theme), DATA_OBJ_T, id_s, path_s, collection_s, owner_s, modified_s, size, buckets_p, pool_p, connection_p);
 																}
 														}
 
@@ -489,6 +502,7 @@ void DoMetadataSearch (const char * const key_s, const char *value_s, apr_pool_t
 													select_columns_p [0] = COL_COLL_NAME;
 													select_columns_p [1] = COL_COLL_OWNER_NAME;
 													select_columns_p [2] = COL_COLL_MODIFY_TIME;
+													select_columns_p [3] = -1;
 
 													where_columns_p [0] = COL_D_COLL_ID;
 

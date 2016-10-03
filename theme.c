@@ -14,7 +14,7 @@
 /************************************/
 
 
-static int GetAndAddMetadata (const objType_t object_type, const char *id_s, const char *coll_name_s, apr_bucket_brigade *bb_p, const dav_resource *resource_p, apr_pool_t *pool_p);
+static int GetAndAddMetadata (const objType_t object_type, const char *id_s, const char *coll_name_s, apr_bucket_brigade *bb_p, rcComm_t *cononection_p, apr_pool_t *pool_p);
 
 static int GetAndAddMetadataForCollEntry (const collEnt_t *entry_p, apr_bucket_brigade *bb_p, const dav_resource *resource_p, apr_pool_t *pool_p);
 
@@ -205,7 +205,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 			if (status >= 0)
 				{
-					int success_code = PrintItem (theme_p, coll_entry.objType, coll_entry.dataId, coll_entry.dataName, coll_entry.collName, coll_entry.ownerName, coll_entry.modifyTime, coll_entry.dataSize, bb_p, pool_p, resource_p);
+					int success_code = PrintItem (theme_p, coll_entry.objType, coll_entry.dataId, coll_entry.dataName, coll_entry.collName, coll_entry.ownerName, coll_entry.modifyTime, coll_entry.dataSize, bb_p, pool_p, resource_p -> info -> rods_conn);
 				}
 			else
 				{
@@ -270,7 +270,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 
 
-int PrintItem (struct HtmlTheme *theme_p, const objType_t obj_type, const char *id_s, const char * const data_s, const char *collection_s, const char * const owner_name_s, const char *last_modified_time_s, const rodsLong_t size, apr_bucket_brigade *bb_p, apr_pool_t *pool_p, const dav_resource *resource_p)
+int PrintItem (struct HtmlTheme *theme_p, const objType_t obj_type, const char *id_s, const char * const data_s, const char *collection_s, const char * const owner_name_s, const char *last_modified_time_s, const rodsLong_t size, apr_bucket_brigade *bb_p, apr_pool_t *pool_p, rcComm_t *connection_p)
 {
 	int success_code = 0;
 	const char *alt_s = NULL;
@@ -368,7 +368,7 @@ int PrintItem (struct HtmlTheme *theme_p, const objType_t obj_type, const char *
 
 	if (theme_p -> ht_show_metadata)
 		{
-			if (GetAndAddMetadata (obj_type, id_s, collection_s, bb_p, resource_p, pool_p) != 0)
+			if (GetAndAddMetadata (obj_type, id_s, collection_s, bb_p, connection_p, pool_p) != 0)
 				{
 
 				}
@@ -382,15 +382,15 @@ int PrintItem (struct HtmlTheme *theme_p, const objType_t obj_type, const char *
 
 static int GetAndAddMetadataForCollEntry (const collEnt_t *entry_p, apr_bucket_brigade *bb_p, const dav_resource *resource_p, apr_pool_t *pool_p)
 {
-	return GetAndAddMetadata (entry_p -> objType, entry_p -> dataId, entry_p -> collName, bb_p, resource_p, pool_p);
+	return GetAndAddMetadata (entry_p -> objType, entry_p -> dataId, entry_p -> collName, bb_p, resource_p -> info -> rods_conn, pool_p);
 }
 
 
 
-static int GetAndAddMetadata (const objType_t object_type, const char *id_s, const char *coll_name_s, apr_bucket_brigade *bb_p, const dav_resource *resource_p, apr_pool_t *pool_p)
+static int GetAndAddMetadata (const objType_t object_type, const char *id_s, const char *coll_name_s, apr_bucket_brigade *bb_p, rcComm_t *cononection_p, apr_pool_t *pool_p)
 {
 	int status = -1;
-	apr_array_header_t *metadata_array_p = GetMetadata (resource_p, object_type, id_s, coll_name_s);
+	apr_array_header_t *metadata_array_p = GetMetadata (cononection_p, object_type, id_s, coll_name_s, pool_p);
 
 	apr_brigade_puts (bb_p, NULL, NULL, "<td class=\"metadata\">");
 
