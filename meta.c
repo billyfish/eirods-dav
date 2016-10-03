@@ -49,7 +49,9 @@ apr_array_header_t *GetMetadataForCollEntry (const dav_resource *resource_p, con
 
 apr_array_header_t *GetMetadata (const dav_resource *resource_p, const objType_t object_type, const char *id_s, const char *coll_name_s)
 {
-	apr_array_header_t *metadata_array_p = apr_array_make (resource_p -> pool, S_INITIAL_ARRAY_SIZE, sizeof (IrodsMetadata *));
+	apr_pool_t *pool_p = resource_p -> pool;
+	rcComm_t *irods_connection_p = resource_p -> info -> rods_conn;
+	apr_array_header_t *metadata_array_p = apr_array_make (pool_p, S_INITIAL_ARRAY_SIZE, sizeof (IrodsMetadata *));
 
 	if (metadata_array_p)
 		{
@@ -92,7 +94,7 @@ apr_array_header_t *GetMetadata (const dav_resource *resource_p, const objType_t
 							int where_columns_p [] = { COL_COLL_NAME };
 							const char *where_values_ss [] = { coll_name_s };
 
-							genQueryOut_t *coll_id_results_p = RunQuery (resource_p -> info -> rods_conn, select_columns_p, where_columns_p, where_values_ss, 1, resource_p -> pool);
+							genQueryOut_t *coll_id_results_p = RunQuery (irods_connection_p, select_columns_p, where_columns_p, where_values_ss, 1, pool_p);
 
 							if (coll_id_results_p)
 								{
@@ -105,7 +107,7 @@ apr_array_header_t *GetMetadata (const dav_resource *resource_p, const objType_t
 
 											if (coll_id_s)
 												{
-													where_value_s = apr_pstrdup (resource_p -> pool, coll_id_s);
+													where_value_s = apr_pstrdup (pool_p, coll_id_s);
 
 													if (where_value_s)
 														{
@@ -133,7 +135,7 @@ apr_array_header_t *GetMetadata (const dav_resource *resource_p, const objType_t
 
 					if (success_code == 0)
 						{
-							char *condition_and_where_value_s = GetQuotedValue (where_value_s, resource_p -> pool);
+							char *condition_and_where_value_s = GetQuotedValue (where_value_s, pool_p);
 
 							success_code = addInxVal (& (in_query.sqlCondInp), where_col, condition_and_where_value_s);
 
@@ -144,7 +146,7 @@ apr_array_header_t *GetMetadata (const dav_resource *resource_p, const objType_t
 									fprintf (stderr, "initial query:");
 									printGenQI (&in_query);
 
-									meta_id_results_p = ExecuteGenQuery (resource_p -> info -> rods_conn, &in_query);
+									meta_id_results_p = ExecuteGenQuery (irods_connection_p, &in_query);
 
 									if (meta_id_results_p)
 										{
@@ -174,12 +176,12 @@ apr_array_header_t *GetMetadata (const dav_resource *resource_p, const objType_t
 
 																	if (i == 0)
 																		{
-																			condition_and_where_value_s = GetQuotedValue (meta_id_s, resource_p -> pool);
+																			condition_and_where_value_s = GetQuotedValue (meta_id_s, pool_p);
 																			success_code = addInxVal (& (in_query.sqlCondInp), COL_META_DATA_ATTR_ID, condition_and_where_value_s);
 																		}
 																	else
 																		{
-																			condition_and_where_value_s = GetQuotedValue (meta_id_s, resource_p -> pool);
+																			condition_and_where_value_s = GetQuotedValue (meta_id_s, pool_p);
 
 																			if (condition_and_where_value_s)
 																				{
@@ -202,7 +204,7 @@ apr_array_header_t *GetMetadata (const dav_resource *resource_p, const objType_t
 																			fprintf (stderr, "output %d: \"%s\"", i, meta_id_s);
 																			printGenQI (&in_query);
 
-																			metadata_query_results_p = ExecuteGenQuery (resource_p -> info -> rods_conn, &in_query);
+																			metadata_query_results_p = ExecuteGenQuery (irods_connection_p, &in_query);
 
 																			if (metadata_query_results_p)
 																				{
@@ -223,7 +225,7 @@ apr_array_header_t *GetMetadata (const dav_resource *resource_p, const objType_t
 
 																							for (j = 0; j < metadata_query_results_p -> rowCnt; ++ j)
 																								{
-																									IrodsMetadata *metadata_p = AllocateIrodsMetadata (key_s, value_s, units_s, resource_p -> pool);
+																									IrodsMetadata *metadata_p = AllocateIrodsMetadata (key_s, value_s, units_s, pool_p);
 
 																									if (metadata_p)
 																										{
@@ -377,8 +379,7 @@ static int AddWhereClausesToQuery (genQueryInp_t *query_p, const int *where_colu
 }
 
 
-
-void DoMetadataSearch (const char * const key_s, const char *value_s, apr_pool_t *pool_p, rcComm_t *connection_p)
+void DoMetadataSearch (const char * const key_s, const char *value_s, apr_pool_t *pool_p, rcComm_t *connection_p, struct apr_bucket_alloc_t *bucket_allocator_p)
 {
     /*
      * SELECT meta_id FROM r_meta_main WHERE meta_attr_name = ' ' AND meta_attr_value = ' ';
@@ -400,6 +401,9 @@ void DoMetadataSearch (const char * const key_s, const char *value_s, apr_pool_t
 	genQueryInp_t meta_id_query;
 	genQueryOut_t *meta_id_results_p = NULL;
 
+	// Make brigade.
+	apr_bucket_brigade *buckets_p = apr_brigade_create (pool_p, bucket_allocator_p);
+	apr_bucket *bucket_p;
 
 	InitGenQuery (&meta_id_query);
 
@@ -434,13 +438,14 @@ void DoMetadataSearch (const char * const key_s, const char *value_s, apr_pool_t
 											int num_select_columns = 4;
 											int select_columns_p [] = { COL_D_DATA_PATH, COL_D_OWNER_NAME, COL_DATA_SIZE, COL_D_MODIFY_TIME, -1};
 											genQueryOut_t *data_id_results_p = NULL;
+											const char *id_s = object_id_results_p -> sqlResult [j].value;
 
-											where_values_ss [0] = object_id_results_p -> sqlResult [j].value;
+											where_values_ss [0] = id_s;
 											where_columns_p [0] = COL_D_DATA_ID;
 
 											/*
 											 * The id can be the data id, coll id, etc. so we have to work
-											 * out what it is.111
+											 * out what it is
 											 *
 											 * Start with testing it as data object id.
 											 *
@@ -456,6 +461,17 @@ void DoMetadataSearch (const char * const key_s, const char *value_s, apr_pool_t
 															if (data_id_results_p -> attriCnt == num_select_columns)
 																{
 																	/* we have a data id match */
+																	const char *path_s = NULL;
+																	const char *collection_s = NULL;
+																	const char *owner_s = NULL;
+																	const char *modified_s = NULL;
+																	rodsLong_t size = 0;
+																	struct HtmlTheme *theme_p = NULL;
+																	const dav_resource *resource_p = NULL;
+
+																	int success_code = PrintItem (theme_p, DATA_OBJ_T, id_s, path_s, collection_s, owner_s, modified_s, size, buckets_p, pool_p, resource_p);
+
+
 																}
 														}
 
@@ -492,7 +508,6 @@ void DoMetadataSearch (const char * const key_s, const char *value_s, apr_pool_t
 
 															freeGenQueryOut (&data_id_results_p);
 														}
-
 												}
 
 

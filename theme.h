@@ -10,8 +10,9 @@
 
 #include "mod_dav.h"
 #include "util_filter.h"
-
 #include "apr_tables.h"
+
+#include "rodsType.h"
 
 struct HtmlTheme
 {
@@ -47,6 +48,9 @@ extern "C"
 void InitHtmlTheme (struct HtmlTheme *theme_p);
 
 dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *output_p);
+
+int PrintItem (struct HtmlTheme *theme_p, const objType_t obj_type, const char *id_s, const char * const name_s, const char *collection_s, const char * const owner_name_s, const char *last_modified_time_s, const rodsLong_t size, apr_bucket_brigade *bb_p, apr_pool_t *pool_p, const dav_resource *resource_p);
+
 
 #ifdef __cplusplus
 }

@@ -33,6 +33,11 @@
 APLOG_USE_MODULE(davrods);
 #endif
 
+
+static const char * const S_MEM_POOL_S = "davrods_pool";
+static const char * const S_IRODS_CONNECTION_S = "rods_conn";
+
+
 /**
  * \brief iRODS connection cleanup function.
  *
@@ -306,6 +311,44 @@ static authn_status rods_login(
     return result;
 }
 
+
+apr_pool_t *GetDavrodsMemoryPool (request_rec *req_p)
+{
+  apr_pool_t *pool_p = NULL;
+  void *ptr = NULL;
+  apr_status_t status = apr_pool_userdata_get (&ptr, S_MEM_POOL_S, req_p -> connection -> pool);
+
+  if (status == APR_SUCCESS)
+  	{
+			if (ptr)
+				{
+					pool_p = (apr_pool_t *) ptr;
+				}
+  	}
+
+  return pool_p;
+}
+
+
+
+rcComm_t *GetIRodsConnection (request_rec *req_p)
+{
+	rcComm_t *connection_p = NULL;
+  void *ptr = NULL;
+  apr_status_t status = apr_pool_userdata_get (&ptr, S_IRODS_CONNECTION_S, req_p -> connection -> pool);
+
+  if (status == APR_SUCCESS)
+  	{
+			if (ptr)
+				{
+					connection_p = (rcComm_t *) ptr;
+				}
+  	}
+
+  return connection_p;
+}
+
+
 static authn_status check_rods(request_rec *r, const char *username, const char *password) {
     int status;
 
@@ -327,11 +370,9 @@ static authn_status check_rods(request_rec *r, const char *username, const char 
     void *m;
 
     // Get davrods memory pool.
-    apr_pool_t *pool = NULL;
-    status = apr_pool_userdata_get(&m, "davrods_pool", r->connection->pool);
-    pool   = (apr_pool_t*)m;
+    apr_pool_t *pool = GetDavrodsMemoryPool (r);
 
-    if (status || !pool) {
+    if (!pool) {
         // We create a davrods pool as a child of the connection pool.
         // iRODS sessions last at most as long as the client's TCP connection.
         //
@@ -352,15 +393,13 @@ static authn_status check_rods(request_rec *r, const char *username, const char 
         // property so we can access it in later requests / processing steps.
         // If there were a method to enumerate child pools, the second binding
         // could be avoided, but alas.
-        apr_pool_userdata_set(pool, "davrods_pool", apr_pool_cleanup_null, r->connection->pool);
+        apr_pool_userdata_set (pool, S_MEM_POOL_S, apr_pool_cleanup_null, r->connection->pool);
     }
 
     // We have a pool, now try to extract its iRODS connection.
-    rcComm_t *rods_conn = NULL;
-    status = apr_pool_userdata_get(&m, "rods_conn", pool);
-    rods_conn = (rcComm_t*)m;
+    rcComm_t *rods_conn = GetIRodsConnection (r);
 
-    if (!status && rods_conn) {
+    if (rods_conn) {
         // We have an iRODS connection with an authenticated user. Was this
         // auth check called with the same username as before?
         char *current_username = NULL;
@@ -412,7 +451,7 @@ static authn_status check_rods(request_rec *r, const char *username, const char 
 
             char *username_buf = apr_pstrdup(pool, username);
 
-            apr_pool_userdata_set(rods_conn,    "rods_conn", rods_conn_cleanup,     pool);
+            apr_pool_userdata_set(rods_conn,    S_IRODS_CONNECTION_S, rods_conn_cleanup,     pool);
             apr_pool_userdata_set(username_buf, "username",  apr_pool_cleanup_null, pool);
 
             // Get iRODS env and store it.

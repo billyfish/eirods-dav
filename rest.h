@@ -11,6 +11,7 @@
 
 #include "httpd.h"
 
+#include "rodsConnect.h"
 
 
 
