@@ -72,7 +72,8 @@ WARNINGS :=                           \
 	no-unused-parameter           \
 	no-missing-field-initializers \
 	no-format                     \
-	fatal-errors
+	fatal-errors \
+	shadow
 
 MACROS := \
 	$(addprefix DAVRODS_ENABLE_PROVIDER_, $(DAV_PROVIDERS))      \

@@ -5,11 +5,15 @@
  *      Author: billy
  */
 
-#include "repo.h"
+#include "apr_strings.h"
+
+#include "objStat.h"
 #include "rodsGenQueryNames.h"
+
+
+#include "repo.h"
 #include "meta.h"
 
-#include "apr_strings.h"
 
 /*************************************/
 
@@ -34,6 +38,7 @@ static int AddWhereClausesToQuery (genQueryInp_t *query_p, const int *where_colu
 
 static void ClearPooledMemoryFromGenQuery (genQueryInp_t *query_p);
 
+static rodsObjStat_t * GetObjectStat (const char * const path_s, rcComm_t *connection_p);
 
 void PrintBasicGenQueryOut( genQueryOut_t *genQueryOut);
 
@@ -393,23 +398,21 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
      *
      * to get the info we need for a listing
      */
+	char *result_s = NULL;
+	apr_size_t result_length = 0;
+
 	int num_where_columns = 2;
 	int where_columns_p [] =  { COL_META_DATA_ATTR_NAME, COL_META_DATA_ATTR_VALUE };
 	const char *where_values_ss [] = { key_s, value_s };
-	int select_columns_p [] =  { COL_META_DATA_ATTR_ID, -1};
+	int select_columns_p [] =  { COL_META_DATA_ATTR_ID, -1, -1};
 	genQueryInp_t meta_id_query;
 	genQueryOut_t *meta_id_results_p = NULL;
 	struct HtmlTheme *theme_p = & (conf_p -> theme);
-
-
-	// Make brigade.
 	apr_bucket_brigade *bucket_brigade_p = apr_brigade_create (pool_p, bucket_allocator_p);
-	apr_bucket *bucket_p;
 
 	InitGenQuery (&meta_id_query);
 
 	apr_status_t apr_status = PrintAllHTMLBeforeListing (theme_p, relative_uri_s, username_s, conf_p -> rods_zone, req_p, bucket_brigade_p, pool_p);
-
 
 	/*
 	 * SELECT meta_id FROM r_meta_main WHERE meta_attr_name = ' ' AND meta_attr_value = ' ';
@@ -427,10 +430,14 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 
 					for (i = 0; i < meta_id_results_p -> rowCnt; ++ i)
 						{
-							int where_columns_p [] = { COL_META_DATA_ATTR_ID, -1 };
-							const char *where_values_ss [] =  { meta_id_results_p -> sqlResult [i].value };
 							int object_id_select_columns_p [] = { COL_D_DATA_ID, -1 };
-							genQueryOut_t *object_id_results_p = RunQuery (connection_p, object_id_select_columns_p, where_columns_p, where_values_ss, 1, pool_p);
+							genQueryOut_t *object_id_results_p;
+
+
+							where_columns_p [0] = COL_META_DATA_ATTR_ID;
+							where_values_ss [0] = meta_id_results_p -> sqlResult [i].value;
+
+							object_id_results_p = RunQuery (connection_p, object_id_select_columns_p, where_columns_p, where_values_ss, 1, pool_p);
 
 							if (object_id_results_p)
 								{
@@ -438,11 +445,13 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 
 									for (j = 0; j < object_id_results_p -> rowCnt; ++ j)
 										{
-											char *path_s = NULL;
-											int num_select_columns = 4;
-											int select_columns_p [] = { COL_D_DATA_PATH, COL_D_OWNER_NAME, COL_D_MODIFY_TIME, COL_DATA_SIZE, -1};
+											int success_flag = 0;
 											genQueryOut_t *data_id_results_p = NULL;
 											const char *id_s = object_id_results_p -> sqlResult [j].value;
+
+											int num_select_columns = 2;
+											select_columns_p [0] = COL_DATA_NAME;
+											select_columns_p [1] = COL_D_COLL_ID;
 
 											where_values_ss [0] = id_s;
 											where_columns_p [0] = COL_D_DATA_ID;
@@ -453,7 +462,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 											 *
 											 * Start with testing it as data object id.
 											 *
-											 * 		SELECT data_path, data_owner_name, modify_ts, data_size FROM r_data_main where data_id = 10001;
+											 * 		SELECT data_name FROM r_data_main where data_id = 10001;
 											 *
 											 */
 											data_id_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, 1, pool_p);
@@ -466,24 +475,71 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 															if (data_id_results_p -> attriCnt == num_select_columns)
 																{
 																	sqlResult_t *sql_p = data_id_results_p -> sqlResult;
-																	const char *path_s = sql_p -> value;
-																	const char *owner_s = (++ sql_p) -> value;
-																	const char *modified_s = (++ sql_p) -> value;
-																	const char *size_s = (++ sql_p) -> value;
-																	const char *collection_s = NULL;
-																	rodsLong_t size = 0;
+																	const char *data_name_s = sql_p -> value;
+																	const char *coll_id_s = (++ sql_p) -> value;
+																	genQueryOut_t *coll_id_results_p = NULL;
 
-																	/* Convert size string to rodsLong_t */
-																	size = 0;
+//																	const char *owner_s = (++ sql_p) -> value;
+//																	const char *modified_s = (++ sql_p) -> value;
+//																	const char *size_s = (++ sql_p) -> value;
+//																	const char *collection_s = NULL;
+//																	rodsLong_t size = 0;
 
-																	int success_code = PrintItem (theme_p, DATA_OBJ_T, id_s, path_s, collection_s, owner_s, modified_s, size, bucket_brigade_p, pool_p, connection_p);
+
+																	/*
+																	 * We have the local data object name, we now need to get the collection name
+																	 * and join the two together
+																	 */
+																	select_columns_p [0] = COL_COLL_NAME;
+																	select_columns_p [1] = -1;
+																	num_select_columns = 1;
+
+																	where_values_ss [0] = coll_id_s;
+																	where_columns_p [0] = COL_COLL_ID;
+																	num_where_columns = 1;
+
+																	coll_id_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, num_where_columns, pool_p);
+
+																	if (coll_id_results_p)
+																		{
+																			if (coll_id_results_p -> rowCnt == 1)
+																				{
+																					/* we have a coll id match */
+																					if (coll_id_results_p -> attriCnt == num_select_columns)
+																						{
+																							const char *collection_s = coll_id_results_p -> sqlResult [0].value;
+																							char *irods_data_path_s = apr_pstrcat (pool_p, collection_s, "/", data_name_s);
+
+																							if (irods_data_path_s)
+																								{
+																									rodsObjStat_t *stat_p;
+
+																									stat_p = GetObjectStat (irods_data_path_s, connection_p);
+
+																									if (stat_p)
+																										{
+																											int success_code = PrintItem (theme_p, DATA_OBJ_T, id_s, data_name_s, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize, bucket_brigade_p, pool_p, connection_p);
+
+																											success_flag = 1;
+																											freeRodsObjStat (stat_p);
+																										}
+
+																								}		/* if (irods_data_path_s) */
+
+																						}		/* if (coll_id_results_p -> attriCnt == num_select_columns) */
+
+																				}		/* if (coll_id_results_p -> rowCnt == 1) */
+
+																			freeGenQueryOut (&coll_id_results_p);
+																		}		/* if (coll_id_results_p) */
+
 																}
 														}
 
 													freeGenQueryOut (&data_id_results_p);
-												}
+												}		/* if (data_id_results_p) */
 
-											if (!path_s)
+											if (!success_flag)
 												{
 													/*
 													 * See if the id refers to a collection
@@ -514,7 +570,8 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 
 															freeGenQueryOut (&data_id_results_p);
 														}
-												}
+
+												}		/* if (!success_flag) */
 
 
 											freeGenQueryOut (&data_id_results_p);
@@ -531,13 +588,33 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 
 	apr_status = PrintAllHTMLAfterListing (theme_p, req_p, bucket_brigade_p, pool_p);
 
-
-	char *result_s = NULL;
-	apr_size_t result_length = 0;
 	apr_status = apr_brigade_pflatten (bucket_brigade_p, &result_s, &result_length, pool_p);
 
 	return result_s;
 }
+
+
+
+static rodsObjStat_t * GetObjectStat (const char * const path_s, rcComm_t *connection_p)
+{
+	dataObjInp_t inp;
+	rodsObjStat_t *stat_p = NULL;
+	int status;
+
+	memset (&inp, 0, sizeof (dataObjInp_t));
+	rstrcpy (inp.objPath, path_s, MAX_NAME_LEN);
+
+	status = rcObjStat (connection_p, &inp, &stat_p);
+
+	if (status < 0)
+		{
+			/* .... handle the error */
+		}
+
+	return stat_p;
+}
+
+
 
 
 static char *GetQuotedValue (const char * const input_s, apr_pool_t *pool_p)
