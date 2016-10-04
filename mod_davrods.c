@@ -28,7 +28,7 @@
 
 APLOG_USE_MODULE(davrods);
 
-static void register_hooks(apr_pool_t *p) {
+static void register_davrods_hooks(apr_pool_t *p) {
     davrods_auth_register(p);
     davrods_dav_register(p);
 
@@ -42,5 +42,5 @@ module AP_MODULE_DECLARE_DATA davrods_module = {
     NULL,                      // Server config setup.
     NULL,                      //   ..     ..   merge function.
     davrods_directives,        // Command table.
-    register_hooks,            // Hook setup.
+		register_davrods_hooks,            // Hook setup.
 };

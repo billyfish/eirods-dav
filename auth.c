@@ -23,7 +23,7 @@
 #include "config.h"
 #include "common.h"
 
-#include <mod_auth.h>
+
 #include <http_request.h>
 
 #include <irods/rodsClient.h>
@@ -315,8 +315,9 @@ static authn_status rods_login(
 apr_pool_t *GetDavrodsMemoryPool (request_rec *req_p)
 {
   apr_pool_t *pool_p = NULL;
+  apr_pool_t *req_pool_p = req_p -> connection -> pool;
   void *ptr = NULL;
-  apr_status_t status = apr_pool_userdata_get (&ptr, S_MEM_POOL_S, req_p -> connection -> pool);
+  apr_status_t status = apr_pool_userdata_get (&ptr, S_MEM_POOL_S, req_pool_p);
 
   if (status == APR_SUCCESS)
   	{
@@ -326,40 +327,150 @@ apr_pool_t *GetDavrodsMemoryPool (request_rec *req_p)
 				}
   	}
 
+
+  if (!pool_p)
+  	{
+			// We create a davrods pool as a child of the connection pool.
+			// iRODS sessions last at most as long as the client's TCP connection.
+			//
+			// Using our own pool ensures that we can easily clear it (= close the
+			// iRODS connection and free related resources) when a client reuses
+			// their connection for a different username.
+			//
+			status = apr_pool_create (&pool_p, req_pool_p);
+
+			if (pool_p)
+				{
+					// It seems strange that we bind our pool to the connection pool twice,
+					// firstly by creating it as a child, and secondly as a userdata
+					// property so we can access it in later requests / processing steps.
+					// If there were a method to enumerate child pools, the second binding
+					// could be avoided, but alas.
+
+					apr_pool_tag (pool_p, "Davrods Pool");
+					apr_pool_userdata_set (pool_p, S_MEM_POOL_S, apr_pool_cleanup_null, req_pool_p);
+				}
+    }
+
   return pool_p;
 }
 
 
 
-rcComm_t *GetIRodsConnection (request_rec *req_p)
+authn_status GetIRodsConnection (request_rec *req_p, rcComm_t **connection_pp, const char *username_s, const char *password_s)
 {
-	rcComm_t *connection_p = NULL;
-  void *ptr = NULL;
-  apr_status_t status = apr_pool_userdata_get (&ptr, S_IRODS_CONNECTION_S, req_p -> connection -> pool);
+	authn_status result = AUTH_USER_NOT_FOUND;
 
-  if (status == APR_SUCCESS)
-  	{
-			if (ptr)
+	apr_pool_t *pool_p = GetDavrodsMemoryPool (req_p);
+
+	if (pool_p)
+		{
+			rcComm_t *connection_p = NULL;
+		  void *ptr = NULL;
+		  apr_status_t status = apr_pool_userdata_get (&ptr, S_IRODS_CONNECTION_S, pool_p);
+
+		  if (status == APR_SUCCESS)
+		  	{
+					if (ptr)
+						{
+							connection_p = (rcComm_t *) ptr;
+						}
+		  	}
+
+
+		  if (connection_p)
+		  	{
+		      // We have an iRODS connection with an authenticated user. Was this
+		      // auth check called with the same username as before?
+		      char *current_username_s = NULL;
+		      status = apr_pool_userdata_get (&ptr, "username", pool_p);
+		      current_username_s = (char *) ptr;
+
+		      if ((status == OK) && (current_username_s != NULL))
+		      	{
+		          ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, req_p, "iRODS connection already open, authenticated user is '%s'", current_username_s);
+
+		          if (strcmp (current_username_s, username_s) == 0)
+		          	{
+		              // Yes. We will allow this user through regardless of the sent password.
+		              ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, req_p, "Granting access to already authenticated user on existing iRODS connection");
+		              result = AUTH_GRANTED;
+		          	}
+		          else
+		          	{
+		              // No! We need to reauthenticate to iRODS for the new user. Clean
+		              // up the resources of the current iRODS connection first.
+		              ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, req_p, "Closing existing iRODS connection for user '%s' (need new connection for user '%s')",
+		                            current_username_s,
+		                            username_s);
+
+		              // This should run the cleanup function for rods_conn, rcDisconnect.
+		              apr_pool_clear (pool_p);
+		          }
+
+		      	}
+		  	}
+
+		  if (result == AUTH_USER_NOT_FOUND)
+		  	{
+		      // User is not yet authenticated.
+
+		      result = rods_login (req_p, username_s, password_s, &connection_p);
+
+		      if (result == AUTH_GRANTED)
+		      	{
+		      		if (connection_p)
+		      			{
+
+									if (strlen (username_s) > 63)
+										{
+											// This is the NAME_LEN and DB_USERNAME_LEN limit set by iRODS.
+											ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, req_p, "Username exceeded max name length (63)");
+
+											rods_conn_cleanup (connection_p);
+											connection_p = NULL;
+										}
+									else
+										{
+											char *username_buf = apr_pstrdup (pool_p, username_s);
+
+											apr_pool_userdata_set (connection_p,    S_IRODS_CONNECTION_S, rods_conn_cleanup,     pool_p);
+											apr_pool_userdata_set (username_buf, "username",  apr_pool_cleanup_null, pool_p);
+
+											// Get iRODS env and store it.
+											rodsEnv *env = apr_palloc (pool_p, sizeof(rodsEnv));
+											assert((status = getRodsEnv(env)) >= 0);
+
+											apr_pool_userdata_set (env, "env", apr_pool_cleanup_null, pool_p);
+										}
+		      			}
+		      	}
+		  	}
+
+			if (connection_p)
 				{
-					connection_p = (rcComm_t *) ptr;
+					*connection_pp = connection_p;
 				}
-  	}
 
-  return connection_p;
+		}
+
+
+
+  return result;
 }
 
 
-static authn_status check_rods(request_rec *r, const char *username, const char *password) {
+static authn_status check_rods(request_rec *req_p, const char *username, const char *password) {
     int status;
 
     // Obtain davrods directory config.
     davrods_dir_conf_t *conf = ap_get_module_config(
-        r->per_dir_config,
+    		req_p->per_dir_config,
         &davrods_module
     );
     authn_status result = AUTH_USER_NOT_FOUND;
 
-    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, r,
+    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, req_p,
                   "Authenticating iRODS username '%s' using %s auth scheme.",
                   username,
                   conf->rods_auth_scheme == DAVRODS_AUTH_PAM
@@ -370,100 +481,25 @@ static authn_status check_rods(request_rec *r, const char *username, const char 
     void *m;
 
     // Get davrods memory pool.
-    apr_pool_t *pool = GetDavrodsMemoryPool (r);
+    apr_pool_t *pool_p = GetDavrodsMemoryPool (req_p);
 
-    if (!pool) {
-        // We create a davrods pool as a child of the connection pool.
-        // iRODS sessions last at most as long as the client's TCP connection.
-        //
-        // Using our own pool ensures that we can easily clear it (= close the
-        // iRODS connection and free related resources) when a client reuses
-        // their connection for a different username.
-        //
-        status = apr_pool_create(&pool, r->connection->pool);
+    if (pool_p)
+    	{
+        // We have a pool, now try to extract its iRODS connection.
+        rcComm_t *rods_connection_p = NULL;
 
-        if (status || !pool) {
-            ap_log_rerror(APLOG_MARK, APLOG_ERR, status, r,
-                          "Could not create davrods apr pool");
-            return HTTP_INTERNAL_SERVER_ERROR;
-        }
+        result = GetIRodsConnection (req_p, &rods_connection_p, username, password);
 
-        // It seems strange that we bind our pool to the connection pool twice,
-        // firstly by creating it as a child, and secondly as a userdata
-        // property so we can access it in later requests / processing steps.
-        // If there were a method to enumerate child pools, the second binding
-        // could be avoided, but alas.
-        apr_pool_userdata_set (pool, S_MEM_POOL_S, apr_pool_cleanup_null, r->connection->pool);
-    }
-
-    // We have a pool, now try to extract its iRODS connection.
-    rcComm_t *rods_conn = GetIRodsConnection (r);
-
-    if (rods_conn) {
-        // We have an iRODS connection with an authenticated user. Was this
-        // auth check called with the same username as before?
-        char *current_username = NULL;
-        status = apr_pool_userdata_get(&m, "username", pool);
-        current_username = (char*)m;
-        assert(!status && current_username);
-
-        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, r,
-                      "iRODS connection already open, authenticated user is '%s'",
-                      current_username);
-
-        if (!strcmp(current_username, username)) {
-            // Yes. We will allow this user through regardless of the sent password.
-            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, r,
-                          "Granting access to already authenticated user on"
-                          " existing iRODS connection");
-            result = AUTH_GRANTED;
-
-        } else {
-            // No! We need to reauthenticate to iRODS for the new user. Clean
-            // up the resources of the current iRODS connection first.
-            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, r,
-                          "Closing existing iRODS connection for user '%s'"
-                          " (need new connection for user '%s')",
-                          current_username,
-                          username);
-            // This should run the cleanup function for rods_conn, rcDisconnect.
-            apr_pool_clear(pool);
-        }
-    } else {
-        rods_conn = NULL;
-    }
-
-    if (result == AUTH_USER_NOT_FOUND) {
-        // User is not yet authenticated.
-
-        result = rods_login(r, username, password, &rods_conn);
-        if (result == AUTH_GRANTED) {
-            assert(rods_conn);
-
-            if (strlen(username) > 63) {
-                // This is the NAME_LEN and DB_USERNAME_LEN limit set by iRODS.
-                ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_SUCCESS, r,
-                              "Username exceeded max name length (63)");
-
-                rods_conn_cleanup(rods_conn);
-                return HTTP_INTERNAL_SERVER_ERROR;
-            }
-
-            char *username_buf = apr_pstrdup(pool, username);
-
-            apr_pool_userdata_set(rods_conn,    S_IRODS_CONNECTION_S, rods_conn_cleanup,     pool);
-            apr_pool_userdata_set(username_buf, "username",  apr_pool_cleanup_null, pool);
-
-            // Get iRODS env and store it.
-            rodsEnv *env = apr_palloc(pool, sizeof(rodsEnv));
-            assert((status = getRodsEnv(env)) >= 0);
-
-            apr_pool_userdata_set(env, "env", apr_pool_cleanup_null, pool);
-        }
-    }
+    	}
+    else
+    	{
+				ap_log_rerror (APLOG_MARK, APLOG_ERR, HTTP_INTERNAL_SERVER_ERROR, req_p, "Could not create davrods apr pool");
+				return HTTP_INTERNAL_SERVER_ERROR;
+    	}
 
     return result;
 }
+
 
 static const authn_provider authn_rods_provider = {
     &check_rods,

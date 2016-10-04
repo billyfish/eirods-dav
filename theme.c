@@ -53,6 +53,7 @@ void InitHtmlTheme (struct HtmlTheme *theme_p)
 dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *output_p)
 {
 	struct dav_resource_private *davrods_resource_p = (struct dav_resource_private *) resource_p -> info;
+	request_rec *req_p = davrods_resource_p -> r;
 	apr_pool_t *pool_p = resource_p -> pool;
 
 	collInp_t coll_inp = { { 0 } };
@@ -67,7 +68,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 	if (status < 0)
 		{
-			ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_SUCCESS, davrods_resource_p->r,
+			ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_SUCCESS, req_p,
 					"rcOpenCollection failed: %d = %s", status,
 					get_rods_error_msg(status));
 
@@ -77,16 +78,101 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 	davrods_dir_conf_t *conf_p = davrods_resource_p->conf;
 	struct HtmlTheme *theme_p = &(conf_p->theme);
 
+	const char * const user_s = davrods_resource_p -> rods_conn -> clientUser.userName;
+
 	// Make brigade.
-	apr_bucket_brigade *bb_p = apr_brigade_create (pool_p, output_p -> c -> bucket_alloc);
+	apr_bucket_brigade *bucket_brigade_p = apr_brigade_create (pool_p, output_p -> c -> bucket_alloc);
 	apr_bucket *bkt;
-	apr_status_t apr_ret;
+	apr_status_t apr_status = PrintAllHTMLBeforeListing (theme_p, davrods_resource_p -> relative_uri, user_s, conf_p -> rods_zone, req_p, bucket_brigade_p, pool_p);
+
+
+	if (apr_status == APR_SUCCESS)
+		{
+			// Actually print the directory listing, one table row at a time.
+			do
+				{
+					status = rclReadCollection (davrods_resource_p -> rods_conn, &coll_handle, &coll_entry);
+
+					if (status >= 0)
+						{
+							int success_code = PrintItem (theme_p, coll_entry.objType, coll_entry.dataId, coll_entry.dataName, coll_entry.collName, coll_entry.ownerName, coll_entry.modifyTime, coll_entry.dataSize, bucket_brigade_p, pool_p, resource_p -> info -> rods_conn);
+						}
+					else
+						{
+							if (status == CAT_NO_ROWS_FOUND)
+								{
+									// End of collection.
+								}
+							else
+								{
+									ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_SUCCESS,
+											req_p,
+											"rcReadCollection failed for collection <%s> with error <%s>",
+											davrods_resource_p->rods_path, get_rods_error_msg(status));
+
+									apr_brigade_destroy(bucket_brigade_p);
+
+									return dav_new_error(pool_p, HTTP_INTERNAL_SERVER_ERROR,
+											0, 0, "Could not read a collection entry from a collection.");
+								}
+						}
+				}
+			while (status >= 0);
+
+		}		/* if (apr_status == APR_SUCCESS) */
+
+
+	PrintAllHTMLAfterListing (theme_p, req_p, bucket_brigade_p, pool_p);
+
+	bkt = apr_bucket_eos_create(output_p->c->bucket_alloc);
+
+	APR_BRIGADE_INSERT_TAIL(bucket_brigade_p, bkt);
+
+	if ((status = ap_pass_brigade(output_p, bucket_brigade_p)) != APR_SUCCESS)
+		{
+			apr_brigade_destroy (bucket_brigade_p);
+			return dav_new_error(pool_p, HTTP_INTERNAL_SERVER_ERROR, 0, status,
+					"Could not write content to filter.");
+		}
+	apr_brigade_destroy(bucket_brigade_p);
+
+	return NULL;
+}
+
+
+apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
+{
+	apr_status_t apr_status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, "</tbody>\n</table>\n</main>\n");
+
+	if (apr_status == APR_SUCCESS)
+		{
+			if (theme_p -> ht_bottom_s)
+				{
+					apr_status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, theme_p->ht_bottom_s);
+
+					if (apr_status != APR_SUCCESS)
+						{
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, req_p, "Failed to add end table to bottom section \"%s\", %d", theme_p -> ht_bottom_s, apr_status);
+						} /* if (apr_ret != APR_SUCCESS) */
+
+				}		/* if (theme_p -> ht_bottom_s) */
+		}
+
+	apr_status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, "\n</body>\n</html>\n");
+
+	return apr_status;
+}
+
+
+apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * const relative_uri_s, const char * const user_s, const char * const zone_s, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
+{
+	apr_status_t apr_status;
 
 	// Send start of HTML document.
-	apr_brigade_printf(bb_p, NULL, NULL,
+	apr_brigade_printf(bucket_brigade_p, NULL, NULL,
 			"<!DOCTYPE html>\n<html lang=\"en\">\n<head><title>Index of %s on %s</title>\n",
-			ap_escape_html(pool_p, davrods_resource_p->relative_uri),
-			ap_escape_html(pool_p, conf_p->rods_zone));
+			ap_escape_html(pool_p, relative_uri_s),
+			ap_escape_html(pool_p, zone_s));
 
 	//    WHISPER("head \"%s\"", theme_p -> ht_head_s);
 	//    WHISPER("top \"%s\"", theme_p -> ht_top_s);
@@ -100,12 +186,12 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 	 */
 	if (theme_p->ht_head_s)
 		{
-			apr_ret = apr_brigade_puts(bb_p, NULL, NULL, theme_p->ht_head_s);
+			apr_status = apr_brigade_puts(bucket_brigade_p, NULL, NULL, theme_p->ht_head_s);
 
-			if (apr_ret != APR_SUCCESS)
+			if (apr_status != APR_SUCCESS)
 				{
 					ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_SUCCESS,
-							davrods_resource_p->r,
+							req_p,
 							"Failed to add html to <head> section \"%s\"",
 							theme_p->ht_head_s);
 
@@ -113,7 +199,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 		} /* if (theme_p -> ht_head_s) */
 
-	apr_brigade_puts(bb_p, NULL, NULL,
+	apr_brigade_puts(bucket_brigade_p, NULL, NULL,
 			"<body>\n\n"
 					"<!-- Warning: Do not parse this directory listing programmatically,\n"
 					"              the format may change without notice!\n"
@@ -125,46 +211,46 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 	 */
 	if (theme_p -> ht_top_s)
 		{
-			apr_ret = apr_brigade_puts (bb_p, NULL, NULL, theme_p -> ht_top_s);
+			apr_status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, theme_p -> ht_top_s);
 
-			if (apr_ret != APR_SUCCESS)
+			if (apr_status != APR_SUCCESS)
 				{
-					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, davrods_resource_p -> r, "Failed to add html to top section \"%s\"", theme_p -> ht_top_s);
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, req_p, "Failed to add html to top section \"%s\"", theme_p -> ht_top_s);
 				} /* if (apr_ret != APR_SUCCESS) */
 
 		}		/* if (theme_p -> ht_top_s) */
 
-	apr_brigade_printf(bb_p, NULL, NULL,
+	apr_brigade_printf(bucket_brigade_p, NULL, NULL,
 			"<main>\n<h1>You are logged in as %s and browsing the index of %s on %s</h1>\n",
-			davrods_resource_p->rods_conn->clientUser.userName,
-			ap_escape_html (pool_p, davrods_resource_p->relative_uri),
-			ap_escape_html (pool_p, conf_p->rods_zone));
+			user_s,
+			ap_escape_html (pool_p, relative_uri_s),
+			ap_escape_html (pool_p, zone_s));
 
 
-	if (strcmp (davrods_resource_p->relative_uri, "/"))
+	if (strcmp (relative_uri_s, "/"))
 		{
-			apr_brigade_puts(bb_p, NULL, NULL, "<p><a href=\"..\">");
+			apr_brigade_puts (bucket_brigade_p, NULL, NULL, "<p><a href=\"..\">");
 
 			if (theme_p -> ht_parent_icon_s)
 				{
-					apr_brigade_printf (bb_p, NULL, NULL, "<img src=\"%s\" alt=\"Browse to parent Collection\"/>", ap_escape_html (pool_p, theme_p -> ht_parent_icon_s));
+					apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<img src=\"%s\" alt=\"Browse to parent Collection\"/>", ap_escape_html (pool_p, theme_p -> ht_parent_icon_s));
 				}
 			else
 				{
-					apr_brigade_puts(bb_p, NULL, NULL, "↖");
+					apr_brigade_puts(bucket_brigade_p, NULL, NULL, "↖");
 				}
 
-			apr_brigade_puts(bb_p, NULL, NULL, " Parent collection</a></p>\n");
+			apr_brigade_puts(bucket_brigade_p, NULL, NULL, " Parent collection</a></p>\n");
 
 		}		/* if (strcmp (davrods_resource_p->relative_uri, "/")) */
 
 	/*
 	 * Add the listing class
 	 */
-	apr_ret = apr_brigade_printf (bb_p, NULL, NULL, "<table class=\"%s\">\n<thead>\n<tr>", theme_p -> ht_listing_class_s ? theme_p -> ht_listing_class_s : "listing");
-	if (apr_ret != APR_SUCCESS)
+	apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<table class=\"%s\">\n<thead>\n<tr>", theme_p -> ht_listing_class_s ? theme_p -> ht_listing_class_s : "listing");
+	if (apr_status != APR_SUCCESS)
 		{
-			ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, davrods_resource_p -> r, "Failed to add start of table listing, %d", apr_ret);
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, req_p, "Failed to add start of table listing, %d", apr_status);
 		} /* if (apr_ret != APR_SUCCESS) */
 
 
@@ -173,100 +259,34 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 	 */
 	if (DisplayIcons (theme_p))
 		{
-			apr_ret = apr_brigade_puts (bb_p, NULL, NULL, "<th class=\"icon\"></th>");
+			apr_status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, "<th class=\"icon\"></th>");
 
-			if (apr_ret != APR_SUCCESS)
+			if (apr_status != APR_SUCCESS)
 				{
-					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, davrods_resource_p -> r, "Failed to add table header for icons, %d", apr_ret);
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, req_p, "Failed to add table header for icons, %d", apr_status);
 				} /* if (apr_ret != APR_SUCCESS) */
 
 		}		/* if ((theme_p -> ht_collection_icon_s) || (theme_p -> ht_object_icon_s)) */
 
-	apr_brigade_puts (bb_p, NULL, NULL, "<th class=\"name\">Name</th><th class=\"size\">Size</th><th class=\"owner\">Owner</th><th class=\"datestamp\">Last modified</th>");
+	apr_brigade_puts (bucket_brigade_p, NULL, NULL, "<th class=\"name\">Name</th><th class=\"size\">Size</th><th class=\"owner\">Owner</th><th class=\"datestamp\">Last modified</th>");
 
 	if (theme_p -> ht_show_metadata)
 		{
-			apr_ret = apr_brigade_puts (bb_p, NULL, NULL, "<th class=\"metadata\">Properties</th>");
+			apr_status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, "<th class=\"metadata\">Properties</th>");
 
-			if (apr_ret != APR_SUCCESS)
+			if (apr_status != APR_SUCCESS)
 				{
-					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, davrods_resource_p -> r, "Failed to add table header for metadata, %d", apr_ret);
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, req_p, "Failed to add table header for metadata, %d", apr_status);
 				} /* if (apr_ret != APR_SUCCESS) */
 
 		}		/* if (theme_p->ht_show_metadata) */
 
 
-	apr_brigade_puts(bb_p, NULL, NULL, "</tr>\n</thead>\n<tbody>\n");
+	apr_brigade_puts (bucket_brigade_p, NULL, NULL, "</tr>\n</thead>\n<tbody>\n");
 
-	// Actually print the directory listing, one table row at a time.
-	do
-		{
-			status = rclReadCollection (davrods_resource_p -> rods_conn, &coll_handle, &coll_entry);
-
-			if (status >= 0)
-				{
-					int success_code = PrintItem (theme_p, coll_entry.objType, coll_entry.dataId, coll_entry.dataName, coll_entry.collName, coll_entry.ownerName, coll_entry.modifyTime, coll_entry.dataSize, bb_p, pool_p, resource_p -> info -> rods_conn);
-				}
-			else
-				{
-					if (status == CAT_NO_ROWS_FOUND)
-						{
-							// End of collection.
-						}
-					else
-						{
-							ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_SUCCESS,
-									davrods_resource_p->r,
-									"rcReadCollection failed for collection <%s> with error <%s>",
-									davrods_resource_p->rods_path, get_rods_error_msg(status));
-
-							apr_brigade_destroy(bb_p);
-
-							return dav_new_error(pool_p, HTTP_INTERNAL_SERVER_ERROR,
-									0, 0, "Could not read a collection entry from a collection.");
-						}
-				}
-		}
-	while (status >= 0);
-
-	// End HTML document.
-	apr_brigade_puts(bb_p, NULL, NULL, "</tbody>\n</table>\n</main>\n");
-
-	if (theme_p -> ht_bottom_s)
-		{
-			apr_ret = apr_brigade_puts(bb_p, NULL, NULL, theme_p->ht_bottom_s);
-
-			if (apr_ret != APR_SUCCESS)
-				{
-					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, davrods_resource_p->r, "Failed to add html to bottom section \"%s\", %d", theme_p -> ht_bottom_s, apr_ret);
-				} /* if (apr_ret != APR_SUCCESS) */
-
-		}		/* if (theme_p -> ht_bottom_s) */
-
-	apr_brigade_puts(bb_p, NULL, NULL, "\n</body>\n</html>\n");
-
-	// Flush.
-	if ((status = ap_pass_brigade(output_p, bb_p)) != APR_SUCCESS)
-		{
-			apr_brigade_destroy(bb_p);
-			return dav_new_error(pool_p, HTTP_INTERNAL_SERVER_ERROR, 0, status,
-					"Could not write contents to filter.");
-		}
-
-	bkt = apr_bucket_eos_create(output_p->c->bucket_alloc);
-
-	APR_BRIGADE_INSERT_TAIL(bb_p, bkt);
-
-	if ((status = ap_pass_brigade(output_p, bb_p)) != APR_SUCCESS)
-		{
-			apr_brigade_destroy (bb_p);
-			return dav_new_error(pool_p, HTTP_INTERNAL_SERVER_ERROR, 0, status,
-					"Could not write content to filter.");
-		}
-	apr_brigade_destroy(bb_p);
-
-	return NULL;
+	return apr_status;
 }
+
 
 
 
@@ -384,7 +404,6 @@ static int GetAndAddMetadataForCollEntry (const collEnt_t *entry_p, apr_bucket_b
 {
 	return GetAndAddMetadata (entry_p -> objType, entry_p -> dataId, entry_p -> collName, bb_p, resource_p -> info -> rods_conn, pool_p);
 }
-
 
 
 static int GetAndAddMetadata (const objType_t object_type, const char *id_s, const char *coll_name_s, apr_bucket_brigade *bb_p, rcComm_t *cononection_p, apr_pool_t *pool_p)

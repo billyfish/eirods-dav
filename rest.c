@@ -11,6 +11,8 @@
 
 #include "apr_tables.h"
 #include "util_script.h"
+#include "http_protocol.h"
+
 
 #include "config.h"
 #include "meta.h"
@@ -37,7 +39,7 @@ static int SearchMetadata (request_rec *req_p, apr_table_t *params_p, davrods_di
 
 static const APICall S_API_ACTIONS_P [] =
 {
-	{ "metadata", SearchMetadata },
+	{ "/metadata", SearchMetadata },
 	{ NULL, NULL }
 };
 
@@ -65,22 +67,27 @@ int DavrodsRestHandler (request_rec *req_p)
   				ap_args_to_table (req_p, &params_p);
 
   				/*
-  				 * Parse the uri from req_p -> uri to get the API call
+  				 * Parse the uri from req_p -> path_info to get the API call
   				 */
   				const APICall *call_p = S_API_ACTIONS_P;
 
-  				while (call_p -> ac_action_s != NULL)
+  				while ((call_p != NULL) && (call_p -> ac_action_s != NULL))
   					{
   						size_t l = strlen (call_p -> ac_action_s);
 
-  						if ((strncmp (req_p -> uri, call_p -> ac_action_s, l) == 0) && ((* (req_p -> uri) + l) == '/'))
+  						if (strncmp (req_p -> path_info, call_p -> ac_action_s, l) == 0)
   							{
   								res = call_p -> ac_callback_fn (req_p, params_p, config_p);
 
   								/* force exit from loop */
   								call_p = NULL;
   							}
-  					}
+  						else
+  							{
+  								++ call_p;
+  							}
+
+  					}		/* while (call_p -> ac_action_s != NULL) */
 
 
   				if (!apr_is_empty_table (params_p))
@@ -111,11 +118,31 @@ static int SearchMetadata (request_rec *req_p, apr_table_t *params_p, davrods_di
 			if (value_s)
 				{
 			    /* Get the iRods connection */
-					rcComm_t *rods_connection_p = GetIRodsConnection (req_p);
+					rcComm_t *rods_connection_p = NULL;
+					const char *username_s = req_p -> user;
 
-					if (rods_connection_p)
+					if (username_s)
 						{
-							DoMetadataSearch (key_s, value_s, req_p -> pool, rods_connection_p, req_p -> connection -> bucket_alloc, config_p);
+							const char *password_s = NULL;
+
+							res = ap_get_basic_auth_pw (req_p, &password_s);
+
+							if (res == OK)
+								{
+									authn_status status = GetIRodsConnection (req_p, &rods_connection_p, username_s, password_s);
+
+									if (rods_connection_p)
+										{
+											const char *relative_uri_s = "metadata search results";
+											char *result_s = DoMetadataSearch (key_s, value_s, rods_connection_p -> clientUser.userName, relative_uri_s, req_p -> pool, rods_connection_p, req_p -> connection -> bucket_alloc, config_p, req_p);
+
+											if (result_s)
+												{
+													ap_rputs (result_s, req_p);
+												}
+											res = OK;
+										}
+								}
 						}
 				}
 

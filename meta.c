@@ -378,7 +378,7 @@ static int AddWhereClausesToQuery (genQueryInp_t *query_p, const int *where_colu
 
 
 
-void DoMetadataSearch (const char * const key_s, const char *value_s, apr_pool_t *pool_p, rcComm_t *connection_p, struct apr_bucket_alloc_t *bucket_allocator_p, davrods_dir_conf_t *conf_p)
+char *DoMetadataSearch (const char * const key_s, const char *value_s, const char * const username_s, const char * const relative_uri_s, apr_pool_t *pool_p, rcComm_t *connection_p, struct apr_bucket_alloc_t *bucket_allocator_p, davrods_dir_conf_t *conf_p, request_rec *req_p)
 {
     /*
      * SELECT meta_id FROM r_meta_main WHERE meta_attr_name = ' ' AND meta_attr_value = ' ';
@@ -399,12 +399,17 @@ void DoMetadataSearch (const char * const key_s, const char *value_s, apr_pool_t
 	int select_columns_p [] =  { COL_META_DATA_ATTR_ID, -1};
 	genQueryInp_t meta_id_query;
 	genQueryOut_t *meta_id_results_p = NULL;
+	struct HtmlTheme *theme_p = & (conf_p -> theme);
+
 
 	// Make brigade.
-	apr_bucket_brigade *buckets_p = apr_brigade_create (pool_p, bucket_allocator_p);
+	apr_bucket_brigade *bucket_brigade_p = apr_brigade_create (pool_p, bucket_allocator_p);
 	apr_bucket *bucket_p;
 
 	InitGenQuery (&meta_id_query);
+
+	apr_status_t apr_status = PrintAllHTMLBeforeListing (theme_p, relative_uri_s, username_s, conf_p -> rods_zone, req_p, bucket_brigade_p, pool_p);
+
 
 	/*
 	 * SELECT meta_id FROM r_meta_main WHERE meta_attr_name = ' ' AND meta_attr_value = ' ';
@@ -460,31 +465,18 @@ void DoMetadataSearch (const char * const key_s, const char *value_s, apr_pool_t
 															/* we have a data id match */
 															if (data_id_results_p -> attriCnt == num_select_columns)
 																{
-																	char *res_s = data_id_results_p -> sqlResult [0].value;
-																	const int attr_length = data_id_results_p -> sqlResult [0].len;
-
-																	const char *path_s = res_s;
-																	const char *owner_s = NULL;
+																	sqlResult_t *sql_p = data_id_results_p -> sqlResult;
+																	const char *path_s = sql_p -> value;
+																	const char *owner_s = (++ sql_p) -> value;
+																	const char *modified_s = (++ sql_p) -> value;
+																	const char *size_s = (++ sql_p) -> value;
 																	const char *collection_s = NULL;
-																	const char *modified_s = NULL;
 																	rodsLong_t size = 0;
-																	struct HtmlTheme *theme_p = NULL;
-
-																	path_s = res_s;
-
-																	res_s += attr_length;
-																	owner_s = res_s;
-
-																	res_s += attr_length;
-																	collection_s = res_s;
-
-																	res_s += attr_length;
-																	modified_s = res_s;
 
 																	/* Convert size string to rodsLong_t */
 																	size = 0;
 
-																	int success_code = PrintItem (& (conf_p -> theme), DATA_OBJ_T, id_s, path_s, collection_s, owner_s, modified_s, size, buckets_p, pool_p, connection_p);
+																	int success_code = PrintItem (theme_p, DATA_OBJ_T, id_s, path_s, collection_s, owner_s, modified_s, size, bucket_brigade_p, pool_p, connection_p);
 																}
 														}
 
@@ -535,6 +527,16 @@ void DoMetadataSearch (const char * const key_s, const char *value_s, apr_pool_t
 						}
 				}
 		}
+
+
+	apr_status = PrintAllHTMLAfterListing (theme_p, req_p, bucket_brigade_p, pool_p);
+
+
+	char *result_s = NULL;
+	apr_size_t result_length = 0;
+	apr_status = apr_brigade_pflatten (bucket_brigade_p, &result_s, &result_length, pool_p);
+
+	return result_s;
 }
 
 
