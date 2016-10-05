@@ -14,12 +14,12 @@
 /************************************/
 
 
-static int GetAndAddMetadata (const objType_t object_type, const char *id_s, const char *coll_name_s, apr_bucket_brigade *bb_p, rcComm_t *cononection_p, apr_pool_t *pool_p);
+static int GetAndAddMetadata (const objType_t object_type, const char *id_s, const char *coll_name_s, const char * const link_s, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p);
 
 static int GetAndAddMetadataForCollEntry (const collEnt_t *entry_p, apr_bucket_brigade *bb_p, const dav_resource *resource_p, apr_pool_t *pool_p);
 
 
-static int PrintMetadata (apr_bucket_brigade *bb_p, IrodsMetadata **metadata_pp, int size);
+static int PrintMetadata (apr_bucket_brigade *bb_p, IrodsMetadata **metadata_pp, int size, const char *link_s);
 
 static int CompareIrodsMetadata (const void *v0_p, const void *v1_p);
 
@@ -95,7 +95,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 					if (status >= 0)
 						{
-							int success_code = PrintItem (theme_p, coll_entry.objType, coll_entry.dataId, coll_entry.dataName, coll_entry.collName, coll_entry.ownerName, coll_entry.modifyTime, coll_entry.dataSize, bucket_brigade_p, pool_p, resource_p -> info -> rods_conn);
+							int success_code = PrintItem (theme_p, coll_entry.objType, coll_entry.dataId, coll_entry.dataName, coll_entry.collName, coll_entry.ownerName, coll_entry.modifyTime, coll_entry.dataSize, conf_p -> davrods_root_path_s, conf_p -> davrods_api_path_s, bucket_brigade_p, pool_p, resource_p -> info -> rods_conn);
 						}
 					else
 						{
@@ -290,7 +290,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * 
 
 
 
-int PrintItem (struct HtmlTheme *theme_p, const objType_t obj_type, const char *id_s, const char * const data_s, const char *collection_s, const char * const owner_name_s, const char *last_modified_time_s, const rodsLong_t size, apr_bucket_brigade *bb_p, apr_pool_t *pool_p, rcComm_t *connection_p)
+int PrintItem (struct HtmlTheme *theme_p, const objType_t obj_type, const char *id_s, const char * const data_s, const char *collection_s, const char * const owner_name_s, const char *last_modified_time_s, const rodsLong_t size, const char *root_path_s, const char * const link_s, apr_bucket_brigade *bb_p, apr_pool_t *pool_p, rcComm_t *connection_p)
 {
 	int success_code = 0;
 	const char *alt_s = NULL;
@@ -327,7 +327,8 @@ int PrintItem (struct HtmlTheme *theme_p, const objType_t obj_type, const char *
 				}
 
 			apr_brigade_printf(bb_p, NULL, NULL,
-					"<td class=\"name\"><a href=\"%s%s\">%s%s</a></td>",
+					"<td class=\"name\"><a href=\"%s%s%s\">%s%s</a></td>",
+					root_path_s ? root_path_s : "",
 					ap_escape_html(pool_p, ap_escape_uri (pool_p, name_s)),
 					link_suffix_s ? link_suffix_s : "",
 					ap_escape_html (pool_p, name_s),
@@ -388,7 +389,7 @@ int PrintItem (struct HtmlTheme *theme_p, const objType_t obj_type, const char *
 
 	if (theme_p -> ht_show_metadata)
 		{
-			if (GetAndAddMetadata (obj_type, id_s, collection_s, bb_p, connection_p, pool_p) != 0)
+			if (GetAndAddMetadata (obj_type, id_s, collection_s, link_s, bb_p, connection_p, pool_p) != 0)
 				{
 
 				}
@@ -402,14 +403,15 @@ int PrintItem (struct HtmlTheme *theme_p, const objType_t obj_type, const char *
 
 static int GetAndAddMetadataForCollEntry (const collEnt_t *entry_p, apr_bucket_brigade *bb_p, const dav_resource *resource_p, apr_pool_t *pool_p)
 {
-	return GetAndAddMetadata (entry_p -> objType, entry_p -> dataId, entry_p -> collName, bb_p, resource_p -> info -> rods_conn, pool_p);
+	dav_resource_private *res_p = (dav_resource_private *) (resource_p -> info);
+	return GetAndAddMetadata (entry_p -> objType, entry_p -> dataId, entry_p -> collName, res_p -> conf -> davrods_api_path_s, bb_p, res_p -> rods_conn, pool_p);
 }
 
 
-static int GetAndAddMetadata (const objType_t object_type, const char *id_s, const char *coll_name_s, apr_bucket_brigade *bb_p, rcComm_t *cononection_p, apr_pool_t *pool_p)
+static int GetAndAddMetadata (const objType_t object_type, const char *id_s, const char *coll_name_s, const char * const link_s, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p)
 {
 	int status = -1;
-	apr_array_header_t *metadata_array_p = GetMetadata (cononection_p, object_type, id_s, coll_name_s, pool_p);
+	apr_array_header_t *metadata_array_p = GetMetadata (connection_p, object_type, id_s, coll_name_s, pool_p);
 
 	apr_brigade_puts (bb_p, NULL, NULL, "<td class=\"metadata\">");
 
@@ -436,7 +438,7 @@ static int GetAndAddMetadata (const objType_t object_type, const char *id_s, con
 
 							md_pp = metadata_pp;
 
-							status = PrintMetadata (bb_p, metadata_pp, metadata_array_p -> nelts);
+							status = PrintMetadata (bb_p, metadata_pp, metadata_array_p -> nelts, link_s);
 
 						}		/* if (metadata_pp) */
 
@@ -450,7 +452,7 @@ static int GetAndAddMetadata (const objType_t object_type, const char *id_s, con
 }
 
 
-static int PrintMetadata (apr_bucket_brigade *bb_p, IrodsMetadata **metadata_pp, int size)
+static int PrintMetadata (apr_bucket_brigade *bb_p, IrodsMetadata **metadata_pp, int size, const char *link_s)
 {
 	int status = 0;
 	apr_status_t apr_stat = apr_brigade_puts (bb_p, NULL, NULL, "<ul class=\"metadata\">");
@@ -461,12 +463,26 @@ static int PrintMetadata (apr_bucket_brigade *bb_p, IrodsMetadata **metadata_pp,
 				{
 					const IrodsMetadata *metadata_p = *metadata_pp;
 
-					apr_brigade_printf (bb_p, NULL, NULL, "<li><span class=\"key\">%s</span>: <span class=\"value\">%s</span>", metadata_p -> im_key_s, metadata_p -> im_value_s);
+					apr_brigade_puts (bb_p, NULL, NULL, "<li>");
+
+					if (link_s)
+						{
+							apr_brigade_printf (bb_p, NULL, NULL, "<a href=\"%s?key=%s&value=%s\">", link_s, metadata_p -> im_key_s, metadata_p -> im_value_s);
+						}
+
+					apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"key\">%s</span>: <span class=\"value\">%s</span>", metadata_p -> im_key_s, metadata_p -> im_value_s);
 
 					if (metadata_p -> im_units_s)
 						{
 							apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"units\">%s</span>", metadata_p -> im_units_s);
 						}
+
+
+					if (link_s)
+						{
+							apr_brigade_puts (bb_p, NULL, NULL, "</a>");
+						}
+
 
 					apr_brigade_puts (bb_p, NULL, NULL, "</li>");
 				}

@@ -32,7 +32,7 @@ static void register_davrods_hooks(apr_pool_t *p) {
     davrods_auth_register(p);
     davrods_dav_register(p);
 
-    ap_hook_handler (DavrodsRestHandler, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_handler (DavrodsRestHandler, NULL, NULL, APR_HOOK_FIRST);
 }
 
 module AP_MODULE_DECLARE_DATA davrods_module = {

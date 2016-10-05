@@ -74,7 +74,8 @@ void *davrods_create_dir_config(apr_pool_t *p, char *dir) {
         // a temporary password more than once).
         conf->rods_auth_ttl          = 1; // In hours.
 
-
+        conf -> davrods_root_path_s = NULL;
+        conf -> davrods_api_path_s = NULL;
         conf -> themed_listings = 0;
         InitHtmlTheme (& (conf -> theme));
     }
@@ -113,6 +114,8 @@ void *davrods_merge_dir_config(apr_pool_t *p, void *_parent, void *_child) {
     DAVRODS_PROP_MERGE(locallock_lockdb_path);
 
 
+    DAVRODS_PROP_MERGE(davrods_root_path_s);
+    DAVRODS_PROP_MERGE(davrods_api_path_s);
     DAVRODS_PROP_MERGE(themed_listings);
     DAVRODS_PROP_MERGE(theme.ht_head_s);
     DAVRODS_PROP_MERGE(theme.ht_top_s);
@@ -434,6 +437,24 @@ static const char *cmd_davrods_html_themed_listings (cmd_parms *cmd_p, void *con
     return NULL;
 }
 
+static const char *cmd_davrods_root_path (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> davrods_root_path_s = arg_p;
+
+    return NULL;
+}
+
+static const char *cmd_davrods_api_path (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> davrods_api_path_s = arg_p;
+
+    return NULL;
+}
+
 static const char *cmd_davrods_html_add_icon (cmd_parms *cmd_p, void *config_p, const char *icon_s, const char *suffix_s)
 {
   davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
@@ -550,6 +571,16 @@ const command_rec davrods_directives[] = {
 				NULL, ACCESS_CONF, "Set the location for the REST API to be available at"
 		),
 
+		AP_INIT_TAKE1(
+				DAVRODS_CONFIG_PREFIX "RootPath", cmd_davrods_root_path,
+				NULL, ACCESS_CONF, "Set the location used  as a prefix by the Rest api results. This should match the <Location> where davrods is active"
+		),
 
-										 { NULL }
+		AP_INIT_TAKE1(
+				DAVRODS_CONFIG_PREFIX "APIPath", cmd_davrods_api_path,
+				NULL, ACCESS_CONF, "Set the location used for the Rest api. This should match the <Location> where the davrods Rest API is active"
+		),
+
+
+		{ NULL }
 };

@@ -66,6 +66,9 @@ typedef struct {
     int themed_listings;
     struct HtmlTheme theme;
 
+
+    const char *davrods_root_path_s;
+    const char *davrods_api_path_s;
 } davrods_dir_conf_t;
 
 extern const command_rec davrods_directives[];

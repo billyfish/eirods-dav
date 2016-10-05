@@ -19,10 +19,12 @@
 #include "auth.h"
 
 
+struct APICall;
+
 typedef struct APICall
 {
 	const char *ac_action_s;
-	int (*ac_callback_fn) (request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p);
+	int (*ac_callback_fn) (const struct APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p);
 } APICall;
 
 
@@ -30,7 +32,7 @@ typedef struct APICall
  * STATIC DECLARATIONS
  */
 
-static int SearchMetadata (request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p);
+static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p);
 
 
 /*
@@ -39,7 +41,7 @@ static int SearchMetadata (request_rec *req_p, apr_table_t *params_p, davrods_di
 
 static const APICall S_API_ACTIONS_P [] =
 {
-	{ "/metadata", SearchMetadata },
+	{ "metadata", SearchMetadata },
 	{ NULL, NULL }
 };
 
@@ -53,49 +55,59 @@ int DavrodsRestHandler (request_rec *req_p)
 {
 	int res = DECLINED;
 
-  /* First off, we need to check if this is a call for the davrods rest handler.
+  /* Normally we would check if this is a call for the davrods rest handler,
+   * but dav-handler will have gotten there first. So check it against our path
+   * and see if we are interested in it.
    * If it is, we accept it and do our things, it not, we simply return DECLINED,
    * and Apache will try somewhere else.
    */
-  if ((req_p -> handler) && (strcmp (req_p -> handler, "davrods-rest-handler") == 0))
-  	{
-  		if ((req_p -> method_number == M_GET) || (req_p -> method_number == M_POST))
-  			{
-  				davrods_dir_conf_t *config_p = ap_get_module_config (req_p -> per_dir_config, &davrods_module);
-  				apr_table_t *params_p = NULL;
+	if ((req_p -> method_number == M_GET) || (req_p -> method_number == M_POST))
+		{
+			davrods_dir_conf_t *config_p = ap_get_module_config (req_p -> per_dir_config, &davrods_module);
 
-  				ap_args_to_table (req_p, &params_p);
+			if (config_p -> davrods_api_path_s)
+				{
+					const size_t api_path_length = strlen (config_p -> davrods_api_path_s);
 
-  				/*
-  				 * Parse the uri from req_p -> path_info to get the API call
-  				 */
-  				const APICall *call_p = S_API_ACTIONS_P;
+					if ((config_p -> davrods_api_path_s) && (strncmp (config_p -> davrods_api_path_s, req_p -> path_info, api_path_length) == 0))
+						{
+							/*
+							 * Parse the uri from req_p -> path_info to get the API call
+							 */
+							const APICall *call_p = S_API_ACTIONS_P;
+							apr_table_t *params_p = NULL;
+							const char *path_s = (req_p -> path_info) + api_path_length;
 
-  				while ((call_p != NULL) && (call_p -> ac_action_s != NULL))
-  					{
-  						size_t l = strlen (call_p -> ac_action_s);
+							ap_args_to_table (req_p, &params_p);
 
-  						if (strncmp (req_p -> path_info, call_p -> ac_action_s, l) == 0)
-  							{
-  								res = call_p -> ac_callback_fn (req_p, params_p, config_p);
+							while ((call_p != NULL) && (call_p -> ac_action_s != NULL))
+								{
+									size_t l = strlen (call_p -> ac_action_s);
 
-  								/* force exit from loop */
-  								call_p = NULL;
-  							}
-  						else
-  							{
-  								++ call_p;
-  							}
+									if (strncmp (path_s, call_p -> ac_action_s, l) == 0)
+										{
+											res = call_p -> ac_callback_fn (call_p, req_p, params_p, config_p);
 
-  					}		/* while (call_p -> ac_action_s != NULL) */
+											/* force exit from loop */
+											call_p = NULL;
+										}
+									else
+										{
+											++ call_p;
+										}
+
+								}		/* while (call_p -> ac_action_s != NULL) */
 
 
-  				if (!apr_is_empty_table (params_p))
-  					{
-  						apr_table_clear (params_p);
-  					}
-  			}
-  	}
+							if (!apr_is_empty_table (params_p))
+								{
+									apr_table_clear (params_p);
+								}
+
+						}
+
+				}
+		}
 
   return res;
 }
@@ -106,7 +118,7 @@ int DavrodsRestHandler (request_rec *req_p)
  * STATIC DEFINITIONS
  */
 
-static int SearchMetadata (request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p)
+static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p)
 {
 	int res = DECLINED;
 	const char * const key_s = apr_table_get (params_p, "key");
