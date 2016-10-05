@@ -437,15 +437,6 @@ static const char *cmd_davrods_html_themed_listings (cmd_parms *cmd_p, void *con
     return NULL;
 }
 
-static const char *cmd_davrods_root_path (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-		conf_p -> davrods_root_path_s = arg_p;
-
-    return NULL;
-}
-
 static const char *cmd_davrods_api_path (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
     davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
@@ -566,19 +557,10 @@ const command_rec davrods_directives[] = {
     AP_INIT_ITERATE2 (DAVRODS_CONFIG_PREFIX "AddIcon", cmd_davrods_html_add_icon, NULL, ACCESS_CONF,
                      "an icon URL followed by one or more filenames"),
 
-		AP_INIT_TAKE1(
-				DAVRODS_CONFIG_PREFIX "HTMLRestAPI", cmd_davrods_html_rest_api_uri,
-				NULL, ACCESS_CONF, "Set the location for the REST API to be available at"
-		),
-
-		AP_INIT_TAKE1(
-				DAVRODS_CONFIG_PREFIX "RootPath", cmd_davrods_root_path,
-				NULL, ACCESS_CONF, "Set the location used  as a prefix by the Rest api results. This should match the <Location> where davrods is active"
-		),
 
 		AP_INIT_TAKE1(
 				DAVRODS_CONFIG_PREFIX "APIPath", cmd_davrods_api_path,
-				NULL, ACCESS_CONF, "Set the location used for the Rest api. This should match the <Location> where the davrods Rest API is active"
+				NULL, ACCESS_CONF, "Set the location used for the Rest api. This is relative to the <Location> that davrods is hosted on."
 		),
 
 
