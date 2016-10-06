@@ -428,27 +428,28 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 			if (meta_id_results_p -> attriCnt == 1)
 				{
 					int i;
+					const int meta_results_inc = meta_id_results_p -> sqlResult [0].len;
+					const char *meta_id_s = meta_id_results_p -> sqlResult [0].value;
 
 					/*
 					 * SELECT object_id FROM r_objt_metamap WHERE meta_id = ' ';
 					 */
 
-					for (i = 0; i < meta_id_results_p -> rowCnt; ++ i)
+					for (i = 0; i < meta_id_results_p -> rowCnt; meta_id_s += meta_results_inc)
 						{
 							/*
 							 * Get all of the matching collections first
 							 */
-
-							const char *meta_id_s = meta_id_results_p -> sqlResult [i].value;
 							int object_id_select_columns_p [] = { COL_COLL_ID, -1 };
 							genQueryOut_t *id_results_p;
-
 
 							where_columns_p [0] = COL_META_COLL_ATTR_ID;
 							where_values_ss [0] = meta_id_s;
 
 							/*
 							 * Get all of the matching collections
+							 *
+							 * SELECT object_id FROM r_objt_metamap WHERE meta_id = ' ';
 							 */
 
 							id_results_p = RunQuery (connection_p, object_id_select_columns_p, where_columns_p, where_values_ss, 1, pool_p);
@@ -460,13 +461,16 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 											int j;
 											int num_select_columns = 1;
 
+											/* we only searched for 1 attribute so we want the 1st result */
+											const char *id_s = id_results_p -> sqlResult[0].value;
+											const int inc = id_results_p -> sqlResult[0].len;
 											select_columns_p [0] = COL_COLL_NAME;
 											select_columns_p [1] = -1;
 
 											where_columns_p [0] = COL_COLL_ID;
 											num_where_columns = 1;
 
-											for (j = 0; j < id_results_p -> rowCnt; ++ j)
+											for (j = 0; j < id_results_p -> rowCnt; ++ j, id_s += inc)
 												{
 													/*
 													 *
@@ -478,54 +482,38 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 													 * 		SELECT coll_name FROM r_coll_main WHERE coll_id = '10001';
 													 *
 													 */
-													const char *id_s = id_results_p -> sqlResult [j].value;
 
-													/*
-													 * On my test system I somehow manage to get a row full of 0 entries
-													 *
-													 * 		(gdb) p *collection_id_results_p
-													 * 		$16 = {rowCnt = 2, attriCnt = 1, continueInx = 0, totalRowCount = 0, sqlResult = {{attriInx = 401, len = 50, value = 0x7fffd000fc20 "10002"}, {attriInx = 0, len = 0, value = 0x0} <repeats 49 times>}}
-													 * 		(gdb) p collection_id_results_p -> sqlResult [0]
-													 *		$17 = {attriInx = 401, len = 50, value = 0x7fffd000fc20 "10002"}
-													 * 		(gdb) p collection_id_results_p -> sqlResult [1]
-													 * 		$18 = {attriInx = 0, len = 0, value = 0x0}
-													 *
-													 * so explicitly check that the value is valid.
-													 */
-													if (id_s)
+													genQueryOut_t *collection_name_results_p = NULL;
+
+													where_values_ss [0] = id_s;
+
+													collection_name_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, num_where_columns, pool_p);
+
+													if (collection_name_results_p)
 														{
-															genQueryOut_t *collection_name_results_p = NULL;
-
-															where_values_ss [0] = id_s;
-
-															collection_name_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, num_where_columns, pool_p);
-
-															if (collection_name_results_p)
+															if (collection_name_results_p -> rowCnt > 0)
 																{
-																	if (collection_name_results_p -> rowCnt > 0)
+																	if (collection_name_results_p -> attriCnt == num_select_columns)
 																		{
-																			if (collection_name_results_p -> attriCnt == num_select_columns)
+																			const char *collection_s = collection_name_results_p -> sqlResult [0].value;
+																			rodsObjStat_t *stat_p;
+
+																			stat_p = GetObjectStat (collection_s, connection_p);
+
+																			if (stat_p)
 																				{
-																					const char *collection_s = collection_name_results_p -> sqlResult [0].value;
-																					rodsObjStat_t *stat_p;
+																					int success_code = PrintItem (theme_p, COLL_OBJ_T, id_s, collection_s, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize, conf_p -> davrods_root_path_s, conf_p -> davrods_api_path_s, bucket_brigade_p, pool_p, connection_p);
 
-																					stat_p = GetObjectStat (collection_s, connection_p);
+																					freeRodsObjStat (stat_p);
+																				}		/* if (stat_p) */
 
-																					if (stat_p)
-																						{
-																							int success_code = PrintItem (theme_p, COLL_OBJ_T, id_s, collection_s, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize, conf_p -> davrods_root_path_s, conf_p -> davrods_api_path_s, bucket_brigade_p, pool_p, connection_p);
+																		}		/* if (collection_name_results_p -> attriCnt == num_select_columns) */
 
-																							freeRodsObjStat (stat_p);
-																						}		/* if (stat_p) */
+																}		/* if (collection_name_results_p -> rowCnt > 0) */
 
-																				}		/* if (collection_name_results_p -> attriCnt == num_select_columns) */
+															freeGenQueryOut (&collection_name_results_p);
+														}		/* if (collection_name_results_p) */
 
-																		}		/* if (collection_name_results_p -> rowCnt > 0) */
-
-																	freeGenQueryOut (&collection_name_results_p);
-																}		/* if (collection_name_results_p) */
-
-														}		/* if (id_s) */
 
 
 												}		/* for (j = 0; j < id_results_p -> rowCnt; ++ j) */
@@ -552,100 +540,94 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 										{
 											int j;
 
+											/* we only searched for 1 attribute so we want the 1st result */
+											const char *id_s = id_results_p -> sqlResult [0].value;
+											const int inc = id_results_p -> sqlResult [0].len;
 											int num_select_columns = 2;
 											select_columns_p [0] = COL_DATA_NAME;
 											select_columns_p [1] = COL_D_COLL_ID;
 
 											where_columns_p [0] = COL_D_DATA_ID;
 
-											for (j = 0; j < id_results_p -> rowCnt; ++ j)
+											for (j = 0; j < id_results_p -> rowCnt; ++ j, id_s += inc)
 												{
-													const char *id_s = id_results_p -> sqlResult [j].value;
+													genQueryOut_t *data_id_results_p = NULL;
+
+													where_values_ss [0] = id_s;
 
 													/*
-													 * Same as for the collection results, check that the sqlResult
-													 * is not empty
+													 * Testing as data object id.
+													 *
+													 * 		SELECT data_name FROM r_data_main where data_id = 10001;
+													 *
 													 */
-													if (id_s)
+													data_id_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, 1, pool_p);
+
+													if (data_id_results_p)
 														{
-															genQueryOut_t *data_id_results_p = NULL;
-
-															where_values_ss [0] = id_s;
-
-															/*
-															 * Testing as data object id.
-															 *
-															 * 		SELECT data_name FROM r_data_main where data_id = 10001;
-															 *
-															 */
-															data_id_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, 1, pool_p);
-
-															if (data_id_results_p)
+															if (data_id_results_p -> rowCnt == 1)
 																{
-																	if (data_id_results_p -> rowCnt == 1)
+																	/* we have a data id match */
+																	if (data_id_results_p -> attriCnt == num_select_columns)
 																		{
-																			/* we have a data id match */
-																			if (data_id_results_p -> attriCnt == num_select_columns)
+																			sqlResult_t *sql_p = data_id_results_p -> sqlResult;
+																			const char *data_name_s = sql_p -> value;
+																			const char *coll_id_s = (++ sql_p) -> value;
+																			genQueryOut_t *coll_id_results_p = NULL;
+
+																			/*
+																			 * We have the local data object name, we now need to get the collection name
+																			 * and join the two together
+																			 */
+																			select_columns_p [0] = COL_COLL_NAME;
+																			select_columns_p [1] = -1;
+																			num_select_columns = 1;
+
+																			where_values_ss [0] = coll_id_s;
+																			where_columns_p [0] = COL_COLL_ID;
+																			num_where_columns = 1;
+
+																			coll_id_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, num_where_columns, pool_p);
+
+																			if (coll_id_results_p)
 																				{
-																					sqlResult_t *sql_p = data_id_results_p -> sqlResult;
-																					const char *data_name_s = sql_p -> value;
-																					const char *coll_id_s = (++ sql_p) -> value;
-																					genQueryOut_t *coll_id_results_p = NULL;
-
-																					/*
-																					 * We have the local data object name, we now need to get the collection name
-																					 * and join the two together
-																					 */
-																					select_columns_p [0] = COL_COLL_NAME;
-																					select_columns_p [1] = -1;
-																					num_select_columns = 1;
-
-																					where_values_ss [0] = coll_id_s;
-																					where_columns_p [0] = COL_COLL_ID;
-																					num_where_columns = 1;
-
-																					coll_id_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, num_where_columns, pool_p);
-
-																					if (coll_id_results_p)
+																					if (coll_id_results_p -> rowCnt == 1)
 																						{
-																							if (coll_id_results_p -> rowCnt == 1)
+																							/* we have a coll id match */
+																							if (coll_id_results_p -> attriCnt == num_select_columns)
 																								{
-																									/* we have a coll id match */
-																									if (coll_id_results_p -> attriCnt == num_select_columns)
+																									const char *collection_s = coll_id_results_p -> sqlResult [0].value;
+																									char *irods_data_path_s = apr_pstrcat (pool_p, collection_s, "/", data_name_s, NULL);
+
+																									if (irods_data_path_s)
 																										{
-																											const char *collection_s = coll_id_results_p -> sqlResult [0].value;
-																											char *irods_data_path_s = apr_pstrcat (pool_p, collection_s, "/", data_name_s, NULL);
+																											rodsObjStat_t *stat_p;
 
-																											if (irods_data_path_s)
+																											stat_p = GetObjectStat (irods_data_path_s, connection_p);
+
+																											if (stat_p)
 																												{
-																													rodsObjStat_t *stat_p;
+																													int success_code = PrintItem (theme_p, DATA_OBJ_T, id_s, data_name_s, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize, conf_p -> davrods_root_path_s, conf_p -> davrods_api_path_s, bucket_brigade_p, pool_p, connection_p);
+																													freeRodsObjStat (stat_p);
+																												}
 
-																													stat_p = GetObjectStat (irods_data_path_s, connection_p);
+																										}		/* if (irods_data_path_s) */
 
-																													if (stat_p)
-																														{
-																															int success_code = PrintItem (theme_p, DATA_OBJ_T, id_s, data_name_s, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize, conf_p -> davrods_root_path_s, conf_p -> davrods_api_path_s, bucket_brigade_p, pool_p, connection_p);
-																															freeRodsObjStat (stat_p);
-																														}
+																								}		/* if (coll_id_results_p -> attriCnt == num_select_columns) */
 
-																												}		/* if (irods_data_path_s) */
+																						}		/* if (coll_id_results_p -> rowCnt == 1) */
 
-																										}		/* if (coll_id_results_p -> attriCnt == num_select_columns) */
+																					freeGenQueryOut (&coll_id_results_p);
+																				}		/* if (coll_id_results_p) */
 
-																								}		/* if (coll_id_results_p -> rowCnt == 1) */
+																		}
 
-																							freeGenQueryOut (&coll_id_results_p);
-																						}		/* if (coll_id_results_p) */
+																}		/* if (data_id_results_p -> rowCnt == 1) */
 
-																				}
-
-																		}		/* if (data_id_results_p -> rowCnt == 1) */
-
-																	freeGenQueryOut (&data_id_results_p);
-																}		/* if (data_id_results_p) */
+															freeGenQueryOut (&data_id_results_p);
+														}		/* if (data_id_results_p) */
 
 
-														}		/* if (id_s) */
 
 												}		/* for (j = 0; j < id_results_p -> rowCnt; ++ j) */
 
