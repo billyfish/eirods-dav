@@ -14,6 +14,8 @@
 #include "rodsConnect.h"
 
 
+#define REST_METADATA_PATH_S ("metadata")
+
 
 int DavrodsRestHandler (request_rec *req_p);
 

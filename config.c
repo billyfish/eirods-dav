@@ -74,7 +74,6 @@ void *davrods_create_dir_config(apr_pool_t *p, char *dir) {
         // a temporary password more than once).
         conf->rods_auth_ttl          = 1; // In hours.
 
-        conf -> davrods_root_path_s = NULL;
         conf -> davrods_api_path_s = NULL;
         conf -> themed_listings = 0;
         InitHtmlTheme (& (conf -> theme));
@@ -113,8 +112,6 @@ void *davrods_merge_dir_config(apr_pool_t *p, void *_parent, void *_child) {
     DAVRODS_PROP_MERGE(tmpfile_rollback);
     DAVRODS_PROP_MERGE(locallock_lockdb_path);
 
-
-    DAVRODS_PROP_MERGE(davrods_root_path_s);
     DAVRODS_PROP_MERGE(davrods_api_path_s);
     DAVRODS_PROP_MERGE(themed_listings);
     DAVRODS_PROP_MERGE(theme.ht_head_s);
@@ -550,7 +547,6 @@ const command_rec davrods_directives[] = {
 				DAVRODS_CONFIG_PREFIX "APIPath", cmd_davrods_api_path,
 				NULL, ACCESS_CONF, "Set the location used for the Rest api. This is relative to the <Location> that davrods is hosted on."
 		),
-
 
 		{ NULL }
 };

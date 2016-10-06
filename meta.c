@@ -14,7 +14,7 @@
 #include "repo.h"
 #include "meta.h"
 #include "common.h"
-
+#include "rest.h"
 
 /*************************************/
 
@@ -386,7 +386,7 @@ static int AddWhereClausesToQuery (genQueryInp_t *query_p, const int *where_colu
 
 
 
-char *DoMetadataSearch (const char * const key_s, const char *value_s, const char * const username_s, const char * const relative_uri_s, apr_pool_t *pool_p, rcComm_t *connection_p, struct apr_bucket_alloc_t *bucket_allocator_p, davrods_dir_conf_t *conf_p, request_rec *req_p)
+char *DoMetadataSearch (const char * const key_s, const char *value_s, const char * const username_s, const char * const relative_uri_s, apr_pool_t *pool_p, rcComm_t *connection_p, struct apr_bucket_alloc_t *bucket_allocator_p, davrods_dir_conf_t *conf_p, request_rec *req_p, const char *davrods_path_s)
 {
     /*
      * SELECT meta_id FROM r_meta_main WHERE meta_attr_name = ' ' AND meta_attr_value = ' ';
@@ -431,11 +431,13 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 					const int meta_results_inc = meta_id_results_p -> sqlResult [0].len;
 					const char *meta_id_s = meta_id_results_p -> sqlResult [0].value;
 
+					char *link_s = apr_pstrcat (pool_p, davrods_path_s, conf_p -> davrods_api_path_s, REST_METADATA_PATH_S, NULL);
+
 					/*
 					 * SELECT object_id FROM r_objt_metamap WHERE meta_id = ' ';
 					 */
 
-					for (i = 0; i < meta_id_results_p -> rowCnt; meta_id_s += meta_results_inc)
+					for (i = 0; i < meta_id_results_p -> rowCnt; ++ i, meta_id_s += meta_results_inc)
 						{
 							/*
 							 * Get all of the matching collections first
@@ -502,7 +504,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 
 																			if (stat_p)
 																				{
-																					int success_code = PrintItem (theme_p, COLL_OBJ_T, id_s, collection_s, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize, conf_p -> davrods_root_path_s, conf_p -> davrods_api_path_s, bucket_brigade_p, pool_p, connection_p);
+																					int success_code = PrintItem (theme_p, COLL_OBJ_T, id_s, collection_s, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize, davrods_path_s, link_s, bucket_brigade_p, pool_p, connection_p);
 
 																					freeRodsObjStat (stat_p);
 																				}		/* if (stat_p) */
@@ -544,8 +546,10 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 											const char *id_s = id_results_p -> sqlResult [0].value;
 											const int inc = id_results_p -> sqlResult [0].len;
 											int num_select_columns = 2;
+
 											select_columns_p [0] = COL_DATA_NAME;
 											select_columns_p [1] = COL_D_COLL_ID;
+											select_columns_p [2] = -1;
 
 											where_columns_p [0] = COL_D_DATA_ID;
 
@@ -555,10 +559,12 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 
 													where_values_ss [0] = id_s;
 
+													num_select_columns = 2;
+
 													/*
 													 * Testing as data object id.
 													 *
-													 * 		SELECT data_name FROM r_data_main where data_id = 10001;
+													 * 		SELECT data_name, coll_id FROM r_data_main where data_id = 10001;
 													 *
 													 */
 													data_id_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, 1, pool_p);
@@ -574,27 +580,24 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 																			const char *data_name_s = sql_p -> value;
 																			const char *coll_id_s = (++ sql_p) -> value;
 																			genQueryOut_t *coll_id_results_p = NULL;
+																			int coll_id_select_columns_p [] = { COL_COLL_NAME, -1 };
+																			int num_coll_id_select_columns = 1;
+																			int coll_id_where_columns_p [] = { COL_COLL_ID };
+																			char *coll_id_where_values_ss [] = { coll_id_s };
+																			int num_coll_id_where_columns = 1;
 
 																			/*
 																			 * We have the local data object name, we now need to get the collection name
 																			 * and join the two together
 																			 */
-																			select_columns_p [0] = COL_COLL_NAME;
-																			select_columns_p [1] = -1;
-																			num_select_columns = 1;
-
-																			where_values_ss [0] = coll_id_s;
-																			where_columns_p [0] = COL_COLL_ID;
-																			num_where_columns = 1;
-
-																			coll_id_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, num_where_columns, pool_p);
+																			coll_id_results_p = RunQuery (connection_p, coll_id_select_columns_p, coll_id_where_columns_p, coll_id_where_values_ss, num_coll_id_where_columns, pool_p);
 
 																			if (coll_id_results_p)
 																				{
 																					if (coll_id_results_p -> rowCnt == 1)
 																						{
 																							/* we have a coll id match */
-																							if (coll_id_results_p -> attriCnt == num_select_columns)
+																							if (coll_id_results_p -> attriCnt == num_coll_id_select_columns)
 																								{
 																									const char *collection_s = coll_id_results_p -> sqlResult [0].value;
 																									char *irods_data_path_s = apr_pstrcat (pool_p, collection_s, "/", data_name_s, NULL);
@@ -607,7 +610,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 
 																											if (stat_p)
 																												{
-																													int success_code = PrintItem (theme_p, DATA_OBJ_T, id_s, data_name_s, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize, conf_p -> davrods_root_path_s, conf_p -> davrods_api_path_s, bucket_brigade_p, pool_p, connection_p);
+																													int success_code = PrintItem (theme_p, DATA_OBJ_T, id_s, data_name_s, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize, davrods_path_s, link_s, bucket_brigade_p, pool_p, connection_p);
 																													freeRodsObjStat (stat_p);
 																												}
 

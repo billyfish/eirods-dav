@@ -7,9 +7,11 @@
 
 #include <stdlib.h>
 
+#define ALLOC_REST_PATHS
 #include "rest.h"
 
 #include "apr_tables.h"
+#include "apr_strings.h"
 #include "util_script.h"
 #include "http_protocol.h"
 
@@ -24,7 +26,7 @@ struct APICall;
 typedef struct APICall
 {
 	const char *ac_action_s;
-	int (*ac_callback_fn) (const struct APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p);
+	int (*ac_callback_fn) (const struct APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s);
 } APICall;
 
 
@@ -32,7 +34,7 @@ typedef struct APICall
  * STATIC DECLARATIONS
  */
 
-static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p);
+static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s);
 
 
 /*
@@ -41,7 +43,7 @@ static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_
 
 static const APICall S_API_ACTIONS_P [] =
 {
-	{ "metadata", SearchMetadata },
+	{ REST_METADATA_PATH_S, SearchMetadata },
 	{ NULL, NULL }
 };
 
@@ -77,6 +79,15 @@ int DavrodsRestHandler (request_rec *req_p)
 							const APICall *call_p = S_API_ACTIONS_P;
 							apr_table_t *params_p = NULL;
 							const char *path_s = (req_p -> path_info) + api_path_length;
+							char *davrods_path_s = NULL;
+
+							/* Get the Location path where davrods is hosted */
+							const char *ptr = strstr (req_p -> uri, config_p -> davrods_api_path_s);
+
+							if (ptr)
+								{
+									davrods_path_s = apr_pstrmemdup (req_p -> pool, req_p -> uri, ptr - (req_p -> uri));
+								}
 
 							ap_args_to_table (req_p, &params_p);
 
@@ -86,7 +97,7 @@ int DavrodsRestHandler (request_rec *req_p)
 
 									if (strncmp (path_s, call_p -> ac_action_s, l) == 0)
 										{
-											res = call_p -> ac_callback_fn (call_p, req_p, params_p, config_p);
+											res = call_p -> ac_callback_fn (call_p, req_p, params_p, config_p, davrods_path_s);
 
 											/* force exit from loop */
 											call_p = NULL;
@@ -118,7 +129,7 @@ int DavrodsRestHandler (request_rec *req_p)
  * STATIC DEFINITIONS
  */
 
-static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p)
+static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s)
 {
 	int res = DECLINED;
 	const char * const key_s = apr_table_get (params_p, "key");
@@ -148,7 +159,7 @@ static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_
 											apr_pool_t *pool_p = req_p -> pool;
 											char *relative_uri_s = apr_pstrcat (pool_p, "metadata search results for ", key_s, ":", value_s, NULL);
 
-											char *result_s = DoMetadataSearch (key_s, value_s, rods_connection_p -> clientUser.userName, relative_uri_s, pool_p, rods_connection_p, req_p -> connection -> bucket_alloc, config_p, req_p);
+											char *result_s = DoMetadataSearch (key_s, value_s, rods_connection_p -> clientUser.userName, relative_uri_s, pool_p, rods_connection_p, req_p -> connection -> bucket_alloc, config_p, req_p, davrods_path_s);
 
 											if (result_s)
 												{

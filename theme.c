@@ -94,7 +94,8 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 					if (status >= 0)
 						{
-							int success_code = PrintItem (theme_p, coll_entry.objType, coll_entry.dataId, coll_entry.dataName, coll_entry.collName, coll_entry.ownerName, coll_entry.modifyTime, coll_entry.dataSize, conf_p -> davrods_root_path_s, conf_p -> davrods_api_path_s, bucket_brigade_p, pool_p, resource_p -> info -> rods_conn);
+							const char *davrods_root_path_s = "";
+							int success_code = PrintItem (theme_p, coll_entry.objType, coll_entry.dataId, coll_entry.dataName, coll_entry.collName, coll_entry.ownerName, coll_entry.modifyTime, coll_entry.dataSize, davrods_root_path_s, conf_p -> davrods_api_path_s, bucket_brigade_p, pool_p, resource_p -> info -> rods_conn);
 						}
 					else
 						{
