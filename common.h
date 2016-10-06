@@ -51,4 +51,8 @@ apr_pool_t *get_davrods_pool_from_req(request_rec *r);
 
 void davrods_dav_register(apr_pool_t *p);
 
+
+void CloseBucketsStream (apr_bucket_brigade *bucket_brigade_p);
+
+
 #endif /* _DAVRODS_COMMON_H_ */

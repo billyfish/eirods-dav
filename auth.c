@@ -461,7 +461,6 @@ authn_status GetIRodsConnection (request_rec *req_p, rcComm_t **connection_pp, c
 
 
 static authn_status check_rods(request_rec *req_p, const char *username, const char *password) {
-    int status;
 
     // Obtain davrods directory config.
     davrods_dir_conf_t *conf = ap_get_module_config(
@@ -469,6 +468,7 @@ static authn_status check_rods(request_rec *req_p, const char *username, const c
         &davrods_module
     );
     authn_status result = AUTH_USER_NOT_FOUND;
+    apr_pool_t *pool_p = NULL;
 
     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, req_p,
                   "Authenticating iRODS username '%s' using %s auth scheme.",
@@ -478,10 +478,9 @@ static authn_status check_rods(request_rec *req_p, const char *username, const c
                       : "Native"
                  );
 
-    void *m;
 
     // Get davrods memory pool.
-    apr_pool_t *pool_p = GetDavrodsMemoryPool (req_p);
+    pool_p = GetDavrodsMemoryPool (req_p);
 
     if (pool_p)
     	{

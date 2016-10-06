@@ -8,7 +8,7 @@
 #include "theme.h"
 #include "meta.h"
 #include "repo.h"
-
+#include "common.h"
 #include "config.h"
 
 /************************************/
@@ -82,7 +82,6 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 	// Make brigade.
 	apr_bucket_brigade *bucket_brigade_p = apr_brigade_create (pool_p, output_p -> c -> bucket_alloc);
-	apr_bucket *bkt;
 	apr_status_t apr_status = PrintAllHTMLBeforeListing (theme_p, davrods_resource_p -> relative_uri, user_s, conf_p -> rods_zone, req_p, bucket_brigade_p, pool_p);
 
 
@@ -124,9 +123,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 	PrintAllHTMLAfterListing (theme_p, req_p, bucket_brigade_p, pool_p);
 
-	bkt = apr_bucket_eos_create(output_p->c->bucket_alloc);
-
-	APR_BRIGADE_INSERT_TAIL(bucket_brigade_p, bkt);
+	CloseBucketsStream (bucket_brigade_p);
 
 	if ((status = ap_pass_brigade(output_p, bucket_brigade_p)) != APR_SUCCESS)
 		{

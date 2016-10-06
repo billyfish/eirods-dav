@@ -1037,7 +1037,6 @@ static dav_error *deliver_directory(
     // Make brigade.
     apr_pool_t         *pool = resource->pool;
     apr_bucket_brigade *bb = apr_brigade_create(pool, output->c->bucket_alloc);
-    apr_bucket         *bkt;
 
     // Send start of HTML document.
     apr_brigade_printf(bb, NULL, NULL, "<!DOCTYPE html>\n<html>\n<head><title>Index of %s on %s</title></head>\n",
@@ -1152,9 +1151,7 @@ static dav_error *deliver_directory(
                              "Could not write contents to filter.");
     }
 
-    bkt = apr_bucket_eos_create(output->c->bucket_alloc);
-
-    APR_BRIGADE_INSERT_TAIL(bb, bkt);
+    CloseBucketsStream (bb);
 
     if ((status = ap_pass_brigade(output, bb)) != APR_SUCCESS) {
         apr_brigade_destroy(bb);
