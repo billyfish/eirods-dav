@@ -439,12 +439,13 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 							 * Get all of the matching collections first
 							 */
 
+							const char *meta_id_s = meta_id_results_p -> sqlResult [i].value;
 							int object_id_select_columns_p [] = { COL_COLL_ID, -1 };
 							genQueryOut_t *id_results_p;
 
 
 							where_columns_p [0] = COL_META_COLL_ATTR_ID;
-							where_values_ss [0] = meta_id_results_p -> sqlResult [i].value;
+							where_values_ss [0] = meta_id_s;
 
 							/*
 							 * Get all of the matching collections
@@ -468,7 +469,11 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 											for (j = 0; j < id_results_p -> rowCnt; ++ j)
 												{
 													/*
-													 * See if the id refers to a collection
+													 *
+													 * The id can be the data id, coll id, etc. so we have to work
+													 * out what it is
+													 *
+													 * Start by testing if the id refers to a collection
 													 *
 													 * 		SELECT coll_name FROM r_coll_main WHERE coll_id = '10001';
 													 *
@@ -537,7 +542,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 							object_id_select_columns_p [0] = COL_D_DATA_ID;
 
 							where_columns_p [0] = COL_META_DATA_ATTR_ID;
-							where_values_ss [0] = meta_id_results_p -> sqlResult [i].value;
+							where_values_ss [0] = meta_id_s;
 
 							id_results_p = RunQuery (connection_p, object_id_select_columns_p, where_columns_p, where_values_ss, 1, pool_p);
 
@@ -555,85 +560,92 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 
 											for (j = 0; j < id_results_p -> rowCnt; ++ j)
 												{
-													genQueryOut_t *data_id_results_p = NULL;
 													const char *id_s = id_results_p -> sqlResult [j].value;
 
-													where_values_ss [0] = id_s;
-
 													/*
-													 * The id can be the data id, coll id, etc. so we have to work
-													 * out what it is
-													 *
-													 * Start with testing it as data object id.
-													 *
-													 * 		SELECT data_name FROM r_data_main where data_id = 10001;
-													 *
+													 * Same as for the collection results, check that the sqlResult
+													 * is not empty
 													 */
-													data_id_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, 1, pool_p);
-
-													if (data_id_results_p)
+													if (id_s)
 														{
-															if (data_id_results_p -> rowCnt == 1)
+															genQueryOut_t *data_id_results_p = NULL;
+
+															where_values_ss [0] = id_s;
+
+															/*
+															 * Testing as data object id.
+															 *
+															 * 		SELECT data_name FROM r_data_main where data_id = 10001;
+															 *
+															 */
+															data_id_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, 1, pool_p);
+
+															if (data_id_results_p)
 																{
-																	/* we have a data id match */
-																	if (data_id_results_p -> attriCnt == num_select_columns)
+																	if (data_id_results_p -> rowCnt == 1)
 																		{
-																			sqlResult_t *sql_p = data_id_results_p -> sqlResult;
-																			const char *data_name_s = sql_p -> value;
-																			const char *coll_id_s = (++ sql_p) -> value;
-																			genQueryOut_t *coll_id_results_p = NULL;
-
-																			/*
-																			 * We have the local data object name, we now need to get the collection name
-																			 * and join the two together
-																			 */
-																			select_columns_p [0] = COL_COLL_NAME;
-																			select_columns_p [1] = -1;
-																			num_select_columns = 1;
-
-																			where_values_ss [0] = coll_id_s;
-																			where_columns_p [0] = COL_COLL_ID;
-																			num_where_columns = 1;
-
-																			coll_id_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, num_where_columns, pool_p);
-
-																			if (coll_id_results_p)
+																			/* we have a data id match */
+																			if (data_id_results_p -> attriCnt == num_select_columns)
 																				{
-																					if (coll_id_results_p -> rowCnt == 1)
+																					sqlResult_t *sql_p = data_id_results_p -> sqlResult;
+																					const char *data_name_s = sql_p -> value;
+																					const char *coll_id_s = (++ sql_p) -> value;
+																					genQueryOut_t *coll_id_results_p = NULL;
+
+																					/*
+																					 * We have the local data object name, we now need to get the collection name
+																					 * and join the two together
+																					 */
+																					select_columns_p [0] = COL_COLL_NAME;
+																					select_columns_p [1] = -1;
+																					num_select_columns = 1;
+
+																					where_values_ss [0] = coll_id_s;
+																					where_columns_p [0] = COL_COLL_ID;
+																					num_where_columns = 1;
+
+																					coll_id_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, num_where_columns, pool_p);
+
+																					if (coll_id_results_p)
 																						{
-																							/* we have a coll id match */
-																							if (coll_id_results_p -> attriCnt == num_select_columns)
+																							if (coll_id_results_p -> rowCnt == 1)
 																								{
-																									const char *collection_s = coll_id_results_p -> sqlResult [0].value;
-																									char *irods_data_path_s = apr_pstrcat (pool_p, collection_s, "/", data_name_s);
-
-																									if (irods_data_path_s)
+																									/* we have a coll id match */
+																									if (coll_id_results_p -> attriCnt == num_select_columns)
 																										{
-																											rodsObjStat_t *stat_p;
+																											const char *collection_s = coll_id_results_p -> sqlResult [0].value;
+																											char *irods_data_path_s = apr_pstrcat (pool_p, collection_s, "/", data_name_s, NULL);
 
-																											stat_p = GetObjectStat (irods_data_path_s, connection_p);
-
-																											if (stat_p)
+																											if (irods_data_path_s)
 																												{
-																													int success_code = PrintItem (theme_p, DATA_OBJ_T, id_s, data_name_s, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize, conf_p -> davrods_root_path_s, conf_p -> davrods_api_path_s, bucket_brigade_p, pool_p, connection_p);
-																													freeRodsObjStat (stat_p);
-																												}
+																													rodsObjStat_t *stat_p;
 
-																										}		/* if (irods_data_path_s) */
+																													stat_p = GetObjectStat (irods_data_path_s, connection_p);
 
-																								}		/* if (coll_id_results_p -> attriCnt == num_select_columns) */
+																													if (stat_p)
+																														{
+																															int success_code = PrintItem (theme_p, DATA_OBJ_T, id_s, data_name_s, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize, conf_p -> davrods_root_path_s, conf_p -> davrods_api_path_s, bucket_brigade_p, pool_p, connection_p);
+																															freeRodsObjStat (stat_p);
+																														}
 
-																						}		/* if (coll_id_results_p -> rowCnt == 1) */
+																												}		/* if (irods_data_path_s) */
 
-																					freeGenQueryOut (&coll_id_results_p);
-																				}		/* if (coll_id_results_p) */
+																										}		/* if (coll_id_results_p -> attriCnt == num_select_columns) */
 
-																		}
+																								}		/* if (coll_id_results_p -> rowCnt == 1) */
 
-																}		/* if (data_id_results_p -> rowCnt == 1) */
+																							freeGenQueryOut (&coll_id_results_p);
+																						}		/* if (coll_id_results_p) */
 
-															freeGenQueryOut (&data_id_results_p);
-														}		/* if (data_id_results_p) */
+																				}
+
+																		}		/* if (data_id_results_p -> rowCnt == 1) */
+
+																	freeGenQueryOut (&data_id_results_p);
+																}		/* if (data_id_results_p) */
+
+
+														}		/* if (id_s) */
 
 												}		/* for (j = 0; j < id_results_p -> rowCnt; ++ j) */
 
