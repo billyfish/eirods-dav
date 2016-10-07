@@ -15,6 +15,7 @@
 #include "meta.h"
 #include "common.h"
 #include "rest.h"
+#include "auth.h"
 
 /*************************************/
 
@@ -385,7 +386,6 @@ static int AddWhereClausesToQuery (genQueryInp_t *query_p, const int *where_colu
 }
 
 
-
 char *DoMetadataSearch (const char * const key_s, const char *value_s, const char * const username_s, const char * const relative_uri_s, apr_pool_t *pool_p, rcComm_t *connection_p, struct apr_bucket_alloc_t *bucket_allocator_p, davrods_dir_conf_t *conf_p, request_rec *req_p, const char *davrods_path_s)
 {
     /*
@@ -431,7 +431,9 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 					const int meta_results_inc = meta_id_results_p -> sqlResult [0].len;
 					const char *meta_id_s = meta_id_results_p -> sqlResult [0].value;
 
-					char *link_s = apr_pstrcat (pool_p, davrods_path_s, conf_p -> davrods_api_path_s, REST_METADATA_PATH_S, NULL);
+					char *metadata_root_link_s = apr_pstrcat (pool_p, davrods_path_s, conf_p -> davrods_api_path_s, REST_METADATA_PATH_S, NULL);
+
+					const char *exposed_root_s = GetRodsExposedPath (req_p);
 
 					/*
 					 * SELECT object_id FROM r_objt_metamap WHERE meta_id = ' ';
@@ -504,7 +506,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 
 																			if (stat_p)
 																				{
-																					int success_code = PrintItem (theme_p, COLL_OBJ_T, id_s, collection_s, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize, davrods_path_s, link_s, bucket_brigade_p, pool_p, connection_p);
+																					int success_code = PrintItem (theme_p, COLL_OBJ_T, id_s, NULL, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize, davrods_path_s, exposed_root_s, metadata_root_link_s, bucket_brigade_p, pool_p, connection_p);
 
 																					freeRodsObjStat (stat_p);
 																				}		/* if (stat_p) */
@@ -583,7 +585,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 																			int coll_id_select_columns_p [] = { COL_COLL_NAME, -1 };
 																			int num_coll_id_select_columns = 1;
 																			int coll_id_where_columns_p [] = { COL_COLL_ID };
-																			char *coll_id_where_values_ss [] = { coll_id_s };
+																			const char *coll_id_where_values_ss [] = { coll_id_s };
 																			int num_coll_id_where_columns = 1;
 
 																			/*
@@ -610,7 +612,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 
 																											if (stat_p)
 																												{
-																													int success_code = PrintItem (theme_p, DATA_OBJ_T, id_s, data_name_s, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize, davrods_path_s, link_s, bucket_brigade_p, pool_p, connection_p);
+																													int success_code = PrintItem (theme_p, DATA_OBJ_T, id_s, data_name_s, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize, davrods_path_s, exposed_root_s, metadata_root_link_s, bucket_brigade_p, pool_p, connection_p);
 																													freeRodsObjStat (stat_p);
 																												}
 

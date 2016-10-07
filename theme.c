@@ -10,6 +10,8 @@
 #include "repo.h"
 #include "common.h"
 #include "config.h"
+#include "auth.h"
+#include "rest.h"
 
 /************************************/
 
@@ -87,6 +89,10 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 	if (apr_status == APR_SUCCESS)
 		{
+			const char *davrods_root_path_s = davrods_resource_p -> root_dir;
+
+			const char *exposed_root_s = GetRodsExposedPath (req_p);
+
 			// Actually print the directory listing, one table row at a time.
 			do
 				{
@@ -94,8 +100,8 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 					if (status >= 0)
 						{
-							const char *davrods_root_path_s = "";
-							int success_code = PrintItem (theme_p, coll_entry.objType, coll_entry.dataId, coll_entry.dataName, coll_entry.collName, coll_entry.ownerName, coll_entry.modifyTime, coll_entry.dataSize, davrods_root_path_s, conf_p -> davrods_api_path_s, bucket_brigade_p, pool_p, resource_p -> info -> rods_conn);
+							char *metadata_link_s = apr_pstrcat (pool_p, davrods_resource_p -> root_dir, conf_p -> davrods_api_path_s, REST_METADATA_PATH_S, NULL);
+							int success_code = PrintItem (theme_p, coll_entry.objType, coll_entry.dataId, coll_entry.dataName, coll_entry.collName, coll_entry.ownerName, coll_entry.modifyTime, coll_entry.dataSize, davrods_root_path_s, exposed_root_s, metadata_link_s, bucket_brigade_p, pool_p, resource_p -> info -> rods_conn);
 						}
 					else
 						{
@@ -286,9 +292,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * 
 }
 
 
-
-
-int PrintItem (struct HtmlTheme *theme_p, const objType_t obj_type, const char *id_s, const char * const data_s, const char *collection_s, const char * const owner_name_s, const char *last_modified_time_s, const rodsLong_t size, const char *root_path_s, const char * const link_s, apr_bucket_brigade *bb_p, apr_pool_t *pool_p, rcComm_t *connection_p)
+int PrintItem (struct HtmlTheme *theme_p, const objType_t obj_type, const char *id_s, const char * const data_s, const char *collection_s, const char * const owner_name_s, const char *last_modified_time_s, const rodsLong_t size, const char *root_path_s, const char *exposed_root_s, const char * const metadata_root_link_s, apr_bucket_brigade *bb_p, apr_pool_t *pool_p, rcComm_t *connection_p)
 {
 	int success_code = 0;
 	const char *alt_s = NULL;
@@ -317,6 +321,7 @@ int PrintItem (struct HtmlTheme *theme_p, const objType_t obj_type, const char *
 	if (name_s && alt_s)
 		{
 			const char *icon_s = GetIcon (theme_p, obj_type, name_s);
+			char *relative_link_s = GetRelativeLink (root_path_s, exposed_root_s, collection_s, data_s, pool_p);
 
 			// Collection links need a trailing slash for the '..' links to work correctly.
 			if (icon_s)
@@ -325,10 +330,8 @@ int PrintItem (struct HtmlTheme *theme_p, const objType_t obj_type, const char *
 				}
 
 			apr_brigade_printf(bb_p, NULL, NULL,
-					"<td class=\"name\"><a href=\"%s%s%s\">%s%s</a></td>",
-					root_path_s ? root_path_s : "",
-					ap_escape_html(pool_p, ap_escape_uri (pool_p, name_s)),
-					link_suffix_s ? link_suffix_s : "",
+					"<td class=\"name\"><a href=\"%s\">%s%s</a></td>",
+					relative_link_s,
 					ap_escape_html (pool_p, name_s),
 					link_suffix_s ? link_suffix_s : "");
 
@@ -387,7 +390,7 @@ int PrintItem (struct HtmlTheme *theme_p, const objType_t obj_type, const char *
 
 	if (theme_p -> ht_show_metadata)
 		{
-			if (GetAndAddMetadata (obj_type, id_s, collection_s, link_s, bb_p, connection_p, pool_p) != 0)
+			if (GetAndAddMetadata (obj_type, id_s, collection_s, metadata_root_link_s, bb_p, connection_p, pool_p) != 0)
 				{
 
 				}
