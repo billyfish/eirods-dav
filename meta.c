@@ -286,7 +286,7 @@ apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t o
 
 void SortIRodsMetadataArray (apr_array_header_t *metadata_array_p, int (*compare_fn) (const void *v0_p, const void *v1_p))
 {
-	qsort (metadata_array_p, metadata_array_p -> nelts, metadata_array_p -> elt_size, compare_fn);
+	qsort (metadata_array_p -> elts, metadata_array_p -> nelts, metadata_array_p -> elt_size, compare_fn);
 }
 
 

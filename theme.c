@@ -319,14 +319,16 @@ int PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_p, const 
 
 
 	// Print data object size.
+	apr_brigade_puts (bb_p, NULL, NULL, "<td class=\"size\">");
 	if (size_s)
 		{
-			apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"size\">%sB</td>", size_s);
+			apr_brigade_printf (bb_p, NULL, NULL, "%sB", size_s);
 		}
-	else
+	else if (irods_obj_p -> io_obj_type == DATA_OBJ_T)
 		{
-			apr_brigade_printf(bb_p, NULL, NULL, "<td class=\"size\">%luB</td>", irods_obj_p -> io_size);
+			apr_brigade_printf(bb_p, NULL, NULL, "%luB", irods_obj_p -> io_size);
 		}
+	apr_brigade_puts (bb_p, NULL, NULL, "</td>");
 
 	// Print owner
 	apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"owner\">%s</td>", ap_escape_html (pool_p, irods_obj_p -> io_owner_name_s));
