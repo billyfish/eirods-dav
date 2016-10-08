@@ -5,6 +5,8 @@
  *      Author: billy
  */
 
+#include <stdlib.h>
+
 #include "apr_strings.h"
 
 #include "objStat.h"
@@ -40,11 +42,14 @@ static int AddWhereClausesToQuery (genQueryInp_t *query_p, const int *where_colu
 
 static void ClearPooledMemoryFromGenQuery (genQueryInp_t *query_p);
 
-static rodsObjStat_t * GetObjectStat (const char * const path_s, rcComm_t *connection_p);
+static rodsObjStat_t *GetObjectStat (const char * const path_s, rcComm_t *connection_p);
 
 void PrintBasicGenQueryOut( genQueryOut_t *genQueryOut);
 
 static int CheckQueryResults (const genQueryOut_t * const results_p, const int min_rows, const int max_rows, const int num_attrs);
+
+static int CompareIrodsMetadata (const void *v0_p, const void *v1_p);
+
 
 /*************************************/
 
@@ -270,9 +275,18 @@ apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t o
 
 				}		/* if ((select_col != -1) && (where_col != -1) && (where_value_s != NULL)) */
 
+
+			SortIRodsMetadataArray (metadata_array_p, CompareIrodsMetadata);
+
 		}		/* if (metadata_array_p) */
 
 	return metadata_array_p;
+}
+
+
+void SortIRodsMetadataArray (apr_array_header_t *metadata_array_p, int (*compare_fn) (const void *v0_p, const void *v1_p))
+{
+	qsort (metadata_array_p, metadata_array_p -> nelts, metadata_array_p -> elt_size, compare_fn);
 }
 
 
@@ -506,7 +520,11 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 
 																			if (stat_p)
 																				{
-																					int success_code = PrintItem (theme_p, COLL_OBJ_T, id_s, NULL, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize, davrods_path_s, exposed_root_s, metadata_root_link_s, bucket_brigade_p, pool_p, connection_p);
+																					IRodsObject irods_obj;
+
+																					SetIRodsObject (&irods_obj, COLL_OBJ_T, id_s, NULL, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize);
+
+																					int success_code = PrintItem (theme_p, &irods_obj, davrods_path_s, exposed_root_s, metadata_root_link_s, bucket_brigade_p, pool_p, connection_p);
 
 																					freeRodsObjStat (stat_p);
 																				}		/* if (stat_p) */
@@ -612,7 +630,11 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 
 																											if (stat_p)
 																												{
-																													int success_code = PrintItem (theme_p, DATA_OBJ_T, id_s, data_name_s, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize, davrods_path_s, exposed_root_s, metadata_root_link_s, bucket_brigade_p, pool_p, connection_p);
+																													IRodsObject irods_obj;
+
+																													SetIRodsObject (&irods_obj, DATA_OBJ_T, id_s, data_name_s, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize);
+
+																													int success_code = PrintItem (theme_p, &irods_obj, davrods_path_s, exposed_root_s, metadata_root_link_s, bucket_brigade_p, pool_p, connection_p);
 																													freeRodsObjStat (stat_p);
 																												}
 
@@ -909,3 +931,73 @@ IrodsMetadata *AllocateIrodsMetadata (const char * const key_s, const char * con
 
 	return metadata_p;
 }
+
+
+/*
+ * Sort the metadata keys into alphabetical order
+ */
+static int CompareIrodsMetadata (const void *v0_p, const void *v1_p)
+{
+	int res = 0;
+	IrodsMetadata *md0_p = * ((IrodsMetadata **) v0_p);
+	IrodsMetadata *md1_p = * ((IrodsMetadata **) v1_p);
+
+	res = strcasecmp (md0_p -> im_key_s, md1_p -> im_key_s);
+
+	if (res == 0)
+		{
+			res = strcasecmp (md0_p -> im_value_s, md1_p -> im_value_s);
+		}
+
+	return res;
+}
+
+
+
+int PrintMetadata (const apr_array_header_t *metadata_list_p, apr_bucket_brigade *bb_p, const char *metadata_search_link_s)
+{
+	int status = 0;
+	apr_status_t apr_stat = apr_brigade_puts (bb_p, NULL, NULL, "<ul class=\"metadata\">");
+
+	if (apr_stat == 0)
+		{
+			const int size = metadata_list_p -> nelts;
+			int i;
+
+			for (i = 0; i < size; ++ i)
+				{
+					const IrodsMetadata *metadata_p = APR_ARRAY_IDX (metadata_list_p, i, IrodsMetadata *);
+
+					apr_brigade_puts (bb_p, NULL, NULL, "<li>");
+
+					if (metadata_search_link_s)
+						{
+							apr_brigade_printf (bb_p, NULL, NULL, "<a href=\"%s?key=%s&value=%s\">", metadata_search_link_s, metadata_p -> im_key_s, metadata_p -> im_value_s);
+						}
+
+					apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"key\">%s</span>: <span class=\"value\">%s</span>", metadata_p -> im_key_s, metadata_p -> im_value_s);
+
+					if (metadata_p -> im_units_s)
+						{
+							apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"units\">%s</span>", metadata_p -> im_units_s);
+						}
+
+
+					if (metadata_search_link_s)
+						{
+							apr_brigade_puts (bb_p, NULL, NULL, "</a>");
+						}
+
+
+					apr_brigade_puts (bb_p, NULL, NULL, "</li>");
+				}
+
+			apr_brigade_puts (bb_p, NULL, NULL, "</ul>");
+
+		}
+
+	return status;
+}
+
+
+

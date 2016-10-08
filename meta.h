@@ -12,6 +12,7 @@
 #include "mod_dav.h"
 #include "apr_pools.h"
 #include "apr_tables.h"
+#include "apr_buckets.h"
 
 #include "rodsConnect.h"
 #include "rodsGenQuery.h"
@@ -26,6 +27,12 @@ typedef struct IrodsMetadata
 	char *im_units_s;
 } IrodsMetadata;
 
+
+typedef struct IrodsMetadataArray
+{
+	size_t ima_size;
+	IrodsMetadata **ima_items_pp;
+} IrodsMetadataArray;
 
 
 
@@ -45,6 +52,11 @@ int printGenQI( genQueryInp_t *genQueryInp );
 
 IrodsMetadata *AllocateIrodsMetadata (const char * const key_s, const char * const value_s, const char * const units_s, apr_pool_t *pool_p);
 
+
+void SortIRodsMetadataArray (apr_array_header_t *metadata_array_p, int (*compare_fn) (const void *v0_p, const void *v1_p));
+
+
+int PrintMetadata (const apr_array_header_t *metadata_list_p, apr_bucket_brigade *bb_p, const char *link_s);
 
 char *DoMetadataSearch (const char * const key_s, const char *value_s, const char * const username_s, const char * const relative_uri_s, apr_pool_t *pool_p, rcComm_t *connection_p, struct apr_bucket_alloc_t *bucket_allocator_p, davrods_dir_conf_t *conf_p, request_rec *req_p, const char *davrods_path_s);
 

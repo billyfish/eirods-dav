@@ -13,25 +13,11 @@
 #include "auth.h"
 #include "rest.h"
 
+#include "listing.h"
+
 /************************************/
 
-
-static int GetAndAddMetadata (const objType_t object_type, const char *id_s, const char *coll_name_s, const char * const link_s, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p);
-
-static int GetAndAddMetadataForCollEntry (const collEnt_t *entry_p, apr_bucket_brigade *bb_p, const dav_resource *resource_p, apr_pool_t *pool_p);
-
-
-static int PrintMetadata (apr_bucket_brigade *bb_p, IrodsMetadata **metadata_pp, int size, const char *link_s);
-
-static int CompareIrodsMetadata (const void *v0_p, const void *v1_p);
-
 static int DisplayIcons (const struct HtmlTheme *theme_p);
-
-static const char *GetIconForCollEntry (const struct HtmlTheme * const theme_p, collEnt_t *coll_entry_p);
-
-static const char *GetIcon (const struct HtmlTheme * const theme_p, const objType_t object_type, const char * const name_s);
-
-
 
 /*************************************/
 
@@ -101,7 +87,14 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 					if (status >= 0)
 						{
 							char *metadata_link_s = apr_pstrcat (pool_p, davrods_resource_p -> root_dir, conf_p -> davrods_api_path_s, REST_METADATA_PATH_S, NULL);
-							int success_code = PrintItem (theme_p, coll_entry.objType, coll_entry.dataId, coll_entry.dataName, coll_entry.collName, coll_entry.ownerName, coll_entry.modifyTime, coll_entry.dataSize, davrods_root_path_s, exposed_root_s, metadata_link_s, bucket_brigade_p, pool_p, resource_p -> info -> rods_conn);
+							IRodsObject irods_obj;
+
+
+							if (SetIRodsObjectFromCollEntry (&irods_obj, &coll_entry))
+								{
+									int success_code = PrintItem (theme_p, &irods_obj, davrods_root_path_s, exposed_root_s, metadata_link_s, bucket_brigade_p, pool_p, resource_p -> info -> rods_conn);
+								}
+
 						}
 					else
 						{
@@ -292,36 +285,21 @@ apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * 
 }
 
 
-int PrintItem (struct HtmlTheme *theme_p, const objType_t obj_type, const char *id_s, const char * const data_s, const char *collection_s, const char * const owner_name_s, const char *last_modified_time_s, const rodsLong_t size, const char *root_path_s, const char *exposed_root_s, const char * const metadata_root_link_s, apr_bucket_brigade *bb_p, apr_pool_t *pool_p, rcComm_t *connection_p)
+int PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_p, const char *root_path_s, const char *exposed_root_s, const char * const metadata_root_link_s, apr_bucket_brigade *bb_p, apr_pool_t *pool_p, rcComm_t *connection_p)
 {
 	int success_code = 0;
-	const char *alt_s = NULL;
-	const char *link_suffix_s = NULL;
-	const char *name_s = NULL;
+	const char *link_suffix_s = irods_obj_p -> io_obj_type == COLL_OBJ_T ? "/" : NULL;
+	const char *name_s = GetIRodsObjectDisplayName (irods_obj_p);
+	char *timestamp_s = GetIRodsObjectLastModifiedTime (irods_obj_p, pool_p);
+	char *size_s = GetIRodsObjectSizeAsString (irods_obj_p, pool_p);
 
 	apr_brigade_puts (bb_p, NULL, NULL, " <tr>");
 
-	switch (obj_type)
+	if (name_s)
 		{
-			case DATA_OBJ_T:
-				name_s = data_s;
-				alt_s = "iRods Data Object";
-				break;
-
-			case COLL_OBJ_T:
-				name_s = get_basename (collection_s);
-				alt_s = "iRods Collection";
-				link_suffix_s = "/";
-				break;
-
-			default:
-				break;
-		}
-
-	if (name_s && alt_s)
-		{
-			const char *icon_s = GetIcon (theme_p, obj_type, name_s);
-			char *relative_link_s = GetRelativeLink (root_path_s, exposed_root_s, collection_s, data_s, pool_p);
+			const char *icon_s = GetIRodsObjectIcon (irods_obj_p, theme_p);
+			const char *alt_s = GetIRodsObjectAltText (irods_obj_p);
+			char *relative_link_s = GetIRodsObjectRelativeLink (irods_obj_p, root_path_s, exposed_root_s, pool_p);
 
 			// Collection links need a trailing slash for the '..' links to work correctly.
 			if (icon_s)
@@ -338,59 +316,34 @@ int PrintItem (struct HtmlTheme *theme_p, const objType_t obj_type, const char *
 		}		/* if (name_s && alt_s) */
 
 
+
+
 	// Print data object size.
-	if (obj_type == DATA_OBJ_T)
+	if (size_s)
 		{
-			char size_buf [5] = { 0 };
-
-			// Fancy file size formatting.
-			apr_strfsize (size, size_buf);
-
-			if (size_buf [0])
-				{
-					apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"size\">%sB</td>", size_buf);
-				}
-			else
-				{
-					apr_brigade_printf(bb_p, NULL, NULL, "<td class=\"size\">%luB</td>", size);
-				}
+			apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"size\">%sB</td>", size_s);
 		}
 	else
 		{
-			apr_brigade_puts(bb_p, NULL, NULL, "<td class=\"size\"></td>");
+			apr_brigade_printf(bb_p, NULL, NULL, "<td class=\"size\">%luB</td>", irods_obj_p -> io_size);
 		}
 
-	// Print owner.
-	apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"owner\">%s</td>", ap_escape_html (pool_p, owner_name_s));
+	// Print owner
+	apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"owner\">%s</td>", ap_escape_html (pool_p, irods_obj_p -> io_owner_name_s));
 
-	// Print modified-date string.
-	uint64_t timestamp = atoll (last_modified_time_s);
-	apr_time_t apr_time = 0;
-	apr_time_exp_t exploded = { 0 };
-	char date_str [64] = { 0 };
-
-	apr_time_ansi_put (&apr_time, timestamp);
-	apr_time_exp_lt (&exploded, apr_time);
-
-	size_t ret_size;
-
-	if (!apr_strftime (date_str, &ret_size, sizeof (date_str), "%Y-%m-%d %H:%M", &exploded))
+	if (timestamp_s)
 		{
-			apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"datestamp\">%s</td>", ap_escape_html (pool_p, date_str));
+			apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"time\">%s</td>", timestamp_s);
 		}
 	else
 		{
-			// Fallback, just in case.
-			static_assert(sizeof(date_str) >= APR_RFC822_DATE_LEN, "Size of date_str buffer too low for RFC822 date");
-
-			int status = apr_rfc822_date (date_str, timestamp * 1000 * 1000);
-
-			apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"datestamp\">%s</td>", ap_escape_html (pool_p, status >= 0 ? date_str : "Thu, 01 Jan 1970 00:00:00 GMT"));
+			apr_brigade_puts (bb_p, NULL, NULL, "<td class=\"time\"></td>");
 		}
+
 
 	if (theme_p -> ht_show_metadata)
 		{
-			if (GetAndAddMetadata (obj_type, id_s, collection_s, metadata_root_link_s, bb_p, connection_p, pool_p) != 0)
+			if (GetAndAddMetadataForIRodsObject (irods_obj_p, metadata_root_link_s, bb_p, connection_p, pool_p) != 0)
 				{
 
 				}
@@ -402,194 +355,8 @@ int PrintItem (struct HtmlTheme *theme_p, const objType_t obj_type, const char *
 }
 
 
-static int GetAndAddMetadataForCollEntry (const collEnt_t *entry_p, apr_bucket_brigade *bb_p, const dav_resource *resource_p, apr_pool_t *pool_p)
-{
-	dav_resource_private *res_p = (dav_resource_private *) (resource_p -> info);
-	return GetAndAddMetadata (entry_p -> objType, entry_p -> dataId, entry_p -> collName, res_p -> conf -> davrods_api_path_s, bb_p, res_p -> rods_conn, pool_p);
-}
-
-
-static int GetAndAddMetadata (const objType_t object_type, const char *id_s, const char *coll_name_s, const char * const link_s, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p)
-{
-	int status = -1;
-	apr_array_header_t *metadata_array_p = GetMetadata (connection_p, object_type, id_s, coll_name_s, pool_p);
-
-	apr_brigade_puts (bb_p, NULL, NULL, "<td class=\"metadata\">");
-
-	if (metadata_array_p)
-		{
-			/*
-			 * Sort the metadata keys into alphabetical order
-			 */
-			if (!apr_is_empty_array (metadata_array_p))
-				{
-					IrodsMetadata **metadata_pp = (IrodsMetadata **) apr_palloc (pool_p, (metadata_array_p -> nelts) * sizeof (IrodsMetadata **));
-
-					if (metadata_pp)
-						{
-							int i;
-							IrodsMetadata **md_pp = metadata_pp;
-
-							for (i = 0; i < metadata_array_p -> nelts; ++ i, ++ md_pp)
-								{
-									*md_pp = ((IrodsMetadata **) metadata_array_p -> elts) [i];
-								}
-
-							qsort (metadata_pp, metadata_array_p -> nelts, sizeof (IrodsMetadata **), CompareIrodsMetadata);
-
-							md_pp = metadata_pp;
-
-							status = PrintMetadata (bb_p, metadata_pp, metadata_array_p -> nelts, link_s);
-
-						}		/* if (metadata_pp) */
-
-				}		/* if (!apr_is_empty_array (metadata_array_p)) */
-
-		}		/* if (metadata_array_p) */
-
-	apr_brigade_puts(bb_p, NULL, NULL, "</td>");
-
-	return status;
-}
-
-
-static int PrintMetadata (apr_bucket_brigade *bb_p, IrodsMetadata **metadata_pp, int size, const char *link_s)
-{
-	int status = 0;
-	apr_status_t apr_stat = apr_brigade_puts (bb_p, NULL, NULL, "<ul class=\"metadata\">");
-
-	if (apr_stat == 0)
-		{
-			for ( ; size > 0; -- size, ++ metadata_pp)
-				{
-					const IrodsMetadata *metadata_p = *metadata_pp;
-
-					apr_brigade_puts (bb_p, NULL, NULL, "<li>");
-
-					if (link_s)
-						{
-							apr_brigade_printf (bb_p, NULL, NULL, "<a href=\"%s?key=%s&value=%s\">", link_s, metadata_p -> im_key_s, metadata_p -> im_value_s);
-						}
-
-					apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"key\">%s</span>: <span class=\"value\">%s</span>", metadata_p -> im_key_s, metadata_p -> im_value_s);
-
-					if (metadata_p -> im_units_s)
-						{
-							apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"units\">%s</span>", metadata_p -> im_units_s);
-						}
-
-
-					if (link_s)
-						{
-							apr_brigade_puts (bb_p, NULL, NULL, "</a>");
-						}
-
-
-					apr_brigade_puts (bb_p, NULL, NULL, "</li>");
-				}
-
-			apr_brigade_puts (bb_p, NULL, NULL, "</ul>");
-
-		}
-
-	return status;
-}
-
-
-static int CompareIrodsMetadata (const void *v0_p, const void *v1_p)
-{
-	int res = 0;
-	IrodsMetadata *md0_p = * ((IrodsMetadata **) v0_p);
-	IrodsMetadata *md1_p = * ((IrodsMetadata **) v1_p);
-
-	res = strcasecmp (md0_p -> im_key_s, md1_p -> im_key_s);
-
-	if (res == 0)
-		{
-			res = strcasecmp (md0_p -> im_value_s, md1_p -> im_value_s);
-		}
-
-	return res;
-}
-
 
 static int DisplayIcons (const struct HtmlTheme *theme_p)
 {
 	return ((theme_p -> ht_collection_icon_s) || (theme_p -> ht_object_icon_s) || (theme_p -> ht_icons_map_p)) ? 1 : 0;
-}
-
-
-static const char *GetIconForCollEntry (const struct HtmlTheme * const theme_p, collEnt_t *coll_entry_p)
-{
-	const char *name_s = NULL;
-
-	switch (coll_entry_p -> objType)
-		{
-			case DATA_OBJ_T:
-				name_s = coll_entry_p -> dataName;
-				break;
-
-			case COLL_OBJ_T:
-				name_s = coll_entry_p -> collName;
-				break;
-
-			default:
-				break;
-		}
-
-	if (name_s)
-		{
-			name_s = GetIcon (theme_p, coll_entry_p -> objType, name_s);
-		}
-
-	return name_s;
-}
-
-
-static const char *GetIcon (const struct HtmlTheme * const theme_p, const objType_t object_type, const char * const name_s)
-{
-	const char *icon_s = NULL;
-
-	if (theme_p -> ht_icons_map_p)
-		{
-			const char *key_s = NULL;
-
-			switch (object_type)
-				{
-					case DATA_OBJ_T:
-						key_s = strrchr (name_s, '.');
-						break;
-
-					case COLL_OBJ_T:
-						key_s = get_basename (name_s);
-						break;
-
-					default:
-						break;
-				}
-
-			if (key_s)
-				{
-					icon_s = apr_table_get (theme_p -> ht_icons_map_p, key_s);
-				}
-		}
-
-	if (!icon_s)
-		{
-			switch (object_type)
-				{
-					case DATA_OBJ_T:
-						icon_s = theme_p -> ht_object_icon_s;
-						break;
-
-					case COLL_OBJ_T:
-						icon_s = theme_p -> ht_collection_icon_s;
-						break;
-
-					default:
-						break;
-				}
-		}
-
-	return icon_s;
 }

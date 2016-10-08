@@ -79,7 +79,6 @@ const char *get_basename(const char *path);
 
 const char *GetRodsExposedPath (request_rec *req_p);
 
-char *GetRelativeLink (const char *uri_root_s, const char *exposed_root_s, const char *collection_s, const char *data_s, apr_pool_t *pool_p);
 
 #ifdef __cplusplus
 }

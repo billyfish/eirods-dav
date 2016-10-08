@@ -58,51 +58,6 @@ const char *GetRodsExposedPath (request_rec *req_p)
 }
 
 
-char *GetRelativeLink (const char *uri_root_s, const char *exposed_root_s, const char *collection_s, const char *data_s, apr_pool_t *pool_p)
-{
-	char *res_s = NULL;
-
-	if (exposed_root_s && collection_s)
-		{
-			size_t l = strlen (exposed_root_s);
-
-			if (strncmp (exposed_root_s, collection_s, l) == 0)
-				{
-					char *escaped_uri_root_s = ap_escape_html (pool_p, ap_escape_uri (pool_p, uri_root_s));
-					char *escaped_relative_collection_s = ap_escape_html (pool_p, ap_escape_uri (pool_p, collection_s + l));
-					const char *separator_s = "";
-
-					l = strlen (escaped_uri_root_s);
-
-					if (l == 0)
-						{
-							escaped_uri_root_s = "/";
-						}
-					else
-						{
-							if ((* (escaped_uri_root_s  +  (l - 1)) != '/') && (*escaped_relative_collection_s != '/'))
-								{
-									separator_s = "/";
-								}
-						}
-
-					if (data_s)
-						{
-							char *escaped_data_s =  data_s ? ap_escape_html (pool_p, data_s) : NULL;
-
-							res_s = apr_pstrcat (pool_p, escaped_uri_root_s, separator_s, escaped_relative_collection_s, "/", escaped_data_s, NULL);
-						}
-					else
-						{
-							res_s = apr_pstrcat (pool_p, escaped_uri_root_s, separator_s, escaped_relative_collection_s, "/", NULL);
-						}
-
-				}
-
-		}
-
-	return res_s;
-}
 
 
 /**
