@@ -40,6 +40,11 @@ typedef struct IRodsConfig
 } IRodsConfig;
 
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 
 int SetIRodsObject (IRodsObject *obj_p, const objType_t io_obj_type, const char *io_id_s, const char *io_data_s, const char *io_collection_s, const char *io_owner_name_s, const char *io_last_modified_time_s, const rodsLong_t size);
 
@@ -55,9 +60,15 @@ char *GetIRodsObjectRelativeLink (const IRodsObject *irods_obj_p, const char *ur
 
 char *GetIRodsObjectSizeAsString (const IRodsObject *irods_obj_p, apr_pool_t *pool_p);
 
+
 char *GetIRodsObjectLastModifiedTime (const  IRodsObject *irods_obj_p, apr_pool_t *pool_p);
 
 
 int GetAndAddMetadataForIRodsObject (const IRodsObject *irods_obj_p, const char * const link_s, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p);
+
+#ifdef __cplusplus
+}
+#endif
+
 
 #endif /* LISTING_H_ */

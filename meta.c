@@ -972,7 +972,7 @@ int PrintMetadata (const apr_array_header_t *metadata_list_p, apr_bucket_brigade
 
 					if (metadata_search_link_s)
 						{
-							apr_brigade_printf (bb_p, NULL, NULL, "<a href=\"%s?key=%s&value=%s\">", metadata_search_link_s, metadata_p -> im_key_s, metadata_p -> im_value_s);
+							apr_brigade_printf (bb_p, NULL, NULL, "<a href=\"%s?key=%s&amp;value=%s\">", metadata_search_link_s, metadata_p -> im_key_s, metadata_p -> im_value_s);
 						}
 
 					apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"key\">%s</span>: <span class=\"value\">%s</span>", metadata_p -> im_key_s, metadata_p -> im_value_s);
