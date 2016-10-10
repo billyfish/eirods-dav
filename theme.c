@@ -31,9 +31,10 @@ void InitHtmlTheme (struct HtmlTheme *theme_p)
   theme_p -> ht_object_icon_s = NULL;
   theme_p -> ht_parent_icon_s = NULL;
   theme_p -> ht_listing_class_s = NULL;
-  theme_p -> ht_show_metadata = 0;
+  theme_p -> ht_show_metadata_flag = 0;
   theme_p -> ht_rest_api_s = NULL;
 
+  theme_p -> ht_show_ids_flag = 0;
   theme_p -> ht_icons_map_p = NULL;
 }
 
@@ -90,7 +91,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 							IRodsObject irods_obj;
 
 
-							if (SetIRodsObjectFromCollEntry (&irods_obj, &coll_entry))
+							if (SetIRodsObjectFromCollEntry (&irods_obj, &coll_entry, davrods_resource_p -> rods_conn, pool_p))
 								{
 									int success_code = PrintItem (theme_p, &irods_obj, davrods_root_path_s, exposed_root_s, metadata_link_s, bucket_brigade_p, pool_p, resource_p -> info -> rods_conn);
 								}
@@ -265,9 +266,18 @@ apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * 
 
 		}		/* if ((theme_p -> ht_collection_icon_s) || (theme_p -> ht_object_icon_s)) */
 
-	apr_brigade_puts (bucket_brigade_p, NULL, NULL, "<th class=\"name\">Name</th><th class=\"size\">Size</th><th class=\"owner\">Owner</th><th class=\"datestamp\">Last modified</th>");
 
-	if (theme_p -> ht_show_metadata)
+
+	apr_brigade_puts (bucket_brigade_p, NULL, NULL, "<th class=\"name\">Name</th>");
+
+	if (theme_p -> ht_show_ids_flag)
+		{
+			apr_brigade_puts (bucket_brigade_p, NULL, NULL, "<th class=\"id\">Id</th>");
+		}
+
+	apr_brigade_puts (bucket_brigade_p, NULL, NULL, "<th class=\"size\">Size</th><th class=\"owner\">Owner</th><th class=\"datestamp\">Last modified</th>");
+
+	if (theme_p -> ht_show_metadata_flag)
 		{
 			apr_status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, "<th class=\"metadata\">Properties</th>");
 
@@ -317,6 +327,11 @@ int PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_p, const 
 
 
 
+	if (theme_p -> ht_show_ids_flag)
+		{
+			apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"id\">%s</td>", irods_obj_p -> io_id_s);
+		}
+
 
 	// Print data object size.
 	apr_brigade_puts (bb_p, NULL, NULL, "<td class=\"size\">");
@@ -343,7 +358,7 @@ int PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_p, const 
 		}
 
 
-	if (theme_p -> ht_show_metadata)
+	if (theme_p -> ht_show_metadata_flag)
 		{
 			if (GetAndAddMetadataForIRodsObject (irods_obj_p, metadata_root_link_s, bb_p, connection_p, pool_p) != 0)
 				{

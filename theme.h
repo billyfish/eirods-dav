@@ -35,9 +35,11 @@ struct HtmlTheme
 
 	const char *ht_listing_class_s;
 
-	int ht_show_metadata;
+	int ht_show_metadata_flag;
 
 	const char *ht_rest_api_s;
+
+	int ht_show_ids_flag;
 
 	apr_table_t *ht_icons_map_p;
 };

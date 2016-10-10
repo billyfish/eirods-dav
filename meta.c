@@ -31,7 +31,6 @@ static genQueryOut_t *ExecuteGenQuery (rcComm_t *connection_p, genQueryInp_t * c
 
 static char *GetQuotedValue (const char * const input_s, apr_pool_t *pool_p);
 
-static genQueryOut_t *RunQuery (rcComm_t *connection_p, const int *select_columns_p, const int *where_columns_p, const char **where_values_ss, const size_t num_where_columns, apr_pool_t *pool_p);
 
 static int AddClausesToQuery (genQueryInp_t *query_p, const int *select_columns_p, const int *where_columns_p, const char **where_values_ss, const size_t num_where_columns, apr_pool_t *pool_p);
 
@@ -291,7 +290,7 @@ void SortIRodsMetadataArray (apr_array_header_t *metadata_array_p, int (*compare
 
 
 
-static genQueryOut_t *RunQuery (rcComm_t *connection_p, const int *select_columns_p, const int *where_columns_p, const char **where_values_ss, size_t num_where_columns, apr_pool_t *pool_p)
+genQueryOut_t *RunQuery (rcComm_t *connection_p, const int *select_columns_p, const int *where_columns_p, const char **where_values_ss, size_t num_where_columns, apr_pool_t *pool_p)
 {
 	genQueryOut_t *out_query_p = NULL;
 	genQueryInp_t in_query;
@@ -422,12 +421,9 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 	int where_columns_p [] =  { COL_META_DATA_ATTR_NAME, COL_META_DATA_ATTR_VALUE };
 	const char *where_values_ss [] = { key_s, value_s };
 	int select_columns_p [] =  { COL_META_DATA_ATTR_ID, -1, -1};
-	genQueryInp_t meta_id_query;
 	genQueryOut_t *meta_id_results_p = NULL;
 	struct HtmlTheme *theme_p = & (conf_p -> theme);
 	apr_bucket_brigade *bucket_brigade_p = apr_brigade_create (pool_p, bucket_allocator_p);
-
-	InitGenQuery (&meta_id_query);
 
 	apr_status_t apr_status = PrintAllHTMLBeforeListing (theme_p, relative_uri_s, username_s, conf_p -> rods_zone, req_p, bucket_brigade_p, pool_p);
 

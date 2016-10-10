@@ -121,7 +121,8 @@ void *davrods_merge_dir_config(apr_pool_t *p, void *_parent, void *_child) {
     DAVRODS_PROP_MERGE(theme.ht_object_icon_s);
     DAVRODS_PROP_MERGE(theme.ht_parent_icon_s);
     DAVRODS_PROP_MERGE(theme.ht_listing_class_s);
-    DAVRODS_PROP_MERGE(theme.ht_show_metadata);
+    DAVRODS_PROP_MERGE(theme.ht_show_metadata_flag);
+    DAVRODS_PROP_MERGE(theme.ht_show_ids_flag);
 
     if (child -> theme.ht_icons_map_p)
     	{
@@ -397,19 +398,6 @@ static const char *cmd_davrods_html_listing_class (cmd_parms *cmd_p, void *confi
 }
 
 
-static const char *cmd_davrods_html_metadata (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-    if (!strcasecmp (arg_p, "true"))
-    	{
-    		conf_p -> theme.ht_show_metadata = 1;
-    	}
-
-    return NULL;
-}
-
-
 static const char *cmd_davrods_html_themed_listings (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
     davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
@@ -421,6 +409,32 @@ static const char *cmd_davrods_html_themed_listings (cmd_parms *cmd_p, void *con
 
     return NULL;
 }
+
+static const char *cmd_davrods_html_metadata (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    if (!strcasecmp (arg_p, "true"))
+    	{
+    		conf_p -> theme.ht_show_metadata_flag = 1;
+    	}
+
+    return NULL;
+}
+
+
+static const char *cmd_davrods_html_ids (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    if (!strcasecmp (arg_p, "true"))
+    	{
+    		conf_p -> theme.ht_show_ids_flag = 1;
+    	}
+
+    return NULL;
+}
+
 
 static const char *cmd_davrods_api_path (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
@@ -539,8 +553,12 @@ const command_rec davrods_directives[] = {
         NULL, ACCESS_CONF, "Options for displaying metadata"
     ),
 
-    AP_INIT_ITERATE2 (DAVRODS_CONFIG_PREFIX "AddIcon", cmd_davrods_html_add_icon, NULL, ACCESS_CONF,
-                     "an icon URL followed by one or more filenames"),
+    AP_INIT_ITERATE2 (DAVRODS_CONFIG_PREFIX "AddIcon", cmd_davrods_html_add_icon, NULL, ACCESS_CONF, "an icon URL followed by one or more filenames"),
+
+    AP_INIT_TAKE1(
+        DAVRODS_CONFIG_PREFIX "HTMLShowIds", cmd_davrods_html_ids,
+        NULL, ACCESS_CONF, "Options for displaying irods ids"
+    ),
 
 
 		AP_INIT_TAKE1(
