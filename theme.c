@@ -279,7 +279,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * 
 
 	if (theme_p -> ht_show_metadata_flag)
 		{
-			apr_status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, "<th class=\"metadata\">Properties</th>");
+			apr_status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, "<th>Properties</th>");
 
 			if (apr_status != APR_SUCCESS)
 				{
