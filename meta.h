@@ -36,6 +36,14 @@ typedef struct IrodsMetadataArray
 
 
 
+typedef enum SearchOperator
+{
+	SO_EQUALS,
+	SO_LIKE,
+	SO_NUM_OPERATORS
+} SearchOperator;
+
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -59,10 +67,14 @@ void SortIRodsMetadataArray (apr_array_header_t *metadata_array_p, int (*compare
 int PrintMetadata (const apr_array_header_t *metadata_list_p, apr_bucket_brigade *bb_p, const char *link_s);
 
 
-char *DoMetadataSearch (const char * const key_s, const char *value_s, const char * const username_s, const char * const relative_uri_s, apr_pool_t *pool_p, rcComm_t *connection_p, struct apr_bucket_alloc_t *bucket_allocator_p, davrods_dir_conf_t *conf_p, request_rec *req_p, const char *davrods_path_s);
+char *DoMetadataSearch (const char * const key_s, const char *value_s, const SearchOperator op, const char * const username_s, const char * const relative_uri_s, apr_pool_t *pool_p, rcComm_t *connection_p, struct apr_bucket_alloc_t *bucket_allocator_p, davrods_dir_conf_t *conf_p, request_rec *req_p, const char *davrods_path_s);
 
 
-genQueryOut_t *RunQuery (rcComm_t *connection_p, const int *select_columns_p, const int *where_columns_p, const char **where_values_ss, const size_t num_where_columns, apr_pool_t *pool_p);
+genQueryOut_t *RunQuery (rcComm_t *connection_p, const int *select_columns_p, const int *where_columns_p, const char **where_values_ss, const SearchOperator *where_ops_p, size_t num_where_columns, apr_pool_t *pool_p);
+
+apr_array_header_t *GetAllDataObjectMetadataKeys (apr_pool_t *pool_p, rcComm_t *connection_p);
+
+apr_status_t GetSearchOperatorFromString (const char *op_s, SearchOperator *op_p);
 
 
 #ifdef __cplusplus

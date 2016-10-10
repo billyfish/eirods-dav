@@ -43,27 +43,20 @@ int SetIRodsObjectFromCollEntry (IRodsObject *obj_p, const collEnt_t *coll_entry
 			 * For collections, the data id is NULL, so let's get the collection id for it.
 			 */
 
-			if (connection_p && pool_p)
+			int select_columns_p [2] = { COL_COLL_ID, -1 };
+			int where_columns_p [1] = { COL_COLL_NAME };
+			const char *where_values_ss [1] = { coll_entry_p -> collName };
+
+			genQueryOut_t *results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, NULL, 1, pool_p);
+
+			if (results_p)
 				{
-				  int select_columns_p [2] = { COL_COLL_ID, -1 };
-					int where_columns_p [1] = { COL_COLL_NAME };
-					const char *where_values_ss [1] = { coll_entry_p -> collName };
-
-					genQueryOut_t *results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, 1, pool_p);
-
-					if (results_p)
+					if (results_p -> rowCnt == 1)
 						{
-							if (results_p -> rowCnt == 1)
-								{
-									id_s = apr_pstrdup (pool_p, results_p -> sqlResult [0].value);
-								}
-
-							freeGenQueryOut (&results_p);
+							id_s = apr_pstrdup (pool_p, results_p -> sqlResult [0].value);
 						}
-				}
-			else
-				{
 
+					freeGenQueryOut (&results_p);
 				}
 
 			res = SetIRodsObject (obj_p, coll_entry_p -> objType, id_s, coll_entry_p -> dataName, coll_entry_p -> collName, coll_entry_p -> ownerName, coll_entry_p -> modifyTime, coll_entry_p -> dataSize);

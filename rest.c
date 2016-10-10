@@ -140,6 +140,20 @@ static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_
 
 			if (value_s)
 				{
+					SearchOperator op = SO_EQUALS;
+					const char *op_s = apr_table_get (params_p, "op");
+
+					if (op_s)
+						{
+							apr_status_t status = GetSearchOperatorFromString (op_s, &op);
+
+							if (status != APR_SUCCESS)
+								{
+									ap_log_rerror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_BADARG, req_p, "error %d: Unknown operator \"%s\"", status, op_s);
+								}
+						}
+
+
 			    /* Get the iRods connection */
 					rcComm_t *rods_connection_p = NULL;
 					const char *username_s = req_p -> user;
@@ -159,7 +173,7 @@ static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_
 											apr_pool_t *pool_p = req_p -> pool;
 											char *relative_uri_s = apr_pstrcat (pool_p, "metadata search results for ", key_s, ":", value_s, NULL);
 
-											char *result_s = DoMetadataSearch (key_s, value_s, rods_connection_p -> clientUser.userName, relative_uri_s, pool_p, rods_connection_p, req_p -> connection -> bucket_alloc, config_p, req_p, davrods_path_s);
+											char *result_s = DoMetadataSearch (key_s, value_s, op, rods_connection_p -> clientUser.userName, relative_uri_s, pool_p, rods_connection_p, req_p -> connection -> bucket_alloc, config_p, req_p, davrods_path_s);
 
 											if (result_s)
 												{

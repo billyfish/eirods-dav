@@ -23,21 +23,28 @@
 
 static const int S_INITIAL_ARRAY_SIZE = 16;
 
+static const char * const S_SEARCH_OPERATOR_EQUALS_S = "=";
+
+static const char * const S_SEARCH_OPERATOR_LIKE_S = "like";
+
+/**************************************/
+
 static void InitGenQuery (genQueryInp_t *query_p);
 
 static int SetMetadataQuery (genQueryInp_t *query_p);
 
 static genQueryOut_t *ExecuteGenQuery (rcComm_t *connection_p, genQueryInp_t * const in_query_p);
 
-static char *GetQuotedValue (const char * const input_s, apr_pool_t *pool_p);
+static char *GetQuotedValue (const char * const input_s, const SearchOperator op, apr_pool_t *pool_p);
 
 
-static int AddClausesToQuery (genQueryInp_t *query_p, const int *select_columns_p, const int *where_columns_p, const char **where_values_ss, const size_t num_where_columns, apr_pool_t *pool_p);
+static int AddClausesToQuery (genQueryInp_t *query_p, const int *select_columns_p, const int *where_columns_p, const char **where_values_ss, const SearchOperator *where_ops_p, size_t num_where_columns, apr_pool_t *pool_p);
 
 
 static int AddSelectClausesToQuery (genQueryInp_t *query_p, const int *select_columns_p);
 
-static int AddWhereClausesToQuery (genQueryInp_t *query_p, const int *where_columns_p, const char **where_values_ss, const size_t num_columns, apr_pool_t *pool_p);
+
+static int AddWhereClausesToQuery (genQueryInp_t *query_p, const int *where_columns_p, const char **where_values_ss, const SearchOperator *where_ops_p, size_t num_columns, apr_pool_t *pool_p);
 
 static void ClearPooledMemoryFromGenQuery (genQueryInp_t *query_p);
 
@@ -104,8 +111,9 @@ apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t o
 							int select_columns_p [] = { COL_COLL_ID, -1};
 							int where_columns_p [] = { COL_COLL_NAME };
 							const char *where_values_ss [] = { coll_name_s };
+							SearchOperator where_ops_p [] = { SO_EQUALS };
 
-							genQueryOut_t *coll_id_results_p = RunQuery (irods_connection_p, select_columns_p, where_columns_p, where_values_ss, 1, pool_p);
+							genQueryOut_t *coll_id_results_p = RunQuery (irods_connection_p, select_columns_p, where_columns_p, where_values_ss, where_ops_p, 1, pool_p);
 
 							if (coll_id_results_p)
 								{
@@ -146,7 +154,7 @@ apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t o
 
 					if (success_code == 0)
 						{
-							char *condition_and_where_value_s = GetQuotedValue (where_value_s, pool_p);
+							char *condition_and_where_value_s = GetQuotedValue (where_value_s, SO_EQUALS, pool_p);
 
 							success_code = addInxVal (& (in_query.sqlCondInp), where_col, condition_and_where_value_s);
 
@@ -187,12 +195,12 @@ apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t o
 
 																	if (i == 0)
 																		{
-																			condition_and_where_value_s = GetQuotedValue (meta_id_s, pool_p);
+																			condition_and_where_value_s = GetQuotedValue (meta_id_s, SO_EQUALS, pool_p);
 																			success_code = addInxVal (& (in_query.sqlCondInp), COL_META_DATA_ATTR_ID, condition_and_where_value_s);
 																		}
 																	else
 																		{
-																			condition_and_where_value_s = GetQuotedValue (meta_id_s, pool_p);
+																			condition_and_where_value_s = GetQuotedValue (meta_id_s, SO_EQUALS, pool_p);
 
 																			if (condition_and_where_value_s)
 																				{
@@ -289,8 +297,7 @@ void SortIRodsMetadataArray (apr_array_header_t *metadata_array_p, int (*compare
 }
 
 
-
-genQueryOut_t *RunQuery (rcComm_t *connection_p, const int *select_columns_p, const int *where_columns_p, const char **where_values_ss, size_t num_where_columns, apr_pool_t *pool_p)
+genQueryOut_t *RunQuery (rcComm_t *connection_p, const int *select_columns_p, const int *where_columns_p, const char **where_values_ss, const SearchOperator *where_ops_p, size_t num_where_columns, apr_pool_t *pool_p)
 {
 	genQueryOut_t *out_query_p = NULL;
 	genQueryInp_t in_query;
@@ -298,7 +305,7 @@ genQueryOut_t *RunQuery (rcComm_t *connection_p, const int *select_columns_p, co
 
 	InitGenQuery (&in_query);
 
-	success_code = AddClausesToQuery (&in_query, select_columns_p, where_columns_p, where_values_ss, num_where_columns, pool_p);
+	success_code = AddClausesToQuery (&in_query, select_columns_p, where_columns_p, where_values_ss, where_ops_p, num_where_columns, pool_p);
 
 	if (success_code == 0)
 		{
@@ -332,13 +339,13 @@ genQueryOut_t *RunQuery (rcComm_t *connection_p, const int *select_columns_p, co
 }
 
 
-static int AddClausesToQuery (genQueryInp_t *query_p, const int *select_columns_p, const int *where_columns_p, const char **where_values_ss, size_t num_where_columns, apr_pool_t *pool_p)
+static int AddClausesToQuery (genQueryInp_t *query_p, const int *select_columns_p, const int *where_columns_p, const char **where_values_ss, const SearchOperator *where_ops_p, size_t num_where_columns, apr_pool_t *pool_p)
 {
 	int success_code = AddSelectClausesToQuery (query_p, select_columns_p);
 
 	if (success_code == 0)
 		{
-			success_code = AddWhereClausesToQuery (query_p, where_columns_p, where_values_ss, num_where_columns, pool_p);
+			success_code = AddWhereClausesToQuery (query_p, where_columns_p, where_values_ss, where_ops_p, num_where_columns, pool_p);
 		}
 
 	return success_code;
@@ -366,32 +373,41 @@ static int AddSelectClausesToQuery (genQueryInp_t *query_p, const int *select_co
 }
 
 
-static int AddWhereClausesToQuery (genQueryInp_t *query_p, const int *where_columns_p, const char **where_values_ss, size_t num_columns, apr_pool_t *pool_p)
+static int AddWhereClausesToQuery (genQueryInp_t *query_p, const int *where_columns_p, const char **where_values_ss, const SearchOperator *where_ops_p, size_t num_columns, apr_pool_t *pool_p)
 {
 	int success_code = 0;
 
-	while ((num_columns > 0) && (success_code == 0))
+	if (where_columns_p && where_values_ss)
 		{
-			char *quoted_id_s = GetQuotedValue (*where_values_ss, pool_p);
-
-			if (quoted_id_s)
+			while ((num_columns > 0) && (success_code == 0))
 				{
-					success_code = addInxVal (& (query_p -> sqlCondInp), *where_columns_p, quoted_id_s);
+					char *quoted_id_s = GetQuotedValue (*where_values_ss, where_ops_p ? *where_ops_p : SO_EQUALS, pool_p);
 
-					if (success_code == 0)
+					if (quoted_id_s)
 						{
-							++ where_columns_p;
-							++ where_values_ss;
-							-- num_columns;
+							success_code = addInxVal (& (query_p -> sqlCondInp), *where_columns_p, quoted_id_s);
+
+							if (success_code == 0)
+								{
+									++ where_columns_p;
+									++ where_values_ss;
+
+									if (where_ops_p)
+										{
+											++ where_ops_p;
+										}
+
+									-- num_columns;
+								}
+							else
+								{
+
+								}
 						}
 					else
 						{
 
 						}
-				}
-			else
-				{
-
 				}
 		}
 
@@ -399,7 +415,7 @@ static int AddWhereClausesToQuery (genQueryInp_t *query_p, const int *where_colu
 }
 
 
-char *DoMetadataSearch (const char * const key_s, const char *value_s, const char * const username_s, const char * const relative_uri_s, apr_pool_t *pool_p, rcComm_t *connection_p, struct apr_bucket_alloc_t *bucket_allocator_p, davrods_dir_conf_t *conf_p, request_rec *req_p, const char *davrods_path_s)
+char *DoMetadataSearch (const char * const key_s, const char *value_s, const SearchOperator op, const char * const username_s, const char * const relative_uri_s, apr_pool_t *pool_p, rcComm_t *connection_p, struct apr_bucket_alloc_t *bucket_allocator_p, davrods_dir_conf_t *conf_p, request_rec *req_p, const char *davrods_path_s)
 {
     /*
      * SELECT meta_id FROM r_meta_main WHERE meta_attr_name = ' ' AND meta_attr_value = ' ';
@@ -420,6 +436,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 	int num_where_columns = 2;
 	int where_columns_p [] =  { COL_META_DATA_ATTR_NAME, COL_META_DATA_ATTR_VALUE };
 	const char *where_values_ss [] = { key_s, value_s };
+	SearchOperator ops_p [] = { SO_EQUALS, op };
 	int select_columns_p [] =  { COL_META_DATA_ATTR_ID, -1, -1};
 	genQueryOut_t *meta_id_results_p = NULL;
 	struct HtmlTheme *theme_p = & (conf_p -> theme);
@@ -430,7 +447,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 	/*
 	 * SELECT meta_id FROM r_meta_main WHERE meta_attr_name = ' ' AND meta_attr_value = ' ';
 	 */
-	meta_id_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, num_where_columns, pool_p);
+	meta_id_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, ops_p, num_where_columns, pool_p);
 
 	if (meta_id_results_p)
 		{
@@ -466,7 +483,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 							 * SELECT object_id FROM r_objt_metamap WHERE meta_id = ' ';
 							 */
 
-							id_results_p = RunQuery (connection_p, object_id_select_columns_p, where_columns_p, where_values_ss, 1, pool_p);
+							id_results_p = RunQuery (connection_p, object_id_select_columns_p, where_columns_p, where_values_ss, NULL, 1, pool_p);
 
 							if (id_results_p)
 								{
@@ -501,7 +518,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 
 													where_values_ss [0] = id_s;
 
-													collection_name_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, num_where_columns, pool_p);
+													collection_name_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, NULL, num_where_columns, pool_p);
 
 													if (collection_name_results_p)
 														{
@@ -550,7 +567,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 							where_columns_p [0] = COL_META_DATA_ATTR_ID;
 							where_values_ss [0] = meta_id_s;
 
-							id_results_p = RunQuery (connection_p, object_id_select_columns_p, where_columns_p, where_values_ss, 1, pool_p);
+							id_results_p = RunQuery (connection_p, object_id_select_columns_p, where_columns_p, where_values_ss, NULL, 1, pool_p);
 
 							if (id_results_p)
 								{
@@ -583,7 +600,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 													 * 		SELECT data_name, coll_id FROM r_data_main where data_id = 10001;
 													 *
 													 */
-													data_id_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, 1, pool_p);
+													data_id_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, NULL, 1, pool_p);
 
 													if (data_id_results_p)
 														{
@@ -606,7 +623,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const cha
 																			 * We have the local data object name, we now need to get the collection name
 																			 * and join the two together
 																			 */
-																			coll_id_results_p = RunQuery (connection_p, coll_id_select_columns_p, coll_id_where_columns_p, coll_id_where_values_ss, num_coll_id_where_columns, pool_p);
+																			coll_id_results_p = RunQuery (connection_p, coll_id_select_columns_p, coll_id_where_columns_p, coll_id_where_values_ss, NULL, num_coll_id_where_columns, pool_p);
 
 																			if (coll_id_results_p)
 																				{
@@ -740,13 +757,89 @@ static int CheckQueryResults (const genQueryOut_t * const results_p, const int m
 }
 
 
-static char *GetQuotedValue (const char * const input_s, apr_pool_t *pool_p)
+const char *GetSearchOperatorAsString (const SearchOperator op)
 {
-	size_t input_length = strlen (input_s);
-	char *output_s = (char *) apr_palloc (pool_p, (input_length + 5) * sizeof (char));
+	const char *op_s = NULL;
 
-	sprintf (output_s, "= \'%s\'", input_s);
-	* (output_s + input_length + 4) = '\0';
+	switch (op)
+		{
+			case SO_EQUALS:
+				op_s = S_SEARCH_OPERATOR_EQUALS_S;
+				break;
+
+			case SO_LIKE:
+				op_s = S_SEARCH_OPERATOR_LIKE_S;
+				break;
+
+			default:
+			//	ap_log_rerror  ();
+				break;
+
+		}
+
+	return op_s;
+}
+
+
+apr_status_t GetSearchOperatorFromString (const char *op_s, SearchOperator *op_p)
+{
+	apr_status_t res = APR_BADARG;
+
+	if (op_s)
+		{
+			if (strcmp (S_SEARCH_OPERATOR_EQUALS_S, op_s) == 0)
+				{
+					*op_p = SO_EQUALS;
+					res = APR_SUCCESS;
+				}
+			else if (strcmp (S_SEARCH_OPERATOR_LIKE_S, op_s) == 0)
+				{
+					*op_p = SO_LIKE;
+					res = APR_SUCCESS;
+				}
+		}
+
+
+	return res;
+}
+
+
+static char *GetQuotedValue (const char * const input_s, const SearchOperator op, apr_pool_t *pool_p)
+{
+	char *output_s = NULL;
+	const char *op_s = GetSearchOperatorAsString (op);
+
+	if (op_s)
+		{
+			const size_t input_length = strlen (input_s);
+			size_t l = 4 + input_length + strlen (op_s);
+
+			/*
+			 * For "like" searches, we need to append the wildcard if
+			 * it is not already there
+			 */
+			if (op == SO_LIKE)
+				{
+					l += 2;
+				}
+
+			output_s = (char *) apr_palloc (pool_p, l * sizeof (char));
+
+			if (output_s)
+				{
+					if (op == SO_LIKE)
+						{
+							sprintf (output_s, "%s \'%%%s\%%'", op_s, input_s);
+						}
+					else
+						{
+							sprintf (output_s, "%s \'%s\'", op_s, input_s);
+						}
+
+					* (output_s + l - 1) = '\0';
+				}
+		}
+
 
 	return output_s;
 }
@@ -995,5 +1088,23 @@ int PrintMetadata (const apr_array_header_t *metadata_list_p, apr_bucket_brigade
 	return status;
 }
 
+
+
+apr_array_header_t *GetAllDataObjectMetadataKeys (apr_pool_t *pool_p, rcComm_t *connection_p)
+{
+	apr_array_header_t *metadata_keys_p = NULL;
+	int select_columns_p [3] = { COL_META_DATA_ATTR_NAME, COL_META_DATA_ATTR_VALUE, -1};
+	genQueryOut_t *results_p = RunQuery (connection_p, select_columns_p, NULL, NULL, NULL, 0, pool_p);
+
+	if (results_p)
+		{
+			if (results_p -> rowCnt > 0)
+				{
+
+				}
+		}
+
+	return metadata_keys_p;
+}
 
 

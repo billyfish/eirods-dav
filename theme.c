@@ -303,12 +303,14 @@ int PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_p, const 
 	char *timestamp_s = GetIRodsObjectLastModifiedTime (irods_obj_p, pool_p);
 	char *size_s = GetIRodsObjectSizeAsString (irods_obj_p, pool_p);
 
-        if (theme_p -> ht_show_ids_flag) {
-          apr_brigade_printf (bb_p, NULL, NULL, "<tr class=\"id\" id=\"%s\">", irods_obj_p -> io_id_s);
-        }
-        else {
-          apr_brigade_puts (bb_p, NULL, NULL, " <tr>");
-        }
+	if (theme_p -> ht_show_ids_flag)
+		{
+			apr_brigade_printf (bb_p, NULL, NULL, "<tr class=\"id\" id=\"%s\">", irods_obj_p -> io_id_s);
+		}
+	else
+		{
+			apr_brigade_puts (bb_p, NULL, NULL, " <tr>");
+		}
 
 	if (name_s)
 		{
@@ -329,14 +331,6 @@ int PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_p, const 
 					link_suffix_s ? link_suffix_s : "");
 
 		}		/* if (name_s && alt_s) */
-
-
-
-//	if (theme_p -> ht_show_ids_flag)
-//		{
-//			apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"id\">%s</td>", irods_obj_p -> io_id_s);
-//		}
-
 
 	// Print data object size.
 	apr_brigade_puts (bb_p, NULL, NULL, "<td class=\"size\">");
