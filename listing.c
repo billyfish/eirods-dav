@@ -291,7 +291,7 @@ int GetAndAddMetadataForIRodsObject (const IRodsObject *irods_obj_p, const char 
 		{
 			if (!apr_is_empty_array (metadata_array_p))
 				{
-					status = PrintMetadata (metadata_array_p, bb_p, link_s);
+					status = PrintMetadata (metadata_array_p, bb_p, link_s, pool_p);
 				}		/* if (!apr_is_empty_array (metadata_array_p)) */
 
 		}		/* if (metadata_array_p) */

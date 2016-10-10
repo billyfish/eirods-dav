@@ -829,7 +829,7 @@ static char *GetQuotedValue (const char * const input_s, const SearchOperator op
 				{
 					if (op == SO_LIKE)
 						{
-							sprintf (output_s, "%s \'%%%s\%%'", op_s, input_s);
+							sprintf (output_s, "%s \'%%%s%%\'", op_s, input_s);
 						}
 					else
 						{
@@ -1043,7 +1043,7 @@ static int CompareIrodsMetadata (const void *v0_p, const void *v1_p)
 
 
 
-int PrintMetadata (const apr_array_header_t *metadata_list_p, apr_bucket_brigade *bb_p, const char *metadata_search_link_s)
+int PrintMetadata (const apr_array_header_t *metadata_list_p, apr_bucket_brigade *bb_p, const char *metadata_search_link_s, apr_pool_t *pool_p)
 {
 	int status = 0;
 	apr_status_t apr_stat = apr_brigade_puts (bb_p, NULL, NULL, "<ul class=\"metadata\">");
@@ -1061,7 +1061,10 @@ int PrintMetadata (const apr_array_header_t *metadata_list_p, apr_bucket_brigade
 
 					if (metadata_search_link_s)
 						{
-							apr_brigade_printf (bb_p, NULL, NULL, "<a href=\"%s?key=%s&amp;value=%s\">", metadata_search_link_s, metadata_p -> im_key_s, metadata_p -> im_value_s);
+							char *escaped_key_s = ap_escape_urlencoded (pool_p, metadata_p -> im_key_s);
+							char *escaped_value_s = ap_escape_urlencoded (pool_p, metadata_p -> im_value_s);
+
+							apr_brigade_printf (bb_p, NULL, NULL, "<a href=\"%s?key=%s&amp;value=%s\">", metadata_search_link_s, escaped_key_s, escaped_value_s);
 						}
 
 					apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"key\">%s</span>: <span class=\"value\">%s</span>", metadata_p -> im_key_s, metadata_p -> im_value_s);

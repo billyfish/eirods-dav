@@ -10,6 +10,7 @@
 #define ALLOC_REST_PATHS
 #include "rest.h"
 
+#include "apr_escape.h"
 #include "apr_tables.h"
 #include "apr_strings.h"
 #include "util_script.h"
@@ -35,6 +36,8 @@ typedef struct APICall
  */
 
 static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s);
+
+static char *GetParameterValue (apr_table_t *params_p, const char * const param_s, apr_pool_t *pool_p);
 
 
 /*
@@ -125,6 +128,8 @@ int DavrodsRestHandler (request_rec *req_p)
 
 
 
+
+
 /*
  * STATIC DEFINITIONS
  */
@@ -132,11 +137,12 @@ int DavrodsRestHandler (request_rec *req_p)
 static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s)
 {
 	int res = DECLINED;
-	const char * const key_s = apr_table_get (params_p, "key");
+	apr_pool_t *pool_p = req_p -> pool;
+	char * const key_s = GetParameterValue (params_p, "key", pool_p);
 
 	if (key_s)
 		{
-			const char * const value_s = apr_table_get (params_p, "value");
+			char * const value_s = GetParameterValue (params_p, "value", pool_p);
 
 			if (value_s)
 				{
@@ -170,7 +176,6 @@ static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_
 
 									if (rods_connection_p)
 										{
-											apr_pool_t *pool_p = req_p -> pool;
 											char *relative_uri_s = apr_pstrcat (pool_p, "metadata search results for ", key_s, ":", value_s, NULL);
 
 											char *result_s = DoMetadataSearch (key_s, value_s, op, rods_connection_p -> clientUser.userName, relative_uri_s, pool_p, rods_connection_p, req_p -> connection -> bucket_alloc, config_p, req_p, davrods_path_s);
@@ -188,4 +193,20 @@ static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_
 		}
 
 	return res;
+}
+
+
+static char *GetParameterValue (apr_table_t *params_p, const char * const param_s, apr_pool_t *pool_p)
+{
+	const char *value_s = NULL;
+	const char * const raw_value_s = apr_table_get (params_p, param_s);
+	const char *forbid_s = NULL;
+	const char *reserved_s = NULL;
+
+	if (raw_value_s)
+		{
+			value_s = apr_punescape_url (pool_p, raw_value_s, forbid_s, reserved_s, 1);
+		}
+
+	return value_s;
 }
