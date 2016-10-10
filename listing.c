@@ -285,7 +285,7 @@ int GetAndAddMetadataForIRodsObject (const IRodsObject *irods_obj_p, const char 
 	int status = -1;
 	apr_array_header_t *metadata_array_p = GetMetadata (connection_p, irods_obj_p -> io_obj_type, irods_obj_p -> io_id_s, irods_obj_p -> io_collection_s, pool_p);
 
-	apr_brigade_puts (bb_p, NULL, NULL, "<td class=\"metadata\">");
+	apr_brigade_puts (bb_p, NULL, NULL, "<td class=\"metatable\">");
 
 	if (metadata_array_p)
 		{
