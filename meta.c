@@ -692,6 +692,15 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 
 	apr_status = apr_brigade_pflatten (bucket_brigade_p, &result_s, &result_length, pool_p);
 
+	/*
+	 * Sometimes there is garbage at the end of this, and I don't know which apr_brigade_...
+	 * method I need to get the terminating '\0' so have to do it explicitly.
+	 */
+	if (* (result_s + result_length) != '\0')
+		{
+			* (result_s + result_length) = '\0';
+		}
+
 	apr_brigade_destroy(bucket_brigade_p);
 
 	return result_s;
