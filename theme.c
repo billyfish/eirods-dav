@@ -17,7 +17,10 @@
 
 /************************************/
 
-static int DisplayIcons (const struct HtmlTheme *theme_p);
+static int AreIconsDisplayed (const struct HtmlTheme *theme_p);
+
+static apr_status_t PrintParentLink (const char *icon_s, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p);
+
 
 /*************************************/
 
@@ -139,23 +142,23 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
 {
-	apr_status_t apr_status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, "</tbody>\n</table>\n</main>\n");
+	apr_status_t apr_status = PrintBasicStringToBucketBrigade ("</tbody>\n</table>\n</main>\n", bucket_brigade_p, req_p, __FILE__, __LINE__);
 
 	if (apr_status == APR_SUCCESS)
 		{
 			if (theme_p -> ht_bottom_s)
 				{
-					apr_status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, theme_p->ht_bottom_s);
+					apr_status = PrintBasicStringToBucketBrigade (theme_p -> ht_bottom_s, bucket_brigade_p, req_p, __FILE__, __LINE__);
 
 					if (apr_status != APR_SUCCESS)
 						{
-							ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, req_p, "Failed to add end table to bottom section \"%s\", %d", theme_p -> ht_bottom_s, apr_status);
+							return apr_status;
 						} /* if (apr_ret != APR_SUCCESS) */
 
 				}		/* if (theme_p -> ht_bottom_s) */
-		}
 
-	apr_status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, "\n</body>\n</html>\n");
+			apr_status =  PrintBasicStringToBucketBrigade ("\n</body>\n</html>\n", bucket_brigade_p, req_p, __FILE__, __LINE__);
+		}
 
 	return apr_status;
 }
@@ -163,45 +166,54 @@ apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, request_rec *r
 
 apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * const relative_uri_s, const char * const user_s, const char * const zone_s, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
 {
-	apr_status_t apr_status;
-
 	// Send start of HTML document.
-	apr_brigade_printf(bucket_brigade_p, NULL, NULL,
-			"<!DOCTYPE html>\n<html lang=\"en\">\n<head><title>Index of %s on %s</title>\n",
-			ap_escape_html(pool_p, relative_uri_s),
-			ap_escape_html(pool_p, zone_s));
+	const char *escaped_relative_uri_s = ap_escape_html (pool_p, relative_uri_s);
+	const char *escaped_zone_s = ap_escape_html (pool_p, zone_s);
 
-	//    WHISPER("head \"%s\"", theme_p -> ht_head_s);
-	//    WHISPER("top \"%s\"", theme_p -> ht_top_s);
-	//    WHISPER("bottom \"%s\"", theme_p -> ht_bottom_s);
-	//    WHISPER("coll \"%s\"", theme_p -> ht_collection_icon_s);
-	//    WHISPER("obj \"%s\"", theme_p -> ht_object_icon_s);
-	//    WHISPER("metadata \"%d\"", theme_p -> ht_show_metadata);
+	/*
+	 * Print the start of the doc
+	 */
+	apr_status_t apr_status =	apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<!DOCTYPE html>\n<html lang=\"en\">\n<head><title>Index of %s on %s</title>\n", escaped_relative_uri_s, escaped_zone_s);
+	if (apr_status != APR_SUCCESS)
+		{
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to add start of html doc with relative uri \"%s\" and zone \"%s\"", escaped_relative_uri_s, escaped_zone_s);
+
+			return apr_status;
+		}
+
 
 	/*
 	 * If we have additional data for the <head> section, add it here.
 	 */
-	if (theme_p->ht_head_s)
+	if (theme_p -> ht_head_s)
 		{
-			apr_status = apr_brigade_puts(bucket_brigade_p, NULL, NULL, theme_p->ht_head_s);
+			apr_status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, theme_p -> ht_head_s);
 
 			if (apr_status != APR_SUCCESS)
 				{
-					ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_SUCCESS,
-							req_p,
-							"Failed to add html to <head> section \"%s\"",
-							theme_p->ht_head_s);
-
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to add html to <head> section \"%s\"", theme_p -> ht_head_s);
+					return apr_status;
 				} /* if (apr_ret != APR_SUCCESS) */
 
 		} /* if (theme_p -> ht_head_s) */
 
-	apr_brigade_puts(bucket_brigade_p, NULL, NULL,
+
+	/*
+	 * Write the start of the body section
+	 */
+	apr_status = apr_brigade_puts(bucket_brigade_p, NULL, NULL,
 			"<body>\n\n"
 					"<!-- Warning: Do not parse this directory listing programmatically,\n"
 					"              the format may change without notice!\n"
 					"              If you want to script access to these WebDAV collections,\n"
 					"              please use the PROPFIND method instead. -->\n\n");
+
+	if (apr_status != APR_SUCCESS)
+		{
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to write start of <body> section");
+			return apr_status;
+		}
+
 
 	/*
 	 * If we have additional data to go above the directory listing, add it here.
@@ -212,34 +224,36 @@ apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * 
 
 			if (apr_status != APR_SUCCESS)
 				{
-					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, req_p, "Failed to add html to top section \"%s\"", theme_p -> ht_top_s);
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to add html to top section \"%s\"", theme_p -> ht_top_s);
+					return apr_status;
 				} /* if (apr_ret != APR_SUCCESS) */
 
 		}		/* if (theme_p -> ht_top_s) */
 
-	apr_brigade_printf(bucket_brigade_p, NULL, NULL,
-			"<main>\n<h1>You are logged in as %s and browsing the index of %s on %s</h1>\n",
-			user_s,
-			ap_escape_html (pool_p, relative_uri_s),
-			ap_escape_html (pool_p, zone_s));
+
+	/*
+	 * Print the user status
+	 */
+	apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<main>\n<h1>You are logged in as %s and browsing the index of %s on %s</h1>\n", user_s, escaped_relative_uri_s, escaped_zone_s);
+	if (apr_status != APR_SUCCESS)
+		{
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to add the user status with user \"%s\", uri \"%s\", zone \"%s\"", user_s, escaped_relative_uri_s, escaped_zone_s);
+			return apr_status;
+		} /* if (apr_ret != APR_SUCCESS) */
 
 
 	if (strcmp (relative_uri_s, "/"))
 		{
-			apr_brigade_puts (bucket_brigade_p, NULL, NULL, "<p><a href=\"..\">");
+			apr_status = PrintParentLink (theme_p -> ht_parent_icon_s, bucket_brigade_p);
 
-			if (theme_p -> ht_parent_icon_s)
+			if (apr_status != APR_SUCCESS)
 				{
-					apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<img src=\"%s\" alt=\"Browse to parent Collection\"/>", ap_escape_html (pool_p, theme_p -> ht_parent_icon_s));
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to print parent link");
+					return apr_status;
 				}
-			else
-				{
-					apr_brigade_puts(bucket_brigade_p, NULL, NULL, "↖");
-				}
-
-			apr_brigade_puts(bucket_brigade_p, NULL, NULL, " Parent collection</a></p>\n");
 
 		}		/* if (strcmp (davrods_resource_p->relative_uri, "/")) */
+
 
 	/*
 	 * Add the listing class
@@ -247,34 +261,34 @@ apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * 
 	apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<table class=\"%s\">\n<thead>\n<tr>", theme_p -> ht_listing_class_s ? theme_p -> ht_listing_class_s : "listing");
 	if (apr_status != APR_SUCCESS)
 		{
-			ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, req_p, "Failed to add start of table listing, %d", apr_status);
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to add start of table listing with class \"%s\"", theme_p -> ht_listing_class_s ? theme_p -> ht_listing_class_s : "listing");
+			return apr_status;
 		} /* if (apr_ret != APR_SUCCESS) */
 
 
 	/*
 	 * If we are going to display icons, add the column
 	 */
-	if (DisplayIcons (theme_p))
+	if (AreIconsDisplayed (theme_p))
 		{
 			apr_status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, "<th class=\"icon\"></th>");
 
 			if (apr_status != APR_SUCCESS)
 				{
-					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, req_p, "Failed to add table header for icons, %d", apr_status);
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to add table header for icons");
+					return apr_status;
 				} /* if (apr_ret != APR_SUCCESS) */
 
-		}		/* if ((theme_p -> ht_collection_icon_s) || (theme_p -> ht_object_icon_s)) */
+		}		/* if (AreIconsDisplayed (theme_p)) */
 
 
+	status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, "<th class=\"name\">Name</th><th class=\"size\">Size</th><th class=\"owner\">Owner</th><th class=\"datestamp\">Last modified</th>");
+	if (apr_status != APR_SUCCESS)
+		{
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to add table headers");
+			return apr_status;
+		} /* if (apr_ret != APR_SUCCESS) */
 
-	apr_brigade_puts (bucket_brigade_p, NULL, NULL, "<th class=\"name\">Name</th>");
-
-//	if (theme_p -> ht_show_ids_flag)
-//		{
-//			apr_brigade_puts (bucket_brigade_p, NULL, NULL, "<th class=\"id\">Id</th>");
-//		}
-
-	apr_brigade_puts (bucket_brigade_p, NULL, NULL, "<th class=\"size\">Size</th><th class=\"owner\">Owner</th><th class=\"datestamp\">Last modified</th>");
 
 	if (theme_p -> ht_show_metadata_flag)
 		{
@@ -282,21 +296,67 @@ apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * 
 
 			if (apr_status != APR_SUCCESS)
 				{
-					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, req_p, "Failed to add table header for metadata, %d", apr_status);
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to add table header for metadata");
+					return apr_status;
 				} /* if (apr_ret != APR_SUCCESS) */
 
-		}		/* if (theme_p->ht_show_metadata) */
+		}		/* if (theme_p -> ht_show_metadata_flag) */
 
 
-	apr_brigade_puts (bucket_brigade_p, NULL, NULL, "</tr>\n</thead>\n<tbody>\n");
+	apr_status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, "</tr>\n</thead>\n<tbody>\n");
+	if (apr_status != APR_SUCCESS)
+		{
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to add closing table tags");
+		} /* if (apr_ret != APR_SUCCESS) */
 
 	return apr_status;
 }
 
 
-int PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_p, const char *root_path_s, const char *exposed_root_s, const char * const metadata_root_link_s, apr_bucket_brigade *bb_p, apr_pool_t *pool_p, rcComm_t *connection_p)
+
+static apr_status_t PrintParentLink (const char *icon_s, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
 {
-	int success_code = 0;
+	apr_status_t status = PrintBasicStringToBucketBrigade ("<p><a href=\"..\">", bb_p, req_p, __FILE__, __LINE__);
+
+	if (status != APR_SUCCESS)
+		{
+			return status;
+		}
+
+	if (icon_s)
+		{
+			const char *escaped_icon_s = ap_escape_html (pool_p, theme_p -> ht_parent_icon_s);
+
+			status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<img src=\"%s\" alt=\"Browse to parent Collection\"/>", escaped_icon_s);
+
+			if (status != APR_SUCCESS)
+				{
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, status, req_p, "Failed to print icon \"%s\"", escaped_icon_s);
+					return status;
+				}
+		}
+	else
+		{
+			/* Print a north-west arrow */
+			value_s = "&#8598;";
+			apr_brigade_puts (bucket_brigade_p, NULL, NULL, value_s);
+
+			if (status != APR_SUCCESS)
+				{
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, status, req_p, "Failed to print \"%s\"", value_s);
+					return status;
+				}
+		}
+
+	status = PrintBasicStringToBucketBrigade (" Parent collection</a></p>\n", bucket_brigade_p, req_p, __FILE__, __LINE__);
+
+	return status;
+}
+
+
+apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_p, const char *root_path_s, const char *exposed_root_s, const char * const metadata_root_link_s, apr_bucket_brigade *bb_p, apr_pool_t *pool_p, rcComm_t *connection_p)
+{
+	apr_status_t status = APR_SUCCESS;
 	const char *link_suffix_s = irods_obj_p -> io_obj_type == COLL_OBJ_T ? "/" : NULL;
 	const char *name_s = GetIRodsObjectDisplayName (irods_obj_p);
 	char *timestamp_s = GetIRodsObjectLastModifiedTime (irods_obj_p, pool_p);
@@ -320,7 +380,10 @@ int PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_p, const 
 			// Collection links need a trailing slash for the '..' links to work correctly.
 			if (icon_s)
 				{
-					apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"icon\"><img src=\"%s\" alt=\"%s\"></td>", ap_escape_html (pool_p, icon_s), alt_s);
+					apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"icon\"><img src=\"%s\"", ap_escape_html (pool_p, icon_s));
+
+					if (alt_s)
+						{
 				}
 
 			apr_brigade_printf(bb_p, NULL, NULL,
@@ -329,7 +392,7 @@ int PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_p, const 
 					ap_escape_html (pool_p, name_s),
 					link_suffix_s ? link_suffix_s : "");
 
-		}		/* if (name_s && alt_s) */
+		}		/* if (name_s) */
 
 	// Print data object size.
 	apr_brigade_puts (bb_p, NULL, NULL, "<td class=\"size\">");
@@ -358,20 +421,39 @@ int PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_p, const 
 
 	if (theme_p -> ht_show_metadata_flag)
 		{
-			if (GetAndAddMetadataForIRodsObject (irods_obj_p, metadata_root_link_s, bb_p, connection_p, pool_p) != 0)
+			const char *zone_s = NULL;
+
+			if (GetAndPrintMetadataForIRodsObject (irods_obj_p, metadata_root_link_s, zone_s, bb_p, connection_p, pool_p) != 0)
 				{
 
 				}
 		}
 
-	apr_brigade_puts (bb_p, NULL, NULL, "</tr>\n");
+	status = PrintBasicStringToBucketBrigade ("</tr>\n", bb_p, req_p, __FILE__, __LINE__);
+	if (status != APR_SUCCESS)
+		{
+			return status;
+		}
 
-	return success_code;
+	return status;
+}
+
+
+static apr_status_t PrintBasicStringToBucketBrigade (const char *value_s, apr_bucket_brigade_t *brigade_p, request_rec *req_p, const char *file_s, const int line);
+{
+	apr_status_t status = apr_brigade_puts (brigade_p, NULL, NULL, value_s);
+
+	if (status != APR_SUCCESS)
+		{
+			ap_log_rerror (file_s, line, APLOG_ERR, status, req_p, "Failed to print \"%s\"", value_s);
+		}
+
+	return status;
 }
 
 
 
-static int DisplayIcons (const struct HtmlTheme *theme_p)
+static int AreIconsDisplayed (const struct HtmlTheme *theme_p)
 {
 	return ((theme_p -> ht_collection_icon_s) || (theme_p -> ht_object_icon_s) || (theme_p -> ht_icons_map_p)) ? 1 : 0;
 }

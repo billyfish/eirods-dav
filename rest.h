@@ -11,8 +11,6 @@
 
 #include "httpd.h"
 
-#include "rodsConnect.h"
-
 
 #define REST_METADATA_PATH_S ("metadata")
 

@@ -280,10 +280,10 @@ char *GetIRodsObjectLastModifiedTime (const  IRodsObject *irods_obj_p, apr_pool_
 }
 
 
-int GetAndAddMetadataForIRodsObject (const IRodsObject *irods_obj_p, const char * const link_s, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p)
+int GetAndPrintMetadataForIRodsObject (const IRodsObject *irods_obj_p, const char * const link_s, const char *zone_s, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p)
 {
 	int status = -1;
-	apr_array_header_t *metadata_array_p = GetMetadata (connection_p, irods_obj_p -> io_obj_type, irods_obj_p -> io_id_s, irods_obj_p -> io_collection_s, pool_p);
+	apr_array_header_t *metadata_array_p = GetMetadata (connection_p, irods_obj_p -> io_obj_type, irods_obj_p -> io_id_s, irods_obj_p -> io_collection_s, zone_s, pool_p);
 
 	apr_brigade_puts (bb_p, NULL, NULL, "<td class=\"metatable\">");
 

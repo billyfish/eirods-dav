@@ -29,9 +29,9 @@ static const char * const S_SEARCH_OPERATOR_LIKE_S = "like";
 
 /**************************************/
 
-static void InitGenQuery (genQueryInp_t *query_p);
+static void InitGenQuery (genQueryInp_t *query_p, const char * const zone_s);
 
-static int SetMetadataQuery (genQueryInp_t *query_p);
+static int SetMetadataQuery (genQueryInp_t *query_p, const char * const zone_s);
 
 static genQueryOut_t *ExecuteGenQuery (rcComm_t *connection_p, genQueryInp_t * const in_query_p);
 
@@ -61,13 +61,13 @@ static int CompareIrodsMetadata (const void *v0_p, const void *v1_p);
 
 
 
-apr_array_header_t *GetMetadataForCollEntry (const dav_resource *resource_p, const collEnt_t *entry_p)
+apr_array_header_t *GetMetadataForCollEntry (const dav_resource *resource_p, const collEnt_t *entry_p, const char *zone_s)
 {
-	return GetMetadata (resource_p -> info ->  rods_conn, entry_p -> objType, entry_p -> dataId, entry_p -> collName, resource_p -> pool);
+	return GetMetadata (resource_p -> info ->  rods_conn, entry_p -> objType, entry_p -> dataId, entry_p -> collName, zone_s, resource_p -> pool);
 }
 
 
-apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t object_type, const char *id_s, const char *coll_name_s, apr_pool_t *pool_p)
+apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t object_type, const char *id_s, const char *coll_name_s, const char *zone_s, apr_pool_t *pool_p)
 {
 	apr_array_header_t *metadata_array_p = apr_array_make (pool_p, S_INITIAL_ARRAY_SIZE, sizeof (IrodsMetadata *));
 
@@ -78,7 +78,7 @@ apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t o
 			const char *where_value_s = NULL;
 			genQueryInp_t in_query;
 
-			InitGenQuery (&in_query);
+			InitGenQuery (&in_query, zone_s);
 
 			switch (object_type)
 				{
@@ -170,7 +170,7 @@ apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t o
 									if (meta_id_results_p)
 										{
 											/* Reset out input query */
-											success_code = SetMetadataQuery (&in_query);
+											success_code = SetMetadataQuery (&in_query, zone_s);
 
 											fprintf (stderr, "initial results:\n");
 											PrintBasicGenQueryOut (meta_id_results_p);
@@ -303,7 +303,7 @@ genQueryOut_t *RunQuery (rcComm_t *connection_p, const int *select_columns_p, co
 	genQueryInp_t in_query;
 	int success_code;
 
-	InitGenQuery (&in_query);
+	InitGenQuery (&in_query, NULL);
 
 	success_code = AddClausesToQuery (&in_query, select_columns_p, where_columns_p, where_values_ss, where_ops_p, num_where_columns, pool_p);
 
@@ -314,7 +314,7 @@ genQueryOut_t *RunQuery (rcComm_t *connection_p, const int *select_columns_p, co
 			/* Did we run it successfully? */
 			if (status == 0)
 				{
-
+					//printBasicGenQueryOut (out_query_p, "result: \"%s\" \"%s\"\n");
 				}
 			else if (status == CAT_NO_ROWS_FOUND)
 				{
@@ -324,10 +324,6 @@ genQueryOut_t *RunQuery (rcComm_t *connection_p, const int *select_columns_p, co
 			else if (status < 0 )
 				{
 					printf ("error status: %d\n", status);
-				}
-			else
-				{
-					//printBasicGenQueryOut (out_query_p, "result: \"%s\" \"%s\"\n");
 				}
 
 		}
@@ -854,11 +850,18 @@ static char *GetQuotedValue (const char * const input_s, const SearchOperator op
 }
 
 
-static void InitGenQuery (genQueryInp_t *query_p)
+static void InitGenQuery (genQueryInp_t *query_p, const char * const zone_s)
 {
 	memset (query_p, 0, sizeof (genQueryInp_t));
 	query_p -> maxRows = MAX_SQL_ROWS;
 	query_p -> continueInx = 0;
+
+	//query_p -> options = UPPER_CASE_WHERE;
+
+	if (zone_s)
+		{
+			addKeyVal (& (query_p -> condInput), ZONE_KW, zone_s);
+		}
 }
 
 
@@ -868,12 +871,12 @@ static void ClearPooledMemoryFromGenQuery (genQueryInp_t *query_p)
 }
 
 
-static int SetMetadataQuery (genQueryInp_t *query_p)
+static int SetMetadataQuery (genQueryInp_t *query_p, const char * const zone_s)
 {
 	int success_code;
 
 	/* Reset out input query */
-	InitGenQuery (query_p);
+	InitGenQuery (query_p, zone_s);
 
 	/*
 	 * Add the values that we want:
