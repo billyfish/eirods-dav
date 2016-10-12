@@ -56,7 +56,7 @@ IrodsMetadata *AllocateIrodsMetadata (const char * const key_s, const char * con
 void SortIRodsMetadataArray (apr_array_header_t *metadata_array_p, int (*compare_fn) (const void *v0_p, const void *v1_p));
 
 
-int PrintMetadata (const apr_array_header_t *metadata_list_p, apr_bucket_brigade *bb_p, const char *metadata_search_link_s, apr_pool_t *pool_p);
+apr_status_t PrintMetadata (const apr_array_header_t *metadata_list_p, apr_bucket_brigade *bb_p, const char *metadata_search_link_s, apr_pool_t *pool_p);
 
 
 char *DoMetadataSearch (const char * const key_s, const char *value_s, const SearchOperator op, const char * const username_s, const char * const relative_uri_s, apr_pool_t *pool_p, rcComm_t *connection_p, struct apr_bucket_alloc_t *bucket_allocator_p, davrods_dir_conf_t *conf_p, request_rec *req_p, const char *davrods_path_s);

@@ -80,46 +80,56 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 	if (apr_status == APR_SUCCESS)
 		{
 			const char *davrods_root_path_s = davrods_resource_p -> root_dir;
-
 			const char *exposed_root_s = GetRodsExposedPath (req_p);
+			char *metadata_link_s = apr_pstrcat (pool_p, davrods_resource_p -> root_dir, conf_p -> davrods_api_path_s, REST_METADATA_PATH_S, NULL);
+			IRodsConfig irods_config;
 
-			// Actually print the directory listing, one table row at a time.
-			do
+			if (SetIRodsConfig (&irods_config, exposed_root_s, davrods_root_path_s, metadata_link_s))
 				{
-					status = rclReadCollection (davrods_resource_p -> rods_conn, &coll_handle, &coll_entry);
-
-					if (status >= 0)
+					// Actually print the directory listing, one table row at a time.
+					do
 						{
-							char *metadata_link_s = apr_pstrcat (pool_p, davrods_resource_p -> root_dir, conf_p -> davrods_api_path_s, REST_METADATA_PATH_S, NULL);
-							IRodsObject irods_obj;
+							status = rclReadCollection (davrods_resource_p -> rods_conn, &coll_handle, &coll_entry);
 
-							if (SetIRodsObjectFromCollEntry (&irods_obj, &coll_entry, davrods_resource_p -> rods_conn, pool_p))
+							if (status >= 0)
 								{
-									int success_code = PrintItem (theme_p, &irods_obj, davrods_root_path_s, exposed_root_s, metadata_link_s, bucket_brigade_p, pool_p, resource_p -> info -> rods_conn, req_p);
-								}
+									IRodsObject irods_obj;
 
-						}
-					else
-						{
-							if (status == CAT_NO_ROWS_FOUND)
-								{
-									// End of collection.
+									if (SetIRodsObjectFromCollEntry (&irods_obj, &coll_entry, davrods_resource_p -> rods_conn, pool_p))
+										{
+											apr_status = PrintItem (theme_p, &irods_obj, &irods_config, bucket_brigade_p, pool_p, resource_p -> info -> rods_conn, req_p);
+
+											if (apr_status != APR_SUCCESS)
+												{
+
+												}
+										}
+
 								}
 							else
 								{
-									ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_SUCCESS,
-											req_p,
-											"rcReadCollection failed for collection <%s> with error <%s>",
-											davrods_resource_p->rods_path, get_rods_error_msg(status));
+									if (status == CAT_NO_ROWS_FOUND)
+										{
+											// End of collection.
+										}
+									else
+										{
+											ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_SUCCESS,
+													req_p,
+													"rcReadCollection failed for collection <%s> with error <%s>",
+													davrods_resource_p->rods_path, get_rods_error_msg(status));
 
-									apr_brigade_destroy(bucket_brigade_p);
+											apr_brigade_destroy(bucket_brigade_p);
 
-									return dav_new_error(pool_p, HTTP_INTERNAL_SERVER_ERROR,
-											0, 0, "Could not read a collection entry from a collection.");
+											return dav_new_error(pool_p, HTTP_INTERNAL_SERVER_ERROR,
+													0, 0, "Could not read a collection entry from a collection.");
+										}
 								}
 						}
-				}
-			while (status >= 0);
+					while (status >= 0);
+
+				}		/* if (SetIRodsConfig (&irods_config, exposed_root_s, davrods_root_path_s, REST_METADATA_PATH_S)) */
+
 
 		}		/* if (apr_status == APR_SUCCESS) */
 
@@ -128,7 +138,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 	CloseBucketsStream (bucket_brigade_p);
 
-	if ((status = ap_pass_brigade(output_p, bucket_brigade_p)) != APR_SUCCESS)
+	if ((status = ap_pass_brigade (output_p, bucket_brigade_p)) != APR_SUCCESS)
 		{
 			apr_brigade_destroy (bucket_brigade_p);
 			return dav_new_error(pool_p, HTTP_INTERNAL_SERVER_ERROR, 0, status,
@@ -342,7 +352,7 @@ static apr_status_t PrintParentLink (const char *icon_s, request_rec *req_p, apr
 }
 
 
-apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_p, const char *root_path_s, const char *exposed_root_s, const char * const metadata_root_link_s, apr_bucket_brigade *bb_p, apr_pool_t *pool_p, rcComm_t *connection_p, request_rec *req_p)
+apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_p, const IRodsConfig *config_p, apr_bucket_brigade *bb_p, apr_pool_t *pool_p, rcComm_t *connection_p, request_rec *req_p)
 {
 	apr_status_t status = APR_SUCCESS;
 	const char *link_suffix_s = irods_obj_p -> io_obj_type == COLL_OBJ_T ? "/" : NULL;
@@ -368,7 +378,7 @@ apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_
 		{
 			const char *icon_s = GetIRodsObjectIcon (irods_obj_p, theme_p);
 			const char *alt_s = GetIRodsObjectAltText (irods_obj_p);
-			char *relative_link_s = GetIRodsObjectRelativeLink (irods_obj_p, root_path_s, exposed_root_s, pool_p);
+			char *relative_link_s = GetIRodsObjectRelativeLink (irods_obj_p, config_p, pool_p);
 
 			// Collection links need a trailing slash for the '..' links to work correctly.
 			if (icon_s)
@@ -440,7 +450,7 @@ apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_
 		{
 			const char *zone_s = NULL;
 
-			if (GetAndPrintMetadataForIRodsObject (irods_obj_p, metadata_root_link_s, zone_s, bb_p, connection_p, pool_p) != 0)
+			if (GetAndPrintMetadataForIRodsObject (irods_obj_p, config_p -> ic_metadata_root_link_s, zone_s, bb_p, connection_p, pool_p) != 0)
 				{
 
 				}

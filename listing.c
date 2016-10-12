@@ -15,9 +15,23 @@
 #include "apr_time.h"
 
 
-int SetIRodsObject (IRodsObject *obj_p, const objType_t obj_type, const char *id_s, const char *data_s, const char *collection_s, const char *owner_name_s, const char *last_modified_time_s, const rodsLong_t size)
+
+
+apr_status_t SetIRodsConfig (IRodsConfig *config_p, const char *exposed_root_s, const char *root_path_s, const char *metadata_root_link_s)
 {
-	int res = 1;
+	apr_status_t status = APR_SUCCESS;
+
+	config_p -> ic_exposed_root_s = exposed_root_s;
+	config_p -> ic_root_path_s = root_path_s;
+	config_p -> ic_metadata_root_link_s = metadata_root_link_s;
+
+	return status;
+}
+
+
+apr_status_t SetIRodsObject (IRodsObject *obj_p, const objType_t obj_type, const char *id_s, const char *data_s, const char *collection_s, const char *owner_name_s, const char *last_modified_time_s, const rodsLong_t size)
+{
+	apr_status_t status = APR_SUCCESS;
 
 	obj_p -> io_obj_type = obj_type;
 	obj_p -> io_id_s = id_s;
@@ -27,13 +41,12 @@ int SetIRodsObject (IRodsObject *obj_p, const objType_t obj_type, const char *id
 	obj_p -> io_last_modified_time_s = last_modified_time_s;
 	obj_p -> io_size = size;
 
-	return res;
+	return status;
 }
 
-
-int SetIRodsObjectFromCollEntry (IRodsObject *obj_p, const collEnt_t *coll_entry_p, rcComm_t *connection_p, apr_pool_t *pool_p)
+apr_status_t SetIRodsObjectFromCollEntry (IRodsObject *obj_p, const collEnt_t *coll_entry_p, rcComm_t *connection_p, apr_pool_t *pool_p)
 {
-	int res;
+	apr_status_t status;
 
 	if (coll_entry_p -> objType == COLL_OBJ_T)
 		{
@@ -59,15 +72,15 @@ int SetIRodsObjectFromCollEntry (IRodsObject *obj_p, const collEnt_t *coll_entry
 					freeGenQueryOut (&results_p);
 				}
 
-			res = SetIRodsObject (obj_p, coll_entry_p -> objType, id_s, coll_entry_p -> dataName, coll_entry_p -> collName, coll_entry_p -> ownerName, coll_entry_p -> modifyTime, coll_entry_p -> dataSize);
+			status = SetIRodsObject (obj_p, coll_entry_p -> objType, id_s, coll_entry_p -> dataName, coll_entry_p -> collName, coll_entry_p -> ownerName, coll_entry_p -> modifyTime, coll_entry_p -> dataSize);
 
 		}
 	else
 		{
-			res = SetIRodsObject (obj_p, coll_entry_p -> objType, coll_entry_p -> dataId, coll_entry_p -> dataName, coll_entry_p -> collName, coll_entry_p -> ownerName, coll_entry_p -> modifyTime, coll_entry_p -> dataSize);
+			status = SetIRodsObject (obj_p, coll_entry_p -> objType, coll_entry_p -> dataId, coll_entry_p -> dataName, coll_entry_p -> collName, coll_entry_p -> ownerName, coll_entry_p -> modifyTime, coll_entry_p -> dataSize);
 		}
 
-	return res;
+	return status;
 }
 
 
@@ -164,17 +177,17 @@ const char *GetIRodsObjectAltText (const IRodsObject *irods_obj_p)
 }
 
 
-char *GetIRodsObjectRelativeLink (const IRodsObject *irods_obj_p, const char *uri_root_s, const char *exposed_root_s, apr_pool_t *pool_p)
+char *GetIRodsObjectRelativeLink (const IRodsObject *irods_obj_p, const IRodsConfig *config_p, apr_pool_t *pool_p)
 {
 	char *res_s = NULL;
 
-	if (exposed_root_s && (irods_obj_p -> io_collection_s))
+	if ((config_p -> ic_exposed_root_s) && (irods_obj_p -> io_collection_s))
 		{
-			size_t l = strlen (exposed_root_s);
+			size_t l = strlen (config_p -> ic_exposed_root_s);
 
-			if (strncmp (exposed_root_s, irods_obj_p -> io_collection_s, l) == 0)
+			if (strncmp (config_p -> ic_exposed_root_s, irods_obj_p -> io_collection_s, l) == 0)
 				{
-					char *escaped_uri_root_s = ap_escape_html (pool_p, ap_escape_uri (pool_p, uri_root_s));
+					char *escaped_uri_root_s = ap_escape_html (pool_p, ap_escape_uri (pool_p, config_p -> ic_root_path_s));
 					char *escaped_relative_collection_s = ap_escape_html (pool_p, ap_escape_uri (pool_p, (irods_obj_p -> io_collection_s) + l));
 					const char *separator_s = "";
 
@@ -280,7 +293,7 @@ char *GetIRodsObjectLastModifiedTime (const  IRodsObject *irods_obj_p, apr_pool_
 }
 
 
-int GetAndPrintMetadataForIRodsObject (const IRodsObject *irods_obj_p, const char * const link_s, const char *zone_s, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p)
+apr_status_t GetAndPrintMetadataForIRodsObject (const IRodsObject *irods_obj_p, const char * const link_s, const char *zone_s, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p)
 {
 	int status = -1;
 	apr_array_header_t *metadata_array_p = GetMetadata (connection_p, irods_obj_p -> io_obj_type, irods_obj_p -> io_id_s, irods_obj_p -> io_collection_s, zone_s, pool_p);

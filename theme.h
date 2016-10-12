@@ -52,11 +52,12 @@ extern "C"
 #endif
 
 
+
 void InitHtmlTheme (struct HtmlTheme *theme_p);
 
 dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *output_p);
 
-apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_p, const char *root_path_s, const char *exposed_root_s, const char * const link_s, apr_bucket_brigade *bb_p, apr_pool_t *pool_p, rcComm_t *connection_p, request_rec *req_p);
+apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_p, const IRodsConfig *config_p, apr_bucket_brigade *bb_p, apr_pool_t *pool_p, rcComm_t *connection_p, request_rec *req_p);
 
 apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * const relative_uri_s, const char * const user_s, const char * const zone_s, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p);
 

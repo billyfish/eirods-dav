@@ -46,9 +46,13 @@ extern "C"
 #endif
 
 
-int SetIRodsObject (IRodsObject *obj_p, const objType_t io_obj_type, const char *io_id_s, const char *io_data_s, const char *io_collection_s, const char *io_owner_name_s, const char *io_last_modified_time_s, const rodsLong_t size);
+apr_status_t SetIRodsConfig (IRodsConfig *config_p, const char *exposed_root_s, const char *root_path_s, const char *metadata_root_link_s);
 
-int SetIRodsObjectFromCollEntry (IRodsObject *obj_p, const collEnt_t *coll_entry_p, rcComm_t *connection_p, apr_pool_t *pool_p);
+
+apr_status_t SetIRodsObject (IRodsObject *obj_p, const objType_t io_obj_type, const char *io_id_s, const char *io_data_s, const char *io_collection_s, const char *io_owner_name_s, const char *io_last_modified_time_s, const rodsLong_t size);
+
+
+apr_status_t SetIRodsObjectFromCollEntry (IRodsObject *obj_p, const collEnt_t *coll_entry_p, rcComm_t *connection_p, apr_pool_t *pool_p);
 
 
 /**
@@ -59,6 +63,7 @@ int SetIRodsObjectFromCollEntry (IRodsObject *obj_p, const collEnt_t *coll_entry
  */
 const char *GetIRodsObjectDisplayName (const IRodsObject *obj_p);
 
+
 /**
  * Get the path to use for the icon to use for a given IRodsObject.
  *
@@ -68,9 +73,25 @@ const char *GetIRodsObjectDisplayName (const IRodsObject *obj_p);
  */
 const char *GetIRodsObjectIcon (const IRodsObject *irods_obj_p, const struct HtmlTheme * const theme_p);
 
+/**
+ * Get the text to use for the alt tag of the image used for a given IRodsObject.
+ *
+ * @param irods_obj_p The IRodsObject to get the alt tag for.
+ * @return The value to use for the alt tag or <code>NULL</code> if one could not be found.
+ */
 const char *GetIRodsObjectAltText (const IRodsObject *irods_obj_p);
 
-char *GetIRodsObjectRelativeLink (const IRodsObject *irods_obj_p, const char *uri_root_s, const char *exposed_root_s, apr_pool_t *pool_p);
+
+/**
+ * Get the relative link to access an IRodsObject.
+ *
+ * @param irods_obj_p The IRodsObject to get the link for.
+ * @param config_p The configuration for the DavRODS server.
+ * @param pool_p A memory pool to use for allocations.
+ * @return The relative link or <code>NULL</code> upon error.
+ */
+char *GetIRodsObjectRelativeLink (const IRodsObject *irods_obj_p, const IRodsConfig *config_p, apr_pool_t *pool_p);
+
 
 /**
  * Get the size of an IRodsObject as a user-friendly string.
@@ -92,7 +113,7 @@ char *GetIRodsObjectSizeAsString (const IRodsObject *irods_obj_p, apr_pool_t *po
 char *GetIRodsObjectLastModifiedTime (const  IRodsObject *irods_obj_p, apr_pool_t *pool_p);
 
 
-int GetAndPrintMetadataForIRodsObject (const IRodsObject *irods_obj_p, const char * const link_s, const char *zone_s, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p);
+apr_status_t GetAndPrintMetadataForIRodsObject (const IRodsObject *irods_obj_p, const char * const link_s, const char *zone_s, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p);
 
 
 
