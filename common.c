@@ -131,3 +131,15 @@ void CloseBucketsStream (apr_bucket_brigade *bucket_brigade_p)
 		}
 }
 
+
+apr_status_t PrintBasicStringToBucketBrigade (const char *value_s, apr_bucket_brigade *brigade_p, request_rec *req_p, const char *file_s, const int line)
+{
+	apr_status_t status = apr_brigade_puts (brigade_p, NULL, NULL, value_s);
+
+	if (status != APR_SUCCESS)
+		{
+			ap_log_rerror (file_s, line, APLOG_MODULE_INDEX, APLOG_ERR, status, req_p, "Failed to print \"%s\"", value_s);
+		}
+
+	return status;
+}

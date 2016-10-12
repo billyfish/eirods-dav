@@ -22,7 +22,10 @@
 #ifndef _DAVRODS_COMMON_H_
 #define _DAVRODS_COMMON_H_
 
+#include "apr_buckets.h"
+
 #include "mod_davrods.h"
+
 
 // I'm not sure why, but the format string apr.h generates on my machine (%lu)
 // causes compiler warnings. It seems that gcc wants us to use 'llu' instead,
@@ -53,6 +56,9 @@ void davrods_dav_register(apr_pool_t *p);
 
 
 void CloseBucketsStream (apr_bucket_brigade *bucket_brigade_p);
+
+
+apr_status_t PrintBasicStringToBucketBrigade (const char *value_s, apr_bucket_brigade *brigade_p, request_rec *req_p, const char *file_s, const int line);
 
 
 #endif /* _DAVRODS_COMMON_H_ */

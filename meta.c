@@ -533,7 +533,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 
 																					SetIRodsObject (&irods_obj, COLL_OBJ_T, id_s, NULL, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize);
 
-																					int success_code = PrintItem (theme_p, &irods_obj, davrods_path_s, exposed_root_s, metadata_root_link_s, bucket_brigade_p, pool_p, connection_p);
+																					apr_status = PrintItem (theme_p, &irods_obj, davrods_path_s, exposed_root_s, metadata_root_link_s, bucket_brigade_p, pool_p, connection_p, req_p);
 
 																					freeRodsObjStat (stat_p);
 																				}		/* if (stat_p) */
@@ -643,7 +643,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 
 																													SetIRodsObject (&irods_obj, DATA_OBJ_T, id_s, data_name_s, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize);
 
-																													int success_code = PrintItem (theme_p, &irods_obj, davrods_path_s, exposed_root_s, metadata_root_link_s, bucket_brigade_p, pool_p, connection_p);
+																													apr_status = PrintItem (theme_p, &irods_obj, davrods_path_s, exposed_root_s, metadata_root_link_s, bucket_brigade_p, pool_p, connection_p, req_p);
 																													freeRodsObjStat (stat_p);
 																												}
 
