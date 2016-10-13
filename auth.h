@@ -22,8 +22,19 @@
 #ifndef _RODS_AUTH_H
 #define _RODS_AUTH_H
 
+#include "mod_auth.h"
 #include "mod_davrods.h"
 
+#include "rodsConnect.h"
+
+
 void davrods_auth_register(apr_pool_t *p);
+
+
+apr_pool_t *GetDavrodsMemoryPool (request_rec *req_p);
+
+
+authn_status GetIRodsConnection (request_rec *req_p, rcComm_t **connection_pp, const char *username_s, const char *password_s);
+
 
 #endif /* _RODS_AUTH_H */

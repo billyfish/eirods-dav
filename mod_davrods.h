@@ -68,4 +68,8 @@ module AP_MODULE_DECLARE_DATA davrods_module;
 #define DAVRODS_CONFIG_PREFIX DAVRODS_PROVIDER_NAME
 #endif /* DAVRODS_CONFIG_PREFIX */
 
+#ifndef DAVRODS_MODULE_NAME
+#define DAVRODS_MODULE_NAME "mod_davrods"
+#endif /* DAVRODS_MODULE_NAME */
+
 #endif /* _MOD_DAVRODS_H */

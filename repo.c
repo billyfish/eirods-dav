@@ -26,7 +26,7 @@
 
 
 #include "theme.h"
-
+#include "auth.h"
 
 /************************************/
 
@@ -37,7 +37,28 @@
 #endif /* DAVRODS_ENABLE_PROVIDER_LOCALLOCK */
 
 
+
+static const char *get_rods_root(apr_pool_t *davrods_pool, request_rec *r);
+
+
 APLOG_USE_MODULE(davrods);
+
+
+const char *GetRodsExposedPath (request_rec *req_p)
+{
+	const char *exposed_path_s = NULL;
+	apr_pool_t *pool_p = GetDavrodsMemoryPool (req_p);
+
+	if (pool_p)
+		{
+			exposed_path_s = get_rods_root (pool_p, req_p);
+		}		/* if (pool_p) */
+
+	return exposed_path_s;
+}
+
+
+
 
 /**
  * \brief Get a pointer to the last part of a pathname.
@@ -732,7 +753,9 @@ static dav_error *dav_repo_close_stream(
 
                 // We want to bypass the trash on an upload-overwrite operation.
                 addKeyVal(&unlink_params.condInput, FORCE_FLAG_KW, "");
-                int status = rcDataObjUnlink(resource->info->rods_conn, &unlink_params);
+
+                status = rcDataObjUnlink(resource->info->rods_conn, &unlink_params);
+
                 if (status < 0) {
                     ap_log_rerror(
                         APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
@@ -782,7 +805,9 @@ static dav_error *dav_repo_close_stream(
 
             // We do not want to deal with the trash when removing partially uploaded files with temporary filenames.
             addKeyVal(&unlink_params.condInput, FORCE_FLAG_KW, "");
-            int status = rcDataObjUnlink(resource->info->rods_conn, &unlink_params);
+
+						status = rcDataObjUnlink(resource->info->rods_conn, &unlink_params);
+
             if (status < 0) {
                 ap_log_rerror(
                     APLOG_MARK, APLOG_WARNING, APR_SUCCESS, resource->info->r,
@@ -809,7 +834,9 @@ static dav_error *dav_repo_close_stream(
 
                 // See above, we do not want to deal with the trash when removing partially uploaded files.
                 addKeyVal(&unlink_params.condInput, FORCE_FLAG_KW, "");
-                int status = rcDataObjUnlink(resource->info->rods_conn, &unlink_params);
+
+                status = rcDataObjUnlink(resource->info->rods_conn, &unlink_params);
+
                 if (status < 0) {
                     ap_log_rerror(
                         APLOG_MARK, APLOG_WARNING, APR_SUCCESS, resource->info->r,
@@ -1031,7 +1058,6 @@ static dav_error *deliver_directory(
     // Make brigade.
     apr_pool_t         *pool = resource->pool;
     apr_bucket_brigade *bb = apr_brigade_create(pool, output->c->bucket_alloc);
-    apr_bucket         *bkt;
 
     // Send start of HTML document.
     apr_brigade_printf(bb, NULL, NULL, "<!DOCTYPE html>\n<html>\n<head><title>Index of %s on %s</title></head>\n",
@@ -1125,7 +1151,9 @@ static dav_error *deliver_directory(
                 // Fallback, just in case.
                 static_assert(sizeof(date_str) >= APR_RFC822_DATE_LEN,
                               "Size of date_str buffer too low for RFC822 date");
-                int status = apr_rfc822_date(date_str, timestamp*1000*1000);
+
+                status = apr_rfc822_date(date_str, timestamp*1000*1000);
+
                 apr_brigade_printf(bb, NULL, NULL, "<td>%s</td>",
                                    ap_escape_html(pool, status >= 0 ? date_str : "Thu, 01 Jan 1970 00:00:00 GMT"));
             }
@@ -1144,9 +1172,7 @@ static dav_error *deliver_directory(
                              "Could not write contents to filter.");
     }
 
-    bkt = apr_bucket_eos_create(output->c->bucket_alloc);
-
-    APR_BRIGADE_INSERT_TAIL(bb, bkt);
+    CloseBucketsStream (bb);
 
     if ((status = ap_pass_brigade(output, bb)) != APR_SUCCESS) {
         apr_brigade_destroy(bb);
@@ -1456,7 +1482,7 @@ static dav_error *walker(
 
             
             davrods_locklocal_lock_list_t *locked_name;
-            dav_error *err = davrods_locklocal_get_locked_entries(
+            err = davrods_locklocal_get_locked_entries(
                 db,
                 &ctx->resource,
                 &locked_name

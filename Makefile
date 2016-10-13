@@ -18,8 +18,8 @@ endif
 INSTALL_DIR  ?= /usr/lib64/httpd/modules
 INSTALLED    := $(INSTALL_DIR)/mod_$(MODNAME).so
 
-CFILES := mod_davrods.c auth.c common.c config.c prop.c propdb.c repo.c meta.c theme.c
-HFILES := mod_davrods.h auth.h common.h config.h prop.h propdb.h repo.h meta.h theme.h
+CFILES := mod_davrods.c auth.c common.c config.c prop.c propdb.c repo.c meta.c theme.c rest.c listing.c
+HFILES := mod_davrods.h auth.h common.h config.h prop.h propdb.h repo.h meta.h theme.h rest.h listing.h
 
 # The DAV providers supported by default (you can override this in the shell using DAV_PROVIDERS="..." make).
 DAV_PROVIDERS ?= LOCALLOCK NOLOCKS
@@ -41,6 +41,7 @@ SRCFILES := $(CFILES) $(HFILES)
 OUTFILES := $(CFILES:%.c=%.o) $(CFILES:%.c=%.lo) $(CFILES:%.c=%.slo) $(CFILES:%.c=%.la)
 
 INCLUDE_PATHS := /usr/include/irods 
+	
 
 
 # Most of these are iRODS client lib dependencies.
@@ -71,7 +72,8 @@ WARNINGS :=                           \
 	no-unused-parameter           \
 	no-missing-field-initializers \
 	no-format                     \
-	fatal-errors
+	fatal-errors \
+	shadow
 
 MACROS := \
 	$(addprefix DAVRODS_ENABLE_PROVIDER_, $(DAV_PROVIDERS))      \
