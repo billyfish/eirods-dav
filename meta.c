@@ -274,6 +274,25 @@ apr_array_header_t *GetMetadata (const dav_resource *resource_p, const collEnt_t
 
 
 
+void DoMetadataSearch (const char * const key_s, const char *value_s)
+{
+	/*
+	 * SELECT meta_id FROM r_meta_main WHERE meta_attr_name = ' ' AND meta_attr_value = ' ';
+	 *
+	 * SELECT object_id FROM r_objt_metamap WHERE meta_id = ' ';
+	 *
+	 * object_id is for data object and collection
+	 *
+	 * Get the full path to the object and then use
+	 *
+	 * rcObjStat 	(rcComm_t *conn, dataObjInp_t *dataObjInp, rodsObjStat_t **rodsObjStatOut)
+	 *
+	 * to get the info we need for a listing
+	 */
+}
+
+
+
 static char *GetQuotedValue (const char * const input_s, apr_pool_t *pool_p)
 {
 	size_t input_length = strlen (input_s);
