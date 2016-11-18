@@ -7,6 +7,7 @@
 MODNAME      ?= davrods
 SHARED_FNAME := mod_$(MODNAME).so
 SHARED       := ./.libs/$(SHARED_FNAME)
+HTTPD_SERVICE ?= "httpd"
 
 ifeq ($(strip $(APXS)),)
 APXS	:= $(shell which apxs)
@@ -40,9 +41,7 @@ endif
 SRCFILES := $(CFILES) $(HFILES)
 OUTFILES := $(CFILES:%.c=%.o) $(CFILES:%.c=%.lo) $(CFILES:%.c=%.slo) $(CFILES:%.c=%.la)
 
-INCLUDE_PATHS := /usr/include/irods 
-	
-
+INCLUDE_PATHS := /usr/include/irods
 
 # Most of these are iRODS client lib dependencies.
 LIBS :=                  \
@@ -50,10 +49,10 @@ LIBS :=                  \
 	m                \
 	pthread          \
 	crypto           \
-	irods_client_core    \
-	irods_client_api \
-	irods_client_api_table \
-	irods_client_plugins \
+	irods_client    \
+        irods_common     \
+        irods_plugin_dependencies \
+        RodsAPIs \
 	stdc++           \
 	boost_system     \
 	boost_filesystem \
@@ -64,7 +63,8 @@ LIBS :=                  \
 	ssl              \
 	jansson
 
-LIBPATHS := /usr/lib/irods/externals
+#LIBPATHS := /usr/lib/irods/externals
+LIBPATHS := /opt/irods-externals/
 	
 WARNINGS :=                           \
 	all                           \
@@ -107,7 +107,7 @@ all: shared
 
 install: $(SHARED)
 	sudo $(APXS) -i -n $(MODNAME)_module $(SHARED)
-	sudo service httpd restart
+	sudo service $(HTTPD_SERVICE) restart
 
 shared: $(SHARED)
 
@@ -115,7 +115,7 @@ $(SHARED): apxs $(SRCFILES)
 	$(APXS) -c                                  \
 		$(addprefix -Wc$(comma), $(CFLAGS))  \
 		$(addprefix -Wl$(comma), $(LDFLAGS)) \
-		-o $(SHARED_FNAME) $(SRCFILES)
+		-o $(SHARED_FNAME) $(SRCFILES) -lrt
 
 clean:
 	rm -vf $(OUTFILES)

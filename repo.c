@@ -1149,8 +1149,7 @@ static dav_error *deliver_directory(
                                    ap_escape_html(pool, date_str));
             } else {
                 // Fallback, just in case.
-                static_assert(sizeof(date_str) >= APR_RFC822_DATE_LEN,
-                              "Size of date_str buffer too low for RFC822 date");
+                //static_assert(sizeof(date_str) >= APR_RFC822_DATE_LEN,"Size of date_str buffer too low for RFC822 date");
 
                 status = apr_rfc822_date(date_str, timestamp*1000*1000);
 
