@@ -84,7 +84,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 			char *metadata_link_s = apr_pstrcat (pool_p, davrods_resource_p -> root_dir, conf_p -> davrods_api_path_s, REST_METADATA_PATH_S, NULL);
 			IRodsConfig irods_config;
 
-			if (SetIRodsConfig (&irods_config, exposed_root_s, davrods_root_path_s, metadata_link_s))
+			if (SetIRodsConfig (&irods_config, exposed_root_s, davrods_root_path_s, metadata_link_s) == APR_SUCCESS)
 				{
 					// Actually print the directory listing, one table row at a time.
 					do
@@ -95,7 +95,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 								{
 									IRodsObject irods_obj;
 
-									if (SetIRodsObjectFromCollEntry (&irods_obj, &coll_entry, davrods_resource_p -> rods_conn, pool_p))
+									if (SetIRodsObjectFromCollEntry (&irods_obj, &coll_entry, davrods_resource_p -> rods_conn, pool_p) == APR_SUCCESS)
 										{
 											apr_status = PrintItem (theme_p, &irods_obj, &irods_config, bucket_brigade_p, pool_p, resource_p -> info -> rods_conn, req_p);
 
