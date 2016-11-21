@@ -286,6 +286,10 @@ apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t o
 			SortIRodsMetadataArray (metadata_array_p, CompareIrodsMetadata);
 
 		}		/* if (metadata_array_p) */
+	else
+		{
+
+		}
 
 	return metadata_array_p;
 }
@@ -303,28 +307,32 @@ genQueryOut_t *RunQuery (rcComm_t *connection_p, const int *select_columns_p, co
 	genQueryInp_t in_query;
 	int success_code;
 
-	InitGenQuery (&in_query, NULL);
-
-	success_code = AddClausesToQuery (&in_query, select_columns_p, where_columns_p, where_values_ss, where_ops_p, num_where_columns, pool_p);
-
-	if (success_code == 0)
+	if (InitGenQuery (&in_query, NULL) == 0)
 		{
-			int status = rcGenQuery (connection_p, &in_query, &out_query_p);
+			success_code = AddClausesToQuery (&in_query, select_columns_p, where_columns_p, where_values_ss, where_ops_p, num_where_columns, pool_p);
 
-			/* Did we run it successfully? */
-			if (status == 0)
+			if (success_code == 0)
 				{
-					//printBasicGenQueryOut (out_query_p, "result: \"%s\" \"%s\"\n");
-				}
-			else if (status == CAT_NO_ROWS_FOUND)
-				{
+					int status = rcGenQuery (connection_p, &in_query, &out_query_p);
 
-					printf ("No rows found\n");
+					/* Did we run it successfully? */
+					if (status == 0)
+						{
+							//printBasicGenQueryOut (out_query_p, "result: \"%s\" \"%s\"\n");
+						}
+					else if (status == CAT_NO_ROWS_FOUND)
+						{
+							printf ("No rows found\n");
+						}
+					else if (status < 0 )
+						{
+							printf ("error status: %d\n", status);
+						}
+
 				}
-			else if (status < 0 )
-				{
-					printf ("error status: %d\n", status);
-				}
+		}		/* if (InitGenQuery (&in_query, NULL) == 0) */
+	else
+		{
 
 		}
 
@@ -871,8 +879,10 @@ static char *GetQuotedValue (const char * const input_s, const SearchOperator op
 }
 
 
-static void InitGenQuery (genQueryInp_t *query_p, const char * const zone_s)
+static int InitGenQuery (genQueryInp_t *query_p, const char * const zone_s)
 {
+	int res = 0;
+
 	memset (query_p, 0, sizeof (genQueryInp_t));
 	query_p -> maxRows = MAX_SQL_ROWS;
 	query_p -> continueInx = 0;
@@ -881,8 +891,10 @@ static void InitGenQuery (genQueryInp_t *query_p, const char * const zone_s)
 
 	if (zone_s)
 		{
-			addKeyVal (& (query_p -> condInput), ZONE_KW, zone_s);
+			res = addKeyVal (& (query_p -> condInput), ZONE_KW, zone_s);
 		}
+
+	return res;
 }
 
 

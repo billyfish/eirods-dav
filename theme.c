@@ -84,7 +84,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 			char *metadata_link_s = apr_pstrcat (pool_p, davrods_resource_p -> root_dir, conf_p -> davrods_api_path_s, REST_METADATA_PATH_S, NULL);
 			IRodsConfig irods_config;
 
-			if (SetIRodsConfig (&irods_config, exposed_root_s, davrods_root_path_s, metadata_link_s))
+			if (SetIRodsConfig (&irods_config, exposed_root_s, davrods_root_path_s, metadata_link_s) == APR_SUCCESS)
 				{
 					// Actually print the directory listing, one table row at a time.
 					do
@@ -95,14 +95,24 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 								{
 									IRodsObject irods_obj;
 
-									if (SetIRodsObjectFromCollEntry (&irods_obj, &coll_entry, davrods_resource_p -> rods_conn, pool_p))
+									apr_status = SetIRodsObjectFromCollEntry (&irods_obj, &coll_entry, davrods_resource_p -> rods_conn, pool_p);
+
+									if (apr_status == APR_SUCCESS)
 										{
 											apr_status = PrintItem (theme_p, &irods_obj, &irods_config, bucket_brigade_p, pool_p, resource_p -> info -> rods_conn, req_p);
 
 											if (apr_status != APR_SUCCESS)
 												{
-
+													ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, "Failed to PrintItem for \"%s\":\"%s\"",
+																				 coll_entry.collName ? coll_entry.collName : "",
+																				 coll_entry.dataName ? coll_entry.dataName : "");
 												}
+										}
+									else
+										{
+											ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, "Failed to SetIRodsObjectFromCollEntry for \"%s\":\"%s\"",
+																		 coll_entry.collName ? coll_entry.collName : "",
+																		 coll_entry.dataName ? coll_entry.dataName : "");
 										}
 
 								}
@@ -129,12 +139,25 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 					while (status >= 0);
 
 				}		/* if (SetIRodsConfig (&irods_config, exposed_root_s, davrods_root_path_s, REST_METADATA_PATH_S)) */
-
+			else
+				{
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, "SetIRodsConfig failed for exposed_root_s:\"%s\" davrods_root_path_s:\"%s\"",
+												 exposed_root_s ? exposed_root_s : "<NULL>",
+												 davrods_root_path_s ? davrods_root_path_s: "<NULL>");
+				}
 
 		}		/* if (apr_status == APR_SUCCESS) */
+	else
+		{
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, "PrintAllHTMLBeforeListing failed");
+		}
 
+	apr_status = PrintAllHTMLAfterListing (theme_p, req_p, bucket_brigade_p, pool_p);
+	if (apr_status != APR_SUCCESS)
+		{
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, "PrintAllHTMLAfterListing failed");
+		}
 
-	PrintAllHTMLAfterListing (theme_p, req_p, bucket_brigade_p, pool_p);
 
 	CloseBucketsStream (bucket_brigade_p);
 
@@ -152,7 +175,9 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
 {
-	apr_status_t apr_status = PrintBasicStringToBucketBrigade ("</tbody>\n</table>\n</main>\n", bucket_brigade_p, req_p, __FILE__, __LINE__);
+	const char * const table_end_s = "</tbody>\n</table>\n</main>\n";
+
+	apr_status_t apr_status = PrintBasicStringToBucketBrigade (table_end_s, bucket_brigade_p, req_p, __FILE__, __LINE__);
 
 	if (apr_status == APR_SUCCESS)
 		{
@@ -168,6 +193,10 @@ apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, request_rec *r
 				}		/* if (theme_p -> ht_bottom_s) */
 
 			apr_status =  PrintBasicStringToBucketBrigade ("\n</body>\n</html>\n", bucket_brigade_p, req_p, __FILE__, __LINE__);
+		}
+	else
+		{
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, "PrintBasicStringToBucketBrigade failed for \"%s\"", table_end_s);
 		}
 
 	return apr_status;
