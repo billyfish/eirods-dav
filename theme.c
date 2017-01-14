@@ -60,9 +60,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 	if (status < 0)
 		{
-			ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_SUCCESS, req_p,
-					"rcOpenCollection failed: %d = %s", status,
-					get_rods_error_msg(status));
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, req_p, "rcOpenCollection failed: %d = %s", status, get_rods_error_msg(status));
 
 			return dav_new_error (pool_p, HTTP_INTERNAL_SERVER_ERROR, 0, status, "Could not open a collection");
 		}
@@ -103,14 +101,14 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 											if (apr_status != APR_SUCCESS)
 												{
-													ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, "Failed to PrintItem for \"%s\":\"%s\"",
+													ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to PrintItem for \"%s\":\"%s\"",
 																				 coll_entry.collName ? coll_entry.collName : "",
 																				 coll_entry.dataName ? coll_entry.dataName : "");
 												}
 										}
 									else
 										{
-											ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, "Failed to SetIRodsObjectFromCollEntry for \"%s\":\"%s\"",
+											ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to SetIRodsObjectFromCollEntry for \"%s\":\"%s\"",
 																		 coll_entry.collName ? coll_entry.collName : "",
 																		 coll_entry.dataName ? coll_entry.dataName : "");
 										}
@@ -141,7 +139,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 				}		/* if (SetIRodsConfig (&irods_config, exposed_root_s, davrods_root_path_s, REST_METADATA_PATH_S)) */
 			else
 				{
-					ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, "SetIRodsConfig failed for exposed_root_s:\"%s\" davrods_root_path_s:\"%s\"",
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "SetIRodsConfig failed for exposed_root_s:\"%s\" davrods_root_path_s:\"%s\"",
 												 exposed_root_s ? exposed_root_s : "<NULL>",
 												 davrods_root_path_s ? davrods_root_path_s: "<NULL>");
 				}
@@ -149,13 +147,13 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 		}		/* if (apr_status == APR_SUCCESS) */
 	else
 		{
-			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, "PrintAllHTMLBeforeListing failed");
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "PrintAllHTMLBeforeListing failed");
 		}
 
 	apr_status = PrintAllHTMLAfterListing (theme_p, req_p, bucket_brigade_p, pool_p);
 	if (apr_status != APR_SUCCESS)
 		{
-			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, "PrintAllHTMLAfterListing failed");
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "PrintAllHTMLAfterListing failed");
 		}
 
 
@@ -196,7 +194,7 @@ apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, request_rec *r
 		}
 	else
 		{
-			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, "PrintBasicStringToBucketBrigade failed for \"%s\"", table_end_s);
+			ap_log_perror (APLOG_MARK, APLOG_ERR, apr_status, pool_p, "PrintBasicStringToBucketBrigade failed for \"%s\"", table_end_s);
 		}
 
 	return apr_status;

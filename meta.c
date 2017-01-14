@@ -29,7 +29,7 @@ static const char * const S_SEARCH_OPERATOR_LIKE_S = "like";
 
 /**************************************/
 
-static void InitGenQuery (genQueryInp_t *query_p, const char * const zone_s);
+static int InitGenQuery (genQueryInp_t *query_p, const char * const zone_s);
 
 static int SetMetadataQuery (genQueryInp_t *query_p, const char * const zone_s);
 
