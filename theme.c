@@ -60,9 +60,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 	if (status < 0)
 		{
-			ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_SUCCESS, req_p,
-					"rcOpenCollection failed: %d = %s", status,
-					get_rods_error_msg(status));
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, req_p, "rcOpenCollection failed: %d = %s", status, get_rods_error_msg(status));
 
 			return dav_new_error (pool_p, HTTP_INTERNAL_SERVER_ERROR, 0, status, "Could not open a collection");
 		}
