@@ -103,14 +103,14 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 											if (apr_status != APR_SUCCESS)
 												{
-													ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, "Failed to PrintItem for \"%s\":\"%s\"",
+													ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to PrintItem for \"%s\":\"%s\"",
 																				 coll_entry.collName ? coll_entry.collName : "",
 																				 coll_entry.dataName ? coll_entry.dataName : "");
 												}
 										}
 									else
 										{
-											ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, "Failed to SetIRodsObjectFromCollEntry for \"%s\":\"%s\"",
+											ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to SetIRodsObjectFromCollEntry for \"%s\":\"%s\"",
 																		 coll_entry.collName ? coll_entry.collName : "",
 																		 coll_entry.dataName ? coll_entry.dataName : "");
 										}
@@ -141,7 +141,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 				}		/* if (SetIRodsConfig (&irods_config, exposed_root_s, davrods_root_path_s, REST_METADATA_PATH_S)) */
 			else
 				{
-					ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, "SetIRodsConfig failed for exposed_root_s:\"%s\" davrods_root_path_s:\"%s\"",
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "SetIRodsConfig failed for exposed_root_s:\"%s\" davrods_root_path_s:\"%s\"",
 												 exposed_root_s ? exposed_root_s : "<NULL>",
 												 davrods_root_path_s ? davrods_root_path_s: "<NULL>");
 				}
@@ -149,13 +149,13 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 		}		/* if (apr_status == APR_SUCCESS) */
 	else
 		{
-			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, "PrintAllHTMLBeforeListing failed");
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "PrintAllHTMLBeforeListing failed");
 		}
 
 	apr_status = PrintAllHTMLAfterListing (theme_p, req_p, bucket_brigade_p, pool_p);
 	if (apr_status != APR_SUCCESS)
 		{
-			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, "PrintAllHTMLAfterListing failed");
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "PrintAllHTMLAfterListing failed");
 		}
 
 
@@ -196,7 +196,7 @@ apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, request_rec *r
 		}
 	else
 		{
-			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, "PrintBasicStringToBucketBrigade failed for \"%s\"", table_end_s);
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "PrintBasicStringToBucketBrigade failed for \"%s\"", table_end_s);
 		}
 
 	return apr_status;
@@ -326,7 +326,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * 
 
 	if (theme_p -> ht_show_metadata_flag)
 		{
-			apr_status = PrintBasicStringToBucketBrigade ("<th>Properties</th>", bucket_brigade_p, req_p, __FILE__, __LINE__);
+			apr_status = PrintBasicStringToBucketBrigade ("<th class=\"properties\">Properties</th>", bucket_brigade_p, req_p, __FILE__, __LINE__);
 
 			if (apr_status != APR_SUCCESS)
 				{

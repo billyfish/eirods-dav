@@ -29,7 +29,7 @@ static const char * const S_SEARCH_OPERATOR_LIKE_S = "like";
 
 /**************************************/
 
-static void InitGenQuery (genQueryInp_t *query_p, const char * const zone_s);
+static int InitGenQuery (genQueryInp_t *query_p, const char * const zone_s);
 
 static int SetMetadataQuery (genQueryInp_t *query_p, const char * const zone_s);
 
@@ -468,7 +468,9 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 
 					IRodsConfig irods_config;
 
-					if (SetIRodsConfig (&irods_config, exposed_root_s, davrods_path_s, metadata_root_link_s))
+					apr_status = SetIRodsConfig (&irods_config, exposed_root_s, davrods_path_s, metadata_root_link_s);
+
+					if (apr_status == APR_SUCCESS)
 						{
 							/*
 							 * SELECT object_id FROM r_objt_metamap WHERE meta_id = ' ';

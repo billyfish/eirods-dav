@@ -26,6 +26,8 @@
 #include <stdbool.h>
 #include <assert.h>
 
+#include <linux/limits.h>
+
 #include <httpd.h>
 #include <http_config.h>
 #include <http_log.h>
