@@ -65,6 +65,17 @@ apr_pool_t *get_davrods_pool_from_req(request_rec *r) {
     if (!pool)
     	{
     		pool = GetDavrodsMemoryPool (r);
+
+    		if (pool)
+    			{
+    				rcComm_t *connection_p = NULL;
+    				authn_status status = GetIRodsConnection (r, &connection_p, "anonymous", "");
+
+    				if (status != 0)
+    					{
+    						WHISPER ("GetIRodsConnection failed for anonymous user");
+    					}
+    			}
     	}
     //assert(status == 0);
     return pool;
