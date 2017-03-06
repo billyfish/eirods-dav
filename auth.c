@@ -347,7 +347,7 @@ apr_pool_t *GetDavrodsMemoryPool (request_rec *req_p)
 					// If there were a method to enumerate child pools, the second binding
 					// could be avoided, but alas.
 
-					apr_pool_tag (pool_p, "Davrods Pool");
+					apr_pool_tag (pool_p, S_MEM_POOL_S);
 					apr_pool_userdata_set (pool_p, S_MEM_POOL_S, apr_pool_cleanup_null, req_pool_p);
 				}
     }

@@ -24,6 +24,7 @@
 #include "prop.h"
 #include "propdb.h"
 #include "repo.h"
+#include "auth.h"
 
 #ifdef DAVRODS_ENABLE_PROVIDER_LOCALLOCK
 #include "lock_local.h"
@@ -59,6 +60,12 @@ apr_pool_t *get_davrods_pool_from_req(request_rec *r) {
     // TODO: Remove function, move apr call to the single caller.
     apr_pool_t *pool = NULL;
     int status = apr_pool_userdata_get((void**)&pool, "davrods_pool", r->connection->pool);
+
+
+    if (!pool)
+    	{
+    		pool = GetDavrodsMemoryPool (r);
+    	}
     //assert(status == 0);
     return pool;
 }
