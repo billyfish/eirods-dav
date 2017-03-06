@@ -59,7 +59,7 @@ apr_pool_t *get_davrods_pool_from_req(request_rec *r) {
     // TODO: Remove function, move apr call to the single caller.
     apr_pool_t *pool = NULL;
     int status = apr_pool_userdata_get((void**)&pool, "davrods_pool", r->connection->pool);
-    assert(status == 0);
+    //assert(status == 0);
     return pool;
 }
 

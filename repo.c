@@ -328,18 +328,27 @@ static dav_error *dav_repo_get_resource(
 
     // Obtain iRODS connection.
     res_private->davrods_pool = get_davrods_pool_from_req(r);
-    int status = apr_pool_userdata_get((void**)&res_private->rods_conn, "rods_conn", res_private->davrods_pool);
-    assert(status == 0);
+    if (res_private->davrods_pool)
+    	{
+				int status = apr_pool_userdata_get((void**)&res_private->rods_conn, "rods_conn", res_private->davrods_pool);
+				assert(status == 0);
 
-    // Obtain iRODS environment.
-    status = apr_pool_userdata_get((void**)&res_private->rods_env, "env", res_private->davrods_pool);
-    assert(status == 0);
+			  // Obtain iRODS environment.
+			    status = apr_pool_userdata_get((void**)&res_private->rods_env, "env", res_private->davrods_pool);
+			    assert(status == 0);
 
-    // Get iRODS exposed root dir.
-    res_private->rods_root = get_rods_root(res_private->davrods_pool, r);
+			    // Get iRODS exposed root dir.
+			    res_private->rods_root = get_rods_root(res_private->davrods_pool, r);
 
-    WHISPER("Root dir is %s\n", root_dir);
-    res_private->root_dir = root_dir;
+			    WHISPER("Root dir is %s\n", root_dir);
+			    res_private->root_dir = root_dir;
+
+    	}
+    else
+    	{
+    		WHISPER("NO POOL!!!");
+    	}
+
 
     // }}}
     // Create DAV resource {{{
