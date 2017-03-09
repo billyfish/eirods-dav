@@ -67,6 +67,9 @@ typedef struct {
     struct HtmlTheme theme;
 
     const char *davrods_api_path_s;
+    const char *davrods_public_username_s;
+    const char *davrods_public_password_s;
+
 } davrods_dir_conf_t;
 
 extern const command_rec davrods_directives[];

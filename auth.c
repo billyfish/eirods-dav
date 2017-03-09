@@ -34,8 +34,31 @@ APLOG_USE_MODULE(davrods);
 #endif
 
 
-static const char * const S_MEM_POOL_S = "davrods_pool";
-static const char * const S_IRODS_CONNECTION_S = "rods_conn";
+
+
+
+const char *GetDavrodsMemoryPoolKey (void)
+{
+	return "davrods_pool";
+}
+
+
+const char *GetUsernameKey (void)
+{
+	return "username";
+}
+
+
+const char *GetRodsEnvKey (void)
+{
+	return "env";
+}
+
+
+const char *GetConnectionKey (void)
+{
+	return "rods_conn";
+}
 
 
 /**
@@ -317,7 +340,8 @@ apr_pool_t *GetDavrodsMemoryPool (request_rec *req_p)
   apr_pool_t *pool_p = NULL;
   apr_pool_t *req_pool_p = req_p -> connection -> pool;
   void *ptr = NULL;
-  apr_status_t status = apr_pool_userdata_get (&ptr, S_MEM_POOL_S, req_pool_p);
+  const char * const pool_name_s = GetDavrodsMemoryPoolKey ();
+  apr_status_t status = apr_pool_userdata_get (&ptr, pool_name_s, req_pool_p);
 
   if (status == APR_SUCCESS)
   	{
@@ -347,8 +371,8 @@ apr_pool_t *GetDavrodsMemoryPool (request_rec *req_p)
 					// If there were a method to enumerate child pools, the second binding
 					// could be avoided, but alas.
 
-					apr_pool_tag (pool_p, S_MEM_POOL_S);
-					apr_pool_userdata_set (pool_p, S_MEM_POOL_S, apr_pool_cleanup_null, req_pool_p);
+					apr_pool_tag (pool_p, pool_name_s);
+					apr_pool_userdata_set (pool_p, pool_name_s, apr_pool_cleanup_null, req_pool_p);
 				}
     }
 
@@ -367,7 +391,7 @@ authn_status GetIRodsConnection (request_rec *req_p, rcComm_t **connection_pp, c
 		{
 			rcComm_t *connection_p = NULL;
 		  void *ptr = NULL;
-		  apr_status_t status = apr_pool_userdata_get (&ptr, S_IRODS_CONNECTION_S, pool_p);
+		  apr_status_t status = apr_pool_userdata_get (&ptr, GetConnectionKey (), pool_p);
 
 		  if (status == APR_SUCCESS)
 		  	{
@@ -383,7 +407,7 @@ authn_status GetIRodsConnection (request_rec *req_p, rcComm_t **connection_pp, c
 		      // We have an iRODS connection with an authenticated user. Was this
 		      // auth check called with the same username as before?
 		      char *current_username_s = NULL;
-		      status = apr_pool_userdata_get (&ptr, "username", pool_p);
+		      status = apr_pool_userdata_get (&ptr, GetUsernameKey (), pool_p);
 		      current_username_s = (char *) ptr;
 
 		      if ((status == OK) && (current_username_s != NULL))
@@ -414,7 +438,6 @@ authn_status GetIRodsConnection (request_rec *req_p, rcComm_t **connection_pp, c
 		  if (result == AUTH_USER_NOT_FOUND)
 		  	{
 		      // User is not yet authenticated.
-
 		      result = rods_login (req_p, username_s, password_s, &connection_p);
 
 		      if (result == AUTH_GRANTED)
@@ -434,14 +457,26 @@ authn_status GetIRodsConnection (request_rec *req_p, rcComm_t **connection_pp, c
 										{
 											char *username_buf = apr_pstrdup (pool_p, username_s);
 
-											apr_pool_userdata_set (connection_p,    S_IRODS_CONNECTION_S, rods_conn_cleanup,     pool_p);
-											apr_pool_userdata_set (username_buf, "username",  apr_pool_cleanup_null, pool_p);
+											apr_pool_userdata_set (connection_p,  GetConnectionKey (), rods_conn_cleanup, pool_p);
+											apr_pool_userdata_set (username_buf, GetUsernameKey (),  apr_pool_cleanup_null, pool_p);
 
 											// Get iRODS env and store it.
-											rodsEnv *env = apr_palloc (pool_p, sizeof(rodsEnv));
-											assert((status = getRodsEnv(env)) >= 0);
+											rodsEnv *env_p = apr_palloc (pool_p, sizeof (rodsEnv));
 
-											apr_pool_userdata_set (env, "env", apr_pool_cleanup_null, pool_p);
+											status = getRodsEnv (env_p);
+
+											if (status == 0)
+												{
+													apr_pool_userdata_set (env_p, GetRodsEnvKey (), apr_pool_cleanup_null, pool_p);
+												}
+											else
+												{
+						              ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, req_p, "Failed to get the iRODS environment, %d", status);
+													result = AUTH_GENERAL_ERROR;
+
+													rods_conn_cleanup (connection_p);
+													connection_p = NULL;
+												}
 										}
 		      			}
 		      	}
@@ -454,10 +489,11 @@ authn_status GetIRodsConnection (request_rec *req_p, rcComm_t **connection_pp, c
 
 		}
 
-
-
   return result;
 }
+
+
+
 
 
 static authn_status check_rods(request_rec *req_p, const char *username, const char *password) {

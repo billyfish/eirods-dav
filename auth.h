@@ -28,6 +28,18 @@
 #include "rodsConnect.h"
 
 
+const char *GetDavrodsMemoryPoolKey (void);
+
+
+const char *GetUsernameKey (void);
+
+
+const char *GetRodsEnvKey (void);
+
+
+const char *GetConnectionKey (void);
+
+
 void davrods_auth_register(apr_pool_t *p);
 
 

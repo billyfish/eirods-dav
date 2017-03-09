@@ -201,7 +201,7 @@ static const char *get_rods_root(apr_pool_t *davrods_pool, request_rec *r) {
         );
     } else if (conf->rods_exposed_root_type == DAVRODS_ROOT_USER_DIR) {
         const char *username = NULL;
-        int status = apr_pool_userdata_get((void**)&username, "username", davrods_pool);
+        int status = apr_pool_userdata_get((void**)&username, GetUsernameKey (), davrods_pool);
         assert(status == 0);
 
         root = apr_pstrcat(davrods_pool,
@@ -330,11 +330,11 @@ static dav_error *dav_repo_get_resource(
     res_private->davrods_pool = get_davrods_pool_from_req(r);
     if (res_private->davrods_pool)
     	{
-				int status = apr_pool_userdata_get((void**)&res_private->rods_conn, "rods_conn", res_private->davrods_pool);
+				int status = apr_pool_userdata_get((void**)&res_private->rods_conn, GetConnectionKey (), res_private->davrods_pool);
 				assert(status == 0);
 
 			  // Obtain iRODS environment.
-			    status = apr_pool_userdata_get((void**)&res_private->rods_env, "env", res_private->davrods_pool);
+			    status = apr_pool_userdata_get((void**)&res_private->rods_env, GetRodsEnvKey (), res_private->davrods_pool);
 			    assert(status == 0);
 
 			    // Get iRODS exposed root dir.

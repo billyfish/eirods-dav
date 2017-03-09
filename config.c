@@ -26,6 +26,13 @@
 
 APLOG_USE_MODULE(davrods);
 
+
+static const char *cmd_davrods_default_username(cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+static const char *cmd_davrods_default_password (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+
 static int set_exposed_root(davrods_dir_conf_t *conf, const char *exposed_root) {
     conf->rods_exposed_root = exposed_root;
 
@@ -75,6 +82,8 @@ void *davrods_create_dir_config(apr_pool_t *p, char *dir) {
         conf->rods_auth_ttl          = 1; // In hours.
 
         conf -> davrods_api_path_s = NULL;
+        conf -> davrods_public_username_s = NULL;
+        conf -> davrods_public_password_s = NULL;
         conf -> themed_listings = 0;
         InitHtmlTheme (& (conf -> theme));
     }
@@ -113,6 +122,8 @@ void *davrods_merge_dir_config(apr_pool_t *p, void *_parent, void *_child) {
     DAVRODS_PROP_MERGE(locallock_lockdb_path);
 
     DAVRODS_PROP_MERGE(davrods_api_path_s);
+    DAVRODS_PROP_MERGE(davrods_public_username_s);
+    DAVRODS_PROP_MERGE(davrods_public_password_s);
     DAVRODS_PROP_MERGE(themed_listings);
     DAVRODS_PROP_MERGE(theme.ht_head_s);
     DAVRODS_PROP_MERGE(theme.ht_top_s);
@@ -445,6 +456,24 @@ static const char *cmd_davrods_api_path (cmd_parms *cmd_p, void *config_p, const
     return NULL;
 }
 
+static const char *cmd_davrods_default_username(cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> davrods_public_username_s = arg_p;
+
+    return NULL;
+}
+
+static const char *cmd_davrods_default_password (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> davrods_public_password_s = arg_p;
+
+    return NULL;
+}
+
 static const char *cmd_davrods_html_add_icon (cmd_parms *cmd_p, void *config_p, const char *icon_s, const char *suffix_s)
 {
   davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
@@ -560,10 +589,19 @@ const command_rec davrods_directives[] = {
         NULL, ACCESS_CONF, "Options for displaying irods ids"
     ),
 
-
 		AP_INIT_TAKE1(
 				DAVRODS_CONFIG_PREFIX "APIPath", cmd_davrods_api_path,
 				NULL, ACCESS_CONF, "Set the location used for the Rest api. This is relative to the <Location> that davrods is hosted on."
+		),
+
+		AP_INIT_TAKE1(
+				DAVRODS_CONFIG_PREFIX "DefaultUsername", cmd_davrods_default_username,
+				NULL, ACCESS_CONF, "Set the default username to use if none is provided."
+		),
+
+		AP_INIT_TAKE1(
+				DAVRODS_CONFIG_PREFIX "DefaultUsername", cmd_davrods_default_password,
+				NULL, ACCESS_CONF, "Set the default password to use if none is provided."
 		),
 
 		{ NULL }
