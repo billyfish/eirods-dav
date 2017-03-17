@@ -163,6 +163,7 @@ static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_
 			    /* Get the iRods connection */
 					rcComm_t *rods_connection_p = NULL;
 					const char *username_s = req_p -> user;
+					authn_status status = AUTH_USER_NOT_FOUND;
 
 					if (username_s)
 						{
@@ -172,20 +173,27 @@ static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_
 
 							if (res == OK)
 								{
-									authn_status status = GetIRodsConnection (req_p, &rods_connection_p, username_s, password_s);
+									status = GetIRodsConnection (req_p, &rods_connection_p, username_s, password_s);
+								}
+						}
+					else
+						{
+      				status = GetIRodsConnection (req_p, &rods_connection_p, config_p -> davrods_public_username_s, config_p -> davrods_public_password_s ? config_p -> davrods_public_password_s : "");
+						}
 
-									if (rods_connection_p)
+					if (status == AUTH_GRANTED)
+						{
+							if (rods_connection_p)
+								{
+									char *relative_uri_s = apr_pstrcat (pool_p, "metadata search results for ", key_s, ":", value_s, NULL);
+
+									char *result_s = DoMetadataSearch (key_s, value_s, op, rods_connection_p -> clientUser.userName, relative_uri_s, pool_p, rods_connection_p, req_p -> connection -> bucket_alloc, config_p, req_p, davrods_path_s);
+
+									if (result_s)
 										{
-											char *relative_uri_s = apr_pstrcat (pool_p, "metadata search results for ", key_s, ":", value_s, NULL);
-
-											char *result_s = DoMetadataSearch (key_s, value_s, op, rods_connection_p -> clientUser.userName, relative_uri_s, pool_p, rods_connection_p, req_p -> connection -> bucket_alloc, config_p, req_p, davrods_path_s);
-
-											if (result_s)
-												{
-													ap_rputs (result_s, req_p);
-												}
-											res = OK;
+											ap_rputs (result_s, req_p);
 										}
+									res = OK;
 								}
 						}
 				}
