@@ -26,8 +26,8 @@
 
 #include <http_request.h>
 
-#include <irods/rodsClient.h>
-#include <irods/sslSockComm.h>
+#include <rodsClient.h>
+#include <sslSockComm.h>
 
 #ifdef APLOG_USE_MODULE 
 APLOG_USE_MODULE(davrods);
