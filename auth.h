@@ -25,7 +25,7 @@
 #include "mod_auth.h"
 #include "mod_davrods.h"
 
-#include "rodsConnect.h"
+#include "irods/rodsConnect.h"
 
 
 const char *GetDavrodsMemoryPoolKey (void);

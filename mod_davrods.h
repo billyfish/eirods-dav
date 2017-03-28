@@ -34,7 +34,10 @@
 #include <apr_strings.h>
 #include <mod_dav.h>
 
+
+
 module AP_MODULE_DECLARE_DATA davrods_module;
+
 
 #if defined(DAVRODS_DEBUG_DESPERATE) || defined(DAVRODS_DEBUG_VERY_DESPERATE)
 

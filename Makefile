@@ -6,8 +6,8 @@
 
 MODNAME      ?= davrods
 SHARED_FNAME := mod_$(MODNAME).so
-SHARED       := ./.libs/$(SHARED_FNAME)
-
+SHARED       := build/$(SHARED_FNAME)
+CC	:= gcc
 
 #
 # Create a file called user.prefs to store any make configuration data
@@ -52,6 +52,7 @@ endif
 #      installation.
 INSTALL_DIR  ?= /usr/lib64/httpd/modules
 INSTALLED    := $(INSTALL_DIR)/mod_$(MODNAME).so
+BUILD_DIR := build
 
 CFILES := mod_davrods.c auth.c common.c config.c prop.c propdb.c repo.c meta.c theme.c rest.c listing.c
 
@@ -73,9 +74,8 @@ endif
 HFILES := $(CFILES:%.c=%.h)
 SRCFILES := $(CFILES) $(HFILES)
 OBJFILES := $(CFILES:%.c=%.o)
-OUTFILES := $(OBJFILES) $(CFILES:%.c=%.lo) $(CFILES:%.c=%.slo) $(CFILES:%.c=%.la)
 
-INCLUDE_PATHS := $(IRODS_DIR)/usr/include/irods	
+INCLUDE_PATHS := $(IRODS_DIR)/usr/include
 LIB_PATHS := $(IRODS_DIR)/usr/lib
 
 # Add in the appropriate irods libs and dependencies
@@ -113,19 +113,20 @@ LIBS +=                  \
 	m                \
 	pthread          \
 	crypto           \
-	stdc++           \
 	boost_system     \
 	boost_filesystem \
 	boost_regex      \
 	boost_thread     \
 	boost_chrono     \
 	boost_program_options \
+	stdc++           \
 	ssl              \
 	jansson
 
 LIBPATHS := \
 	/home/billy/Applications/irods/usr/lib \
 	$(IRODS_EXTERNALS) \
+	/usr/lib/gcc/x86_64-linux-gnu/5
 	
 WARNINGS :=                           \
 	all                           \
@@ -138,8 +139,8 @@ WARNINGS :=                           \
 
 MACROS += \
 	$(addprefix DAVRODS_ENABLE_PROVIDER_, $(DAV_PROVIDERS))      \
-	DAVRODS_PROVIDER_NAME=\"$(DAV_PROVIDER_NAME_PREFIX)\"    \
-	DAVRODS_CONFIG_PREFIX=\"$(DAV_CONFIG_DIRECTIVE_PREFIX)\" \
+	DAVRODS_PROVIDER_NAME=\\\"$(DAV_PROVIDER_NAME_PREFIX)\\\"    \
+	DAVRODS_CONFIG_PREFIX=\\\"$(DAV_CONFIG_DIRECTIVE_PREFIX)\\\" \
 	DAVRODS_DEBUG_VERY_DESPERATE=1
 
 ifdef DEBUG
@@ -163,9 +164,14 @@ LDFLAGS +=                           \
 
 comma := ,
 
-.PHONY: all shared install test clean apxs
+.PHONY: all shared install test clean apxs init
 
-all: shared
+all: init shared
+
+
+init:
+	mkdir -p $(BUILD_DIR)
+
 
 install: $(SHARED)
 	sudo $(APXS) -i -n $(MODNAME)_module $(SHARED)
@@ -173,15 +179,18 @@ install: $(SHARED)
 
 shared: $(SHARED)
 
-$(SHARED): $(OBJFILES)
-	$(LD) -o $(SHARED) $(OBJS) $(STATIC_LIBS) $(LDFLAGS)
+#$(SHARED): $(OBJFILES)
+#	$(LD) -o $(SHARED) $(OBJFILES) $(STATIC_LIBS) $(LDFLAGS)
 
 clean:
-	rm -vf $(OUTFILES)
-	rm -rvf .libs
+	rm -rvf  $(BUILD_DIR)/*
+
 	
-$(OBJFILES): $(SRCFILES)
-	$(CC) -c $(CFLAGS) $(CPPFLAGS) -fPIC -DLINUX -D_REENTRANT -D_GNU_SOURCE $< -o $@
+$(SHARED): apxs $(SRCFILES) 
+	$(APXS) -c   \
+	$(addprefix -Wc$(comma), $(CFLAGS))  \
+	$(addprefix -Wl$(comma), $(LDFLAGS)) \
+	-o $(SHARED_FNAME) $(SRCFILES)  
 
 apxs:
 ifeq ($(strip $(APXS)),)

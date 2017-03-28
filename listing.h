@@ -8,8 +8,11 @@
 #ifndef LISTING_H_
 #define LISTING_H_
 
-#include "rodsType.h"
-#include "miscUtil.h"
+typedef unsigned int uint;
+#include <sys/types.h>
+
+#include "irods/rodsType.h"
+#include "irods/miscUtil.h"
 
 #include "apr_pools.h"
 #include "apr_buckets.h"

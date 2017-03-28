@@ -9,8 +9,8 @@
 
 #include "apr_strings.h"
 
-#include "objStat.h"
-#include "rodsGenQueryNames.h"
+#include "irods/objStat.h"
+#include "irods/rodsGenQueryNames.h"
 
 
 #include "repo.h"

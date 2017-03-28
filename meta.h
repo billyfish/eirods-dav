@@ -14,9 +14,9 @@
 #include "apr_tables.h"
 #include "apr_buckets.h"
 
-#include "rodsConnect.h"
-#include "rodsGenQuery.h"
-#include "miscUtil.h"
+#include "irods/rodsConnect.h"
+#include "irods/rodsGenQuery.h"
+#include "irods/miscUtil.h"
 
 #include "config.h"
 

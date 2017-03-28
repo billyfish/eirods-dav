@@ -12,8 +12,8 @@
 #include "apr_buckets.h"
 #include "apr_tables.h"
 
-#include "rodsType.h"
-#include "rodsConnect.h"
+#include "irods/rodsType.h"
+#include "irods/rodsConnect.h"
 
 
 #include "listing.h"

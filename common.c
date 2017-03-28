@@ -38,7 +38,7 @@
 
 #include "apr_buckets.h"
 
-#include <rodsClient.h>
+#include <irods/rodsClient.h>
 
 APLOG_USE_MODULE(davrods);
 
