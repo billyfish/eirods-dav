@@ -380,8 +380,20 @@ apr_pool_t *GetDavrodsMemoryPool (request_rec *req_p)
 }
 
 
+authn_status GetIRodsConnectionFromRequest (request_rec *req_p, rcComm_t **connection_pp, const char *username_s, const char *password_s)
+{
+	authn_status result = AUTH_USER_NOT_FOUND;
 
-authn_status GetIRodsConnection (request_rec *req_p, rcComm_t **connection_pp, const char *username_s, const char *password_s)
+	apr_pool_t *pool_p = GetDavrodsMemoryPool (req_p);
+
+	if (!pool_p)
+		{
+
+		}
+
+}
+
+authn_status GetIRodsConnectionFromMemoryPool (apr_pool_t *pool_p, rcComm_t **connection_pp, const char *username_s, const char *password_s)
 {
 	authn_status result = AUTH_USER_NOT_FOUND;
 
@@ -487,7 +499,7 @@ authn_status GetIRodsConnection (request_rec *req_p, rcComm_t **connection_pp, c
 					*connection_pp = connection_p;
 				}
 
-		}
+		}		/* if (pool_p) */
 
   return result;
 }
