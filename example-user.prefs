@@ -1,4 +1,18 @@
-# copy this file to user.prefs and customise any values you need
+APXS := /home/billy/Applications/grassroots-0/apache/bin/apxs
 
-APXS := ~/Applications/grassroots-0/apache/bin/apxs
-APACHE_INCLUDES_DIR: := ~/Applications/grassroots-0/apache/include
+APACHE_INCLUDES_DIR := /home/billy/Applications/grassroots-0/apache/include
+
+IRODS_VERSION := 4.2.0
+
+IRODS_DIR := /home/billy/Applications/irods
+
+IRODS_EXTERNALS := \
+	/opt/irods-externals/avro1.7.7-0/lib \
+	/opt/irods-externals/boost1.60.0-0/lib \
+	/opt/irods-externals/clang3.8-0/lib \
+	/opt/irods-externals/clang-runtime3.8-0/lib \
+	/opt/irods-externals/cppzmq4.1-0/lib \
+	/opt/irods-externals/jansson2.7-0/lib \
+	/opt/irods-externals/libarchive3.1.2-0/lib \
+	/opt/irods-externals/zeromq4-14.1.3-0/lib
+	

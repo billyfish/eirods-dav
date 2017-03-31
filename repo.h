@@ -25,8 +25,8 @@
 #include "common.h"
 #include "config.h"
 
-#include <irods/rodsClient.h>
-#include <irods/rods.h>
+#include <rodsClient.h>
+#include <rods.h>
 
 
 /**
