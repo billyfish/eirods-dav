@@ -6,7 +6,8 @@
 
 MODNAME      ?= davrods
 SHARED_FNAME := mod_$(MODNAME).so
-SHARED       := ./.libs/$(SHARED_FNAME)
+OUTPUT_DIR	 := build
+SHARED       := $(OUTPUT_DIR)/$(SHARED_FNAME)
 
 
 #
@@ -50,7 +51,7 @@ endif
 
 # XXX: These are currently unused as we rely on the apxs utility for module
 #      installation.
-INSTALL_DIR  ?= /usr/lib64/httpd/modules
+INSTALL_DIR  ?= /opt/grassroots-0/apache/modules
 INSTALLED    := $(INSTALL_DIR)/mod_$(MODNAME).so
 
 CFILES := mod_davrods.c auth.c common.c config.c prop.c propdb.c repo.c meta.c theme.c rest.c listing.c
@@ -72,11 +73,11 @@ endif
 
 HFILES := $(CFILES:%.c=%.h)
 SRCFILES := $(CFILES) $(HFILES)
-OBJFILES := $(CFILES:%.c=%.o)
+OBJFILES := $(CFILES:%.c=$(OUTPUT_DIR)/%.o)
 OUTFILES := $(OBJFILES) $(CFILES:%.c=%.lo) $(CFILES:%.c=%.slo) $(CFILES:%.c=%.la)
 
-INCLUDE_PATHS := $(IRODS_DIR)/usr/include/irods	
-LIB_PATHS := $(IRODS_DIR)/usr/lib
+INCLUDE_PATHS += $(IRODS_DIR)/usr/include/irods	
+LIB_PATHS += $(IRODS_DIR)/usr/lib
 
 # Add in the appropriate irods libs and dependencies
 IRODS_VERSION_MAJOR := $(shell echo $(IRODS_VERSION) | cut -f1 -d ".")
@@ -123,9 +124,6 @@ LIBS +=                  \
 	ssl              \
 	jansson
 
-LIBPATHS := \
-	/home/billy/Applications/irods/usr/lib \
-	$(IRODS_EXTERNALS) \
 	
 WARNINGS :=                           \
 	all                           \
@@ -158,29 +156,31 @@ CFLAGS +=                              \
 
 LDFLAGS +=                           \
 	$(addprefix -l, $(LIBS))     \
-	$(addprefix -L, $(LIBPATHS)) \
+	$(addprefix -L, $(LIB_PATHS)) \
 	-shared 
 
 comma := ,
 
-.PHONY: all shared install test clean apxs
+.PHONY: all shared install test clean apxs init
 
 all: shared
 
+init:
+	mkdir -p $(OUTPUT_DIR)
+
 install: $(SHARED)
-	sudo $(APXS) -i -n $(MODNAME)_module $(SHARED)
-	sudo service httpd restart
+	cp $(SHARED) $(INSTALL_DIR)
 
 shared: $(SHARED)
 
-$(SHARED): $(OBJFILES)
-	$(LD) -o $(SHARED) $(OBJS) $(STATIC_LIBS) $(LDFLAGS)
+$(SHARED): init $(OBJFILES)
+	$(LD) -o $(SHARED) $(OBJFILES) $(STATIC_LIBS) $(LDFLAGS)
 
 clean:
 	rm -vf $(OUTFILES)
 	rm -rvf .libs
 	
-$(OBJFILES): $(SRCFILES)
+$(OUTPUT_DIR)/%.o: %.c 
 	$(CC) -c $(CFLAGS) $(CPPFLAGS) -fPIC -DLINUX -D_REENTRANT -D_GNU_SOURCE $< -o $@
 
 apxs:
