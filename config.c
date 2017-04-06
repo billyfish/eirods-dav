@@ -600,7 +600,7 @@ const command_rec davrods_directives[] = {
 		),
 
 		AP_INIT_TAKE1(
-				DAVRODS_CONFIG_PREFIX "DefaultUsername", cmd_davrods_default_password,
+				DAVRODS_CONFIG_PREFIX "DefaultPasswors", cmd_davrods_default_password,
 				NULL, ACCESS_CONF, "Set the default password to use if none is provided."
 		),
 
