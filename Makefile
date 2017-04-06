@@ -6,8 +6,10 @@
 
 MODNAME      ?= davrods
 SHARED_FNAME := mod_$(MODNAME).so
-SHARED       := build/$(SHARED_FNAME)
 CC	:= gcc
+OUTPUT_DIR	 := build
+SHARED       := $(OUTPUT_DIR)/$(SHARED_FNAME)
+
 
 #
 # Create a file called user.prefs to store any make configuration data
@@ -50,7 +52,7 @@ endif
 
 # XXX: These are currently unused as we rely on the apxs utility for module
 #      installation.
-INSTALL_DIR  ?= /usr/lib64/httpd/modules
+INSTALL_DIR  ?= $(APACHE_DIR)/modules
 INSTALLED    := $(INSTALL_DIR)/mod_$(MODNAME).so
 BUILD_DIR := build
 
@@ -73,10 +75,11 @@ endif
 
 HFILES := $(CFILES:%.c=%.h)
 SRCFILES := $(CFILES) $(HFILES)
-OBJFILES := $(CFILES:%.c=%.o)
+OBJFILES := $(CFILES:%.c=$(OUTPUT_DIR)/%.o)
+OUTFILES := $(OBJFILES) $(CFILES:%.c=%.lo) $(CFILES:%.c=%.slo) $(CFILES:%.c=%.la)
 
-INCLUDE_PATHS := $(IRODS_DIR)/usr/include
-LIB_PATHS := $(IRODS_DIR)/usr/lib
+INCLUDE_PATHS += $(IRODS_DIR)/usr/include
+LIB_PATHS += $(IRODS_DIR)/usr/lib
 
 # Add in the appropriate irods libs and dependencies
 IRODS_VERSION_MAJOR := $(shell echo $(IRODS_VERSION) | cut -f1 -d ".")
@@ -123,9 +126,7 @@ LIBS +=                  \
 	ssl              \
 	jansson
 
-LIBPATHS := \
-	/home/billy/Applications/irods/usr/lib \
-	$(IRODS_EXTERNALS) \
+LIB_PATHS += \
 	/usr/lib/gcc/x86_64-linux-gnu/5
 	
 WARNINGS :=                           \
@@ -137,11 +138,18 @@ WARNINGS :=                           \
 	fatal-errors \
 	shadow
 
+#MACROS += \
+#	$(addprefix DAVRODS_ENABLE_PROVIDER_, $(DAV_PROVIDERS))      \
+#	DAVRODS_PROVIDER_NAME=\\\"$(DAV_PROVIDER_NAME_PREFIX)\\\"    \
+#	DAVRODS_CONFIG_PREFIX=\\\"$(DAV_CONFIG_DIRECTIVE_PREFIX)\\\" \
+#	DAVRODS_DEBUG_VERY_DESPERATE=1
+
 MACROS += \
 	$(addprefix DAVRODS_ENABLE_PROVIDER_, $(DAV_PROVIDERS))      \
-	DAVRODS_PROVIDER_NAME=\\\"$(DAV_PROVIDER_NAME_PREFIX)\\\"    \
-	DAVRODS_CONFIG_PREFIX=\\\"$(DAV_CONFIG_DIRECTIVE_PREFIX)\\\" \
+	DAVRODS_PROVIDER_NAME=\"$(DAV_PROVIDER_NAME_PREFIX)\"    \
+	DAVRODS_CONFIG_PREFIX=\"$(DAV_CONFIG_DIRECTIVE_PREFIX)\" \
 	DAVRODS_DEBUG_VERY_DESPERATE=1
+
 
 ifdef DEBUG
 MACROS += DAVRODS_DEBUG_VERY_DESPERATE
@@ -159,7 +167,7 @@ CFLAGS +=                              \
 
 LDFLAGS +=                           \
 	$(addprefix -l, $(LIBS))     \
-	$(addprefix -L, $(LIBPATHS)) \
+	$(addprefix -L, $(LIB_PATHS)) \
 	-shared 
 
 comma := ,
@@ -169,28 +177,32 @@ comma := ,
 all: init shared
 
 
-init:
-	mkdir -p $(BUILD_DIR)
 
+
+init:
+	mkdir -p $(OUTPUT_DIR)
 
 install: $(SHARED)
-	sudo $(APXS) -i -n $(MODNAME)_module $(SHARED)
-	sudo service httpd restart
+	cp $(SHARED) $(INSTALL_DIR)/
 
 shared: $(SHARED)
 
-#$(SHARED): $(OBJFILES)
-#	$(LD) -o $(SHARED) $(OBJFILES) $(STATIC_LIBS) $(LDFLAGS)
+$(SHARED): init $(OBJFILES)
+	@echo "LIB_PATHS: $(LIB_PATHS)"
+	$(LD) -o $(SHARED) $(OBJFILES) $(STATIC_LIBS) $(LDFLAGS)
 
 clean:
 	rm -rvf  $(BUILD_DIR)/*
 
 	
-$(SHARED): apxs $(SRCFILES) 
-	$(APXS) -c   \
-	$(addprefix -Wc$(comma), $(CFLAGS))  \
-	$(addprefix -Wl$(comma), $(LDFLAGS)) \
-	-o $(SHARED_FNAME) $(SRCFILES)  
+#$(SHARED): apxs $(SRCFILES) 
+#	$(APXS) -c   \
+#	$(addprefix -Wc$(comma), $(CFLAGS))  \
+#	$(addprefix -Wl$(comma), $(LDFLAGS)) \
+#	-o $(SHARED_FNAME) $(SRCFILES)  
+
+$(OUTPUT_DIR)/%.o: %.c 
+	$(CC) -c $(CFLAGS) $(CPPFLAGS) -fPIC -DLINUX -D_REENTRANT -D_GNU_SOURCE $< -o $@
 
 apxs:
 ifeq ($(strip $(APXS)),)

@@ -146,7 +146,7 @@ static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_
 
 			if (value_s)
 				{
-					SearchOperator op = SO_EQUALS;
+					SearchOperator op = SO_LIKE;
 					const char *op_s = apr_table_get (params_p, "op");
 
 					if (op_s)

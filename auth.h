@@ -49,4 +49,7 @@ apr_pool_t *GetDavrodsMemoryPool (request_rec *req_p);
 authn_status GetIRodsConnection (request_rec *req_p, rcComm_t **connection_pp, const char *username_s, const char *password_s);
 
 
+apr_status_t RodsLogout (request_rec *req_p);
+
+
 #endif /* _RODS_AUTH_H */

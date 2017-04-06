@@ -1,18 +1,68 @@
-APXS := /home/billy/Applications/grassroots-0/apache/bin/apxs
+#
+# Create a file called user.prefs to store any make configuration data
+#
+# It can contain the following variables:
+#
+# APXS 
+# ----
+#
+# This is the path to the APXS executable to use for installing 
+# the davrods module. If you're not using a system-wide version of 
+# httpd, this allows you to use your given httpd installation.
+# 
+# E.g.
+#
+#	APXS = /home/billy/Applications/apahe/bin/apxs
 
-APACHE_INCLUDES_DIR := /home/billy/Applications/grassroots-0/apache/include
+APXS = /home/billy/Applications/grassroots-0/apache/bin/apxs
 
-IRODS_VERSION := 4.2.0
+#
+# IRODS_VERSION
+# -------------
+#
+# The set of libraries required differ for different versions of
+# iRODS, so set this variable to use the correct set. For instance,
+# if you have version 4.2.0 installed then this would be 
+#
+
+IRODS_VERSION = 4.2
+
+#
+#
+# IRODS_EXTERNALS
+# ---------------
+#
+# This is the path to the external dependencies for iRODS.
+#
 
 IRODS_DIR := /home/billy/Applications/irods
 
-IRODS_EXTERNALS := \
-	/opt/irods-externals/avro1.7.7-0/lib \
-	/opt/irods-externals/boost1.60.0-0/lib \
-	/opt/irods-externals/clang3.8-0/lib \
-	/opt/irods-externals/clang-runtime3.8-0/lib \
-	/opt/irods-externals/cppzmq4.1-0/lib \
-	/opt/irods-externals/jansson2.7-0/lib \
-	/opt/irods-externals/libarchive3.1.2-0/lib \
-	/opt/irods-externals/zeromq4-14.1.3-0/lib
-	
+IRODS_VERSION := 4.2.0
+
+APACHE_DIR := /home/billy/Applications/grassroots-0/apache
+
+APACHE_INCLUDES_DIR := $(APACHE_DIR)/include
+
+# It can contain the following variables:
+#
+# APXS 
+# ----
+#
+# This is the path to the APXS executable to use for installing 
+# the davrods module. If you're not using a system-wide version of 
+# httpd, this allows you to use your given httpd installation.
+# 
+# E.g.
+#
+#	APXS = /home/billy/Applications/apahe/bin/apxs
+
+APXS = $(APACHE_DIR)/bin/apxs
+
+IRODS_EXTERNALS := /opt/irods-externals/avro1.7.7-0/lib
+IRODS_EXTERNALS += /opt/irods-externals/boost1.60.0-0/lib
+IRODS_EXTERNALS += /opt/irods-externals/clang3.8-0/lib
+IRODS_EXTERNALS += /opt/irods-externals/clang-runtime3.8-0/lib
+IRODS_EXTERNALS += /opt/irods-externals/jansson2.7-0/lib
+IRODS_EXTERNALS += /opt/irods-externals/libarchive3.1.2-0/lib 
+IRODS_EXTERNALS += /opt/irods-externals/zeromq4-14.1.3-0/lib
+
