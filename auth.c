@@ -433,18 +433,7 @@ static authn_status GetIRodsConnection2 (request_rec *req_p, apr_pool_t *pool_p,
 {
 	authn_status result = AUTH_USER_NOT_FOUND;
 
-	rcComm_t *connection_p = NULL;
-	void *ptr = NULL;
-	apr_status_t status = apr_pool_userdata_get (&ptr, GetConnectionKey (),
-			pool_p);
-
-	if (status == APR_SUCCESS)
-		{
-			if (ptr)
-				{
-					connection_p = (rcComm_t *) ptr;
-				}
-		}
+	rcComm_t *connection_p = GetIRODSConnectionFromPool (pool_p);
 
 	if (connection_p)
 		{

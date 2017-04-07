@@ -179,3 +179,40 @@ apr_status_t PrintBasicStringToBucketBrigade (const char *value_s, apr_bucket_br
 
 	return status;
 }
+
+
+rcComm_t *GetIRODSConnectionFromPool (apr_pool_t *pool_p)
+{
+	rcComm_t *connection_p = NULL;
+	void *ptr = NULL;
+	apr_status_t status = apr_pool_userdata_get (&ptr, GetConnectionKey (), pool_p);
+
+	if (status == APR_SUCCESS)
+		{
+			if (ptr)
+				{
+					connection_p = (rcComm_t *) ptr;
+				}
+		}
+
+	return connection_p;
+}
+
+
+rodsEnv *GetRodsEnvFromPool (apr_pool_t *pool_p)
+{
+	rodsEnv *env_p = NULL;
+	void *ptr = NULL;
+	apr_status_t status = apr_pool_userdata_get (&ptr, GetRodsEnvKey (), pool_p);
+
+	if (status == APR_SUCCESS)
+		{
+			if (ptr)
+				{
+					env_p = (rodsEnv *) ptr;
+				}
+		}
+
+	return env_p;
+}
+

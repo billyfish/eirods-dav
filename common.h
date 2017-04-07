@@ -61,4 +61,9 @@ void CloseBucketsStream (apr_bucket_brigade *bucket_brigade_p);
 apr_status_t PrintBasicStringToBucketBrigade (const char *value_s, apr_bucket_brigade *brigade_p, request_rec *req_p, const char *file_s, const int line);
 
 
+rcComm_t *GetIRODSConnectionFromPool (apr_pool_t *pool_p);
+
+rodsEnv *GetRodsEnvFromPool (apr_pool_t *pool_p);
+
+
 #endif /* _DAVRODS_COMMON_H_ */

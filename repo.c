@@ -216,7 +216,8 @@ static const char *get_rods_root (apr_pool_t *davrods_pool, request_rec *r)
 		}
 	else
 		{
-			ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_EGENERAL, r, "get_rods_root: failed to get module config");
+			ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_EGENERAL, r,
+					"get_rods_root: failed to get module config");
 		}
 
 	return root;
@@ -315,65 +316,81 @@ static dav_error *get_dav_resource_rods_info (dav_resource *resource)
 static dav_error *dav_repo_get_resource (request_rec *r, const char *root_dir,
 		const char *label, int use_checked_in, dav_resource **result_resource)
 {
+	dav_error *err;
 	// Create private resource context {{{
 	dav_resource_private *res_private;
 	res_private = apr_pcalloc(r->pool, sizeof(*res_private));
-	assert(res_private);
 
-	res_private->r = r;
-
-	// Collect properties to insert into the resource context.
-
-	// Get module config.
-	res_private->conf = ap_get_module_config (r->per_dir_config, &davrods_module);
-	assert(res_private->conf);
-
-	// Obtain iRODS connection.
-	res_private->davrods_pool = get_davrods_pool_from_req (r);
-	if (res_private->davrods_pool)
+	if (res_private)
 		{
-			int status = apr_pool_userdata_get ((void**) &res_private->rods_conn,
-					GetConnectionKey (), res_private->davrods_pool);
-			assert(status == 0);
+			// Create private resource context {{{
+			res_private->r = r;
 
-			// Obtain iRODS environment.
-			status = apr_pool_userdata_get ((void**) &res_private->rods_env,
-					GetRodsEnvKey (), res_private->davrods_pool);
-			assert(status == 0);
+			// Collect properties to insert into the resource context.
 
-			// Get iRODS exposed root dir.
-			res_private->rods_root = get_rods_root (res_private->davrods_pool, r);
+			// Get module config.
+			res_private->conf = ap_get_module_config (r->per_dir_config,
+					&davrods_module);
+			assert(res_private->conf);
 
-			WHISPER("Root dir is %s\n", root_dir);
-			res_private->root_dir = root_dir;
+			// Obtain iRODS connection.
+			res_private->davrods_pool = get_davrods_pool_from_req (r);
 
-		}
-	else
-		{
-			WHISPER("NO POOL!!!");
-		}
+			if (res_private->davrods_pool)
+				{
+					if ((res_private->rods_conn = GetIRODSConnectionFromPool (
+							res_private->davrods_pool)) != NULL)
+						{
+							// Obtain iRODS environment.
+							if ((res_private->rods_env = GetRodsEnvFromPool (
+									res_private->davrods_pool)) != NULL)
+								{
+									dav_resource *resource = NULL;
 
-	// }}}
-	// Create DAV resource {{{
+									// Get iRODS exposed root dir.
+									res_private->rods_root = get_rods_root (
+											res_private->davrods_pool, r);
+									res_private->root_dir = root_dir;
 
-	dav_resource *resource = apr_pcalloc(r->pool, sizeof(dav_resource));
-	assert(resource);
+									// }}}
+									// Create DAV resource {{{
 
-	resource->uri = res_private->r->uri;
-	resource->type = DAV_RESOURCE_TYPE_REGULAR;
-	resource->hooks = &davrods_hooks_repository;
-	resource->pool = res_private->r->pool;
-	resource->info = res_private;
+									if ((resource = apr_pcalloc(r->pool, sizeof(dav_resource)))
+											!= NULL)
+										{
+											resource->uri = res_private->r->uri;
+											resource->type = DAV_RESOURCE_TYPE_REGULAR;
+											resource->hooks = &davrods_hooks_repository;
+											resource->pool = res_private->r->pool;
+											resource->info = res_private;
 
-	dav_error *err = get_dav_resource_rods_info (resource);
-	if (err)
-		return err;
+											err = get_dav_resource_rods_info (resource);
+											if (!err)
+												{
+													*result_resource = resource;
+												}
 
-	// }}}
+										} /* if ((resource = apr_pcalloc (r -> pool, sizeof (dav_resource))) != NULL) */
 
-	*result_resource = resource;
+								} /* if ((res_private -> rods_env = GetRodsEnvFromPool (res_private -> davrods_pool)) != NULL) */
 
-	return NULL;
+						} /* if ((res_private->rods_conn = GetIRODSConnectionFromPool (res_private->davrods_pool)) != NULL) */
+
+					// Get iRODS exposed root dir.
+					res_private->rods_root = get_rods_root (res_private->davrods_pool, r);
+
+					WHISPER("Root dir is %s\n", root_dir);
+					res_private->root_dir = root_dir;
+
+				}
+			else
+				{
+					WHISPER("NO POOL!!!");
+				}
+
+		}		/* if (res_private) */
+
+	return err;
 }
 
 static dav_error *dav_repo_get_parent_resource (const dav_resource *resource,
@@ -783,7 +800,7 @@ static dav_error *dav_repo_close_stream (dav_stream *stream, int commit)
 											resource->info->r, "rcDataObjUnlink failed: %d = %s",
 											status, get_rods_error_msg (status));
 									return dav_new_error (resource->pool,
-											HTTP_INTERNAL_SERVER_ERROR, 0, 0,
+									HTTP_INTERNAL_SERVER_ERROR, 0, 0,
 											"Could not remove original file");
 								}
 						}
@@ -803,7 +820,7 @@ static dav_error *dav_repo_close_stream (dav_stream *stream, int commit)
 								{
 									// XXX: See the iRODS issue note in dav_repo_move_resource.
 									return dav_new_error (resource->pool,
-											HTTP_INTERNAL_SERVER_ERROR, 0, 0,
+									HTTP_INTERNAL_SERVER_ERROR, 0, 0,
 											"iRODS Unix FS resource error: UNIX_FILE_RENAME_ERR."
 													" Probably caused by a uploading a file with the name of a former collection"
 													" (fs directory was not removed when iRODS collection was removed)");
@@ -811,7 +828,7 @@ static dav_error *dav_repo_close_stream (dav_stream *stream, int commit)
 							else
 								{
 									return dav_new_error (resource->pool,
-											HTTP_INTERNAL_SERVER_ERROR, 0, 0,
+									HTTP_INTERNAL_SERVER_ERROR, 0, 0,
 											"Something went wrong while renaming the uploaded resource");
 								}
 						}
@@ -1376,7 +1393,7 @@ static dav_error *walker (struct dav_repo_walker_private *ctx, int depth)
 			ctx->resource.collection
 			? "collection"
 			: "data object"
-	); WHISPER("Exists(%c)\n", ctx->resource.exists?'T':'F');
+	);WHISPER("Exists(%c)\n", ctx->resource.exists?'T':'F');
 
 	WHISPER("Calling walker callback for object uri <%s>\n", ctx->resource.uri);
 	dav_error *err = (*ctx->params->func) (&ctx->wres,
@@ -1440,7 +1457,7 @@ static dav_error *walker (struct dav_repo_walker_private *ctx, int depth)
 							// XXX: Perhaps report CONFLICT instead of depending on `status`?
 							//      How do clients handle this?
 							return dav_new_error (ctx->resource.pool,
-									HTTP_INTERNAL_SERVER_ERROR, 0, 0,
+							HTTP_INTERNAL_SERVER_ERROR, 0, 0,
 									"Could not read a collection entry from a collection.");
 						}
 				}
@@ -1467,7 +1484,7 @@ static dav_error *walker (struct dav_repo_walker_private *ctx, int depth)
 									ctx->resource.info->r,
 									"Generated an uri or iRODS path exceeding iRODS path length limits");
 							return dav_new_error (ctx->resource.pool,
-									HTTP_INTERNAL_SERVER_ERROR, 0, 0, "Path name too long");
+							HTTP_INTERNAL_SERVER_ERROR, 0, 0, "Path name too long");
 						}
 
 					// Transform resource struct into child resource struct.
@@ -1566,7 +1583,7 @@ static dav_error *walker (struct dav_repo_walker_private *ctx, int depth)
 											ctx->resource.info->r,
 											"Generated an uri or iRODS path exceeding iRODS path length limits");
 									return dav_new_error (ctx->resource.pool,
-											HTTP_INTERNAL_SERVER_ERROR, 0, 0, "Path name too long");
+									HTTP_INTERNAL_SERVER_ERROR, 0, 0, "Path name too long");
 								}
 							if (strcmp (ctx->uri_buffer, "/") == 0)
 								{
@@ -1619,7 +1636,7 @@ static dav_error *walker (struct dav_repo_walker_private *ctx, int depth)
 				{
 					WHISPER("LOCKNULL walk requested, but we can't provide it.");
 				}
-		} WHISPER("walker function end\n");
+		}WHISPER("walker function end\n");
 	return NULL;
 }
 
@@ -1639,7 +1656,7 @@ static dav_error *dav_repo_walk (const dav_walk_params *params, int depth,
 	// FIXME: Use pool provided by walker params.
 	ctx_res_private->stat = apr_pcalloc(params->root->pool,
 			sizeof(rodsObjStat_t));
-	WHISPER("Private @ %p\n", ctx_res_private); WHISPER("root info @ %p\n", ctx.params->root->info); WHISPER("root stat @ %p\n", ctx.params->root->info->stat);
+	WHISPER("Private @ %p\n", ctx_res_private);WHISPER("root info @ %p\n", ctx.params->root->info);WHISPER("root stat @ %p\n", ctx.params->root->info->stat);
 	assert(ctx_res_private->stat);
 
 	// LockNull related walks can encounter non-existant resources.
