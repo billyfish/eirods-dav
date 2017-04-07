@@ -198,14 +198,16 @@ static const char *get_rods_root (apr_pool_t *davrods_pool, request_rec *r)
 				}
 			else if (conf->rods_exposed_root_type == DAVRODS_ROOT_USER_DIR)
 				{
-					const char *username = NULL;
-					int status = apr_pool_userdata_get ((void**) &username,
-							GetUsernameKey (), davrods_pool);
-					assert(status == 0);
+					const char *username_s = GetUsernameFromPool (davrods_pool);
 
-					root = apr_pstrcat (davrods_pool, "/", conf->rods_zone, "/home/",
-							username,
-							NULL);
+					if (username_s)
+						{
+							root = apr_pstrcat (davrods_pool, "/", conf->rods_zone, "/home/", username_s, NULL);
+						}
+					else
+						{
+							ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_EGENERAL, r, "get_rods_root: failed to get username");
+						}
 				}
 			else
 				{
@@ -316,10 +318,10 @@ static dav_error *get_dav_resource_rods_info (dav_resource *resource)
 static dav_error *dav_repo_get_resource (request_rec *r, const char *root_dir,
 		const char *label, int use_checked_in, dav_resource **result_resource)
 {
-	dav_error *err;
+	dav_error *err = NULL;
+
 	// Create private resource context {{{
-	dav_resource_private *res_private;
-	res_private = apr_pcalloc(r->pool, sizeof(*res_private));
+	dav_resource_private *res_private = apr_pcalloc(r->pool, sizeof(*res_private));
 
 	if (res_private)
 		{
@@ -331,64 +333,75 @@ static dav_error *dav_repo_get_resource (request_rec *r, const char *root_dir,
 			// Get module config.
 			res_private->conf = ap_get_module_config (r->per_dir_config,
 					&davrods_module);
-			assert(res_private->conf);
 
-			// Obtain iRODS connection.
-			res_private->davrods_pool = get_davrods_pool_from_req (r);
 
-			if (res_private->davrods_pool)
+			if (res_private->conf)
 				{
-					if ((res_private->rods_conn = GetIRODSConnectionFromPool (
-							res_private->davrods_pool)) != NULL)
+					// Obtain iRODS connection.
+					res_private->davrods_pool = get_davrods_pool_from_req (r);
+
+					if (res_private->davrods_pool)
 						{
-							// Obtain iRODS environment.
-							if ((res_private->rods_env = GetRodsEnvFromPool (
+							if ((res_private->rods_conn = GetIRODSConnectionFromPool (
 									res_private->davrods_pool)) != NULL)
 								{
-									dav_resource *resource = NULL;
-
-									// Get iRODS exposed root dir.
-									res_private->rods_root = get_rods_root (
-											res_private->davrods_pool, r);
-									res_private->root_dir = root_dir;
-
-									// }}}
-									// Create DAV resource {{{
-
-									if ((resource = apr_pcalloc(r->pool, sizeof(dav_resource)))
-											!= NULL)
+									// Obtain iRODS environment.
+									if ((res_private->rods_env = GetRodsEnvFromPool (
+											res_private->davrods_pool)) != NULL)
 										{
-											resource->uri = res_private->r->uri;
-											resource->type = DAV_RESOURCE_TYPE_REGULAR;
-											resource->hooks = &davrods_hooks_repository;
-											resource->pool = res_private->r->pool;
-											resource->info = res_private;
+											dav_resource *resource = NULL;
 
-											err = get_dav_resource_rods_info (resource);
-											if (!err)
+											// Get iRODS exposed root dir.
+											res_private->rods_root = get_rods_root (
+													res_private->davrods_pool, r);
+											res_private->root_dir = root_dir;
+
+											// }}}
+											// Create DAV resource {{{
+
+											if ((resource = apr_pcalloc(r->pool, sizeof(dav_resource)))
+													!= NULL)
 												{
-													*result_resource = resource;
-												}
+													resource->uri = res_private->r->uri;
+													resource->type = DAV_RESOURCE_TYPE_REGULAR;
+													resource->hooks = &davrods_hooks_repository;
+													resource->pool = res_private->r->pool;
+													resource->info = res_private;
 
-										} /* if ((resource = apr_pcalloc (r -> pool, sizeof (dav_resource))) != NULL) */
+													err = get_dav_resource_rods_info (resource);
+													if (!err)
+														{
+															*result_resource = resource;
+														}
 
-								} /* if ((res_private -> rods_env = GetRodsEnvFromPool (res_private -> davrods_pool)) != NULL) */
+												} /* if ((resource = apr_pcalloc (r -> pool, sizeof (dav_resource))) != NULL) */
 
-						} /* if ((res_private->rods_conn = GetIRODSConnectionFromPool (res_private->davrods_pool)) != NULL) */
+										} /* if ((res_private -> rods_env = GetRodsEnvFromPool (res_private -> davrods_pool)) != NULL) */
 
-					// Get iRODS exposed root dir.
-					res_private->rods_root = get_rods_root (res_private->davrods_pool, r);
+								} /* if ((res_private->rods_conn = GetIRODSConnectionFromPool (res_private->davrods_pool)) != NULL) */
 
-					WHISPER("Root dir is %s\n", root_dir);
-					res_private->root_dir = root_dir;
+							// Get iRODS exposed root dir.
+							res_private->rods_root = get_rods_root (res_private->davrods_pool, r);
 
+							WHISPER("Root dir is %s\n", root_dir);
+							res_private->root_dir = root_dir;
+
+						}
+					else
+						{
+							WHISPER("NO POOL!!!");
+						}
 				}
 			else
 				{
-					WHISPER("NO POOL!!!");
+					err = dav_new_error (r->pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0, "Failed to get module config");
 				}
 
 		}		/* if (res_private) */
+	else
+		{
+			err = dav_new_error (r->pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0, "Failed to allocate memory for resource");
+		}
 
 	return err;
 }
@@ -396,55 +409,80 @@ static dav_error *dav_repo_get_resource (request_rec *r, const char *root_dir,
 static dav_error *dav_repo_get_parent_resource (const dav_resource *resource,
 		dav_resource **result_parent)
 {
+	dav_error *err_p = NULL;
+
 	WHISPER("Attempting to get parent resource of <%s>\n", resource->uri);
 
 	// We should be able to make this assumption.
-	assert(resource->uri [0] == '/');
-
-	if (strcmp (resource->uri, "/") == 0)
+	if (* (resource -> uri) == '/')
 		{
-			*result_parent = NULL; // We are already at the root directory.
-			return NULL;
-		}
+			if (strcmp (resource->uri, "/") == 0)
+				{
+					*result_parent = NULL; // We are already at the root directory.
+				}
+			else
+				{
+					// Generate a resource for the parent collection.
+					dav_resource *parent = apr_pcalloc(resource->pool, sizeof(dav_resource));
+
+					if (parent)
+						{
+							parent->info = apr_pcalloc(resource->pool, sizeof(dav_resource_private));
+
+							if (parent->info)
+								{
+									char *uri = NULL;
+									copy_resource_context (parent->info, resource->info);
+
+									if ((uri = apr_pstrdup (resource->pool, resource->uri)) != NULL)
+										{
+											size_t uri_len = strlen (uri);
+											uri [uri_len - 1] = '\0';
+											// We already established that uri_len must be greater that 1.
+											for (int i = uri_len - 2; i >= 0; i --)
+												{
+													// TODO: Verify that double slashes do not cause problems
+													// here (are they filtered by apache / mod_dav?).
+													if (uri [i] == '/')
+														break;
+													uri [i] = '\0';
+												}
+											parent->uri = uri;
+
+											WHISPER("Parent of <%s> resides at <%s>\n", resource->uri, parent->uri);
+											parent->type = DAV_RESOURCE_TYPE_REGULAR;
+											parent->hooks = &davrods_hooks_repository;
+											parent->pool = resource->pool;
+
+											err_p = get_dav_resource_rods_info (parent);
+
+											*result_parent = parent;
+										}
+									else
+										{
+											err_p = dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0, "Failed to allocate memory for copying resource uri");
+										}
+								}
+							else
+								{
+									err_p = dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0, "Failed to allocate memory for parent resource info");
+								}
+						}
+					else
+						{
+							err_p = dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0, "Failed to allocate memory for parent resource");
+						}
+
+				}
+
+		}		/* if (* (resource -> uri) == '/') */
 	else
 		{
-			// Generate a resource for the parent collection.
-			dav_resource *parent = apr_pcalloc(resource->pool, sizeof(dav_resource));
-			assert(parent);
-
-			parent->info = apr_pcalloc(resource->pool, sizeof(dav_resource_private));
-			assert(parent->info);
-
-			copy_resource_context (parent->info, resource->info);
-
-			char *uri = apr_pstrdup (resource->pool, resource->uri);
-			assert(uri);
-			size_t uri_len = strlen (uri);
-			uri [uri_len - 1] = '\0';
-			// We already established that uri_len must be greater that 1.
-			for (int i = uri_len - 2; i >= 0; i --)
-				{
-					// TODO: Verify that double slashes do not cause problems
-					// here (are they filtered by apache / mod_dav?).
-					if (uri [i] == '/')
-						break;
-					uri [i] = '\0';
-				}
-			parent->uri = uri;
-
-			WHISPER("Parent of <%s> resides at <%s>\n", resource->uri, parent->uri);
-			parent->type = DAV_RESOURCE_TYPE_REGULAR;
-			parent->hooks = &davrods_hooks_repository;
-			parent->pool = resource->pool;
-
-			dav_error *err = get_dav_resource_rods_info (parent);
-			if (err)
-				return err;
-
-			*result_parent = parent;
-
-			return NULL;
+			char *error_s = apr_pstrcat (resource -> pool, "resource -> uri \"", resource -> uri, "\" does not begin with /", NULL);
+			err_p = dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0, error_s);
 		}
+
+	return err_p;
 }
 
 static int dav_repo_is_same_resource (const dav_resource *resource1,
@@ -487,145 +525,153 @@ static int dav_repo_is_parent_resource (const dav_resource *parent,
 static dav_error *dav_repo_open_stream (const dav_resource *resource,
 		dav_stream_mode mode, dav_stream **result_stream)
 {
+	dav_error *err_p = NULL;
 	struct dav_stream *stream = apr_pcalloc(resource->pool, sizeof(dav_stream));
-	assert(stream);
 
-	stream->pool = resource->pool;
-	stream->resource = resource;
-
-	if (mode == DAV_MODE_WRITE_SEEKABLE
-			|| (mode == DAV_MODE_WRITE_TRUNC
-					&& resource->info->conf->tmpfile_rollback
-							== DAVRODS_TMPFILE_ROLLBACK_NO))
+	if (stream)
 		{
-			// Either way, do not use tmpfiles for rollback support.
-			stream->write_path = apr_pstrdup (stream->pool,
-					resource->info->rods_path);
+			stream->pool = resource->pool;
+			stream->resource = resource;
 
-		}
-	else if (mode == DAV_MODE_WRITE_TRUNC)
-		{
-			// If the TmpfileRollback config option is set, we create a temporary file when in truncate mode.
-
-			// Think up a semi-random filename that's unlikely to exist in this directory.
-			int cheapsum = 0;
-			for (const char *c = resource->uri; c; c ++)
-				cheapsum += 1 << *c;
-
-			// Get the path to the parent directory.
-			// TODO: Statting the parent collection is overkill, create a separate function for this.
-			dav_resource *parent;
-			dav_error *err = dav_repo_get_parent_resource (resource, &parent);
-			if (err)
+			if (mode == DAV_MODE_WRITE_SEEKABLE
+					|| (mode == DAV_MODE_WRITE_TRUNC
+							&& resource->info->conf->tmpfile_rollback
+									== DAVRODS_TMPFILE_ROLLBACK_NO))
 				{
-					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
-							"Getting parent resource of <%s> failed in open_stream()",
-							resource->uri);
-					return err;
+					// Either way, do not use tmpfiles for rollback support.
+					stream->write_path = apr_pstrdup (stream->pool,
+							resource->info->rods_path);
+
 				}
-
-			// XXX:  This assumes we have write access to the collection containing
-			//       the resource, not just the data object itself, which may not
-			//       always be the case.
-			stream->write_path = apr_psprintf (stream->pool,
-					"%s/.davrods-tx-%04x-%08lx", parent->info->rods_path, getpid (),
-					time (NULL) ^ cheapsum);
-		}
-	else
-		{
-			// No other modes exist in mod_dav at this time.
-			assert("Unimplemented open_stream mode" && 0);
-		}
-
-	assert(stream->write_path);
-	if (strlen (stream->write_path) >= MAX_NAME_LEN)
-		{
-			// This can only happen in the temporary file case - the check on the
-			// destination file name length happened during create_resource().
-			ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
-					"Generated a temporary filename exceeding iRODS MAX_NAME_LEN limits: <%s>. Aborting open_stream().",
-					stream->write_path);
-			return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0,
-					"Could not generate a temporary filename within path length bounds");
-		}
-
-	dataObjInp_t *open_params = &stream->open_params;
-	// Set destination resource if it exists in our config.
-	if (resource->info->conf->rods_default_resource
-			&& strlen (resource->info->conf->rods_default_resource))
-		{
-			addKeyVal (&open_params->condInput, DEST_RESC_NAME_KW,
-					resource->info->conf->rods_default_resource);
-		}
-
-	strcpy (stream->open_params.objPath, stream->write_path);
-
-	WHISPER("Opening write stream to <%s> for resource <%s>\n", stream->write_path, resource->uri);
-	open_params->oprType = PUT_OPR;
-
-	if (strcmp (stream->write_path, resource->info->rods_path) == 0
-			&& resource->exists)
-		{
-
-			// We are overwriting an existing data object without the use of a temporary file.
-
-			open_params->openFlags = O_WRONLY | O_CREAT;
-			if (mode == DAV_MODE_WRITE_TRUNC)
-				open_params->openFlags |= O_TRUNC;
-
-			int status;
-
-			if ((status = rcDataObjOpen (resource->info->rods_conn, open_params))
-					>= 0)
+			else if (mode == DAV_MODE_WRITE_TRUNC)
 				{
-					openedDataObjInp_t *data_obj = &stream->data_obj;
-					data_obj->l1descInx = status;
+					// If the TmpfileRollback config option is set, we create a temporary file when in truncate mode.
+
+					// Think up a semi-random filename that's unlikely to exist in this directory.
+					int cheapsum = 0;
+					for (const char *c = resource->uri; c; c ++)
+						cheapsum += 1 << *c;
+
+					// Get the path to the parent directory.
+					// TODO: Statting the parent collection is overkill, create a separate function for this.
+					dav_resource *parent;
+					dav_error *err = dav_repo_get_parent_resource (resource, &parent);
+					if (err)
+						{
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
+									"Getting parent resource of <%s> failed in open_stream()",
+									resource->uri);
+							return err;
+						}
+
+					// XXX:  This assumes we have write access to the collection containing
+					//       the resource, not just the data object itself, which may not
+					//       always be the case.
+					stream->write_path = apr_psprintf (stream->pool,
+							"%s/.davrods-tx-%04x-%08lx", parent->info->rods_path, getpid (),
+							time (NULL) ^ cheapsum);
 				}
 			else
 				{
-					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
-							"rcDataObjOpen failed for <%s>: %d = %s", open_params->objPath,
-							status, get_rods_error_msg (status));
-					return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0,
-							0, "Could not open destination resource for writing");
+					// No other modes exist in mod_dav at this time.
+					assert("Unimplemented open_stream mode" && 0);
 				}
-		}
-	else
-		{
-			// The iRODS C header for rcDataObjOpen tells us we can use the O_CREAT
-			// flag on rcDataObjOpen, but doing so yields a CAT_NO_ROWS_FOUND
-			// error.
-			// We'll have to call rcDataObjCreate instead. It appears to
-			// open the file in write mode, even though the docs say it
-			// doesn't look at open_flags.
 
-			WHISPER("Object does not yet exist, will create first\n");
-
-			int status;
-
-			if ((status = rcDataObjCreate (resource->info->rods_conn, open_params))
-					>= 0)
+			assert(stream->write_path);
+			if (strlen (stream->write_path) >= MAX_NAME_LEN)
 				{
-					openedDataObjInp_t *data_obj = &stream->data_obj;
-					data_obj->l1descInx = status;
+					// This can only happen in the temporary file case - the check on the
+					// destination file name length happened during create_resource().
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
+							"Generated a temporary filename exceeding iRODS MAX_NAME_LEN limits: <%s>. Aborting open_stream().",
+							stream->write_path);
+					return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0,
+							"Could not generate a temporary filename within path length bounds");
+				}
+
+			dataObjInp_t *open_params = &stream->open_params;
+			// Set destination resource if it exists in our config.
+			if (resource->info->conf->rods_default_resource
+					&& strlen (resource->info->conf->rods_default_resource))
+				{
+					addKeyVal (&open_params->condInput, DEST_RESC_NAME_KW,
+							resource->info->conf->rods_default_resource);
+				}
+
+			strcpy (stream->open_params.objPath, stream->write_path);
+
+			WHISPER("Opening write stream to <%s> for resource <%s>\n", stream->write_path, resource->uri);
+			open_params->oprType = PUT_OPR;
+
+			if (strcmp (stream->write_path, resource->info->rods_path) == 0
+					&& resource->exists)
+				{
+
+					// We are overwriting an existing data object without the use of a temporary file.
+
+					open_params->openFlags = O_WRONLY | O_CREAT;
+					if (mode == DAV_MODE_WRITE_TRUNC)
+						open_params->openFlags |= O_TRUNC;
+
+					int status;
+
+					if ((status = rcDataObjOpen (resource->info->rods_conn, open_params))
+							>= 0)
+						{
+							openedDataObjInp_t *data_obj = &stream->data_obj;
+							data_obj->l1descInx = status;
+						}
+					else
+						{
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
+									"rcDataObjOpen failed for <%s>: %d = %s", open_params->objPath,
+									status, get_rods_error_msg (status));
+							return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0,
+									0, "Could not open destination resource for writing");
+						}
 				}
 			else
 				{
-					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
-							"rcDataObjCreate failed for <%s>: %d = %s", open_params->objPath,
-							status, get_rods_error_msg (status));
-					return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0,
-							0, "Could not create destination resource");
+					// The iRODS C header for rcDataObjOpen tells us we can use the O_CREAT
+					// flag on rcDataObjOpen, but doing so yields a CAT_NO_ROWS_FOUND
+					// error.
+					// We'll have to call rcDataObjCreate instead. It appears to
+					// open the file in write mode, even though the docs say it
+					// doesn't look at open_flags.
+
+					WHISPER("Object does not yet exist, will create first\n");
+
+					int status;
+
+					if ((status = rcDataObjCreate (resource->info->rods_conn, open_params))
+							>= 0)
+						{
+							openedDataObjInp_t *data_obj = &stream->data_obj;
+							data_obj->l1descInx = status;
+						}
+					else
+						{
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
+									"rcDataObjCreate failed for <%s>: %d = %s", open_params->objPath,
+									status, get_rods_error_msg (status));
+							return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0,
+									0, "Could not create destination resource");
+						}
 				}
+
+			ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, resource->info->r,
+					"Will write using %luK chunks",
+					resource->info->conf->rods_tx_buffer_size / 1024);
+
+			*result_stream = stream;
+		}
+	else
+		{
+			err_p = dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0, "Failed to allocate memory for stream");
 		}
 
-	ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, resource->info->r,
-			"Will write using %luK chunks",
-			resource->info->conf->rods_tx_buffer_size / 1024);
 
-	*result_stream = stream;
-
-	return 0;
+	return err_p;
 }
 
 static dav_error *stream_send_buffer (dav_stream *stream, const char *buffer,
@@ -647,26 +693,36 @@ static dav_error *stream_send_buffer (dav_stream *stream, const char *buffer,
 	// once (in the `stream` struct), or by making sure all writes via
 	// send_buffer use the writable container, but again, the effect on
 	// performance will be negligible.
+	dav_error *err_p = NULL;
 
 	stream->output_buffer.buf = (char*) malloc (length);
-	assert(stream->output_buffer.buf);
-	stream->output_buffer.len = length;
 
-	memcpy (stream->output_buffer.buf, buffer, length);
-
-	int written = rcDataObjWrite (stream->resource->info->rods_conn,
-			&stream->data_obj, &stream->output_buffer);
-	free (stream->output_buffer.buf);
-
-	if (written < 0)
+	if (stream->output_buffer.buf)
 		{
-			ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS,
-					stream->resource->info->r, "rcDataObjWrite failed: %d = %s", written,
-					get_rods_error_msg (written));
-			return dav_new_error (stream->pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0,
-					"Could not write to destination resource");
+			stream->output_buffer.len = length;
+
+			memcpy (stream->output_buffer.buf, buffer, length);
+
+			int written = rcDataObjWrite (stream->resource->info->rods_conn,
+					&stream->data_obj, &stream->output_buffer);
+			free (stream->output_buffer.buf);
+
+			if (written < 0)
+				{
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS,
+							stream->resource->info->r, "rcDataObjWrite failed: %d = %s", written,
+							get_rods_error_msg (written));
+
+					err_p = dav_new_error (stream->pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0,
+							"Could not write to destination resource");
+				}
 		}
-	return NULL;
+	else
+		{
+			err_p = dav_new_error (stream->pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0, "Could not allocate stream output buffer");
+		}
+
+	return err_p;
 }
 
 static dav_error *stream_ship_container (dav_stream *stream)
@@ -687,6 +743,8 @@ static dav_error *stream_ship_container (dav_stream *stream)
 static dav_error *dav_repo_write_stream (dav_stream *stream,
 		const void *input_buffer, apr_size_t input_buffer_size)
 {
+	dav_error *err;
+
 	// Initial testing shows that on average input buffers are around 2K in
 	// size. Transferring them each to iRODS as is is incredibly inefficient.
 	// That's why we collect input buffers into "containers". This way, we can
@@ -702,10 +760,14 @@ static dav_error *dav_repo_write_stream (dav_stream *stream,
 			stream->container_off = 0;
 
 			stream->container = apr_pcalloc(stream->pool, stream->container_size);
-			assert(stream->container);
+
+			if (! (stream->container))
+				{
+					return dav_new_error (stream->pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0,
+							"Could not allocate input buffers");
+				}
 		}
 
-	dav_error *err;
 
 	if (input_buffer_size >= stream->container_size)
 		{
@@ -948,16 +1010,22 @@ static dav_error *dav_repo_set_headers (request_rec *r,
 		}
 	else
 		{
-			char *date_str = apr_pcalloc(r->pool, APR_RFC822_DATE_LEN);
-			assert(date_str);
-			uint64_t timestamp = atoll (resource->info->stat->modifyTime);
-			int status = apr_rfc822_date (date_str, timestamp * 1000 * 1000);
-
-			apr_table_setn (r->headers_out, "Last-Modified",
-					status >= 0 ? date_str : "Thu, 01 Jan 1970 00:00:00 GMT");
 			const char *etag = dav_repo_getetag (resource);
+			char *date_str = apr_pcalloc(r->pool, APR_RFC822_DATE_LEN);
+
+			if (date_str)
+				{
+					uint64_t timestamp = atoll (resource->info->stat->modifyTime);
+					int status = apr_rfc822_date (date_str, timestamp * 1000 * 1000);
+
+					apr_table_setn (r->headers_out, "Last-Modified",
+							status >= 0 ? date_str : "Thu, 01 Jan 1970 00:00:00 GMT");
+				}		/* if (date_str) */
+
 			if (etag && strlen (etag))
-				apr_table_setn (r->headers_out, "ETag", etag);
+				{
+					apr_table_setn (r->headers_out, "ETag", etag);
+				}
 
 			ap_set_content_length (r, resource->info->stat->objSize);
 		}
@@ -1326,10 +1394,7 @@ static dav_error *dav_repo_create_collection (dav_resource *resource)
 		}
 
 	// Update resource stat info.
-	err = get_dav_resource_rods_info (resource);
-	assert(err == NULL);
-
-	return 0;
+	return get_dav_resource_rods_info (resource);;
 }
 
 typedef struct walker_seen_resource_t
@@ -1711,89 +1776,98 @@ typedef struct
 
 static dav_error *dav_copy_walk_callback (dav_walk_resource *wres, int calltype)
 {
+	dav_error *err_p = NULL;
 	const dav_resource *resource = wres->resource;
 	dav_copy_walk_private *ctx = (dav_copy_walk_private*) wres->walk_ctx;
-	assert(ctx);
 
-	WHISPER("COPY: At resource <%s> srcroot<%s>, dstroot<%s>\n", resource->uri, ctx->src_rods_root, ctx->dst_rods_root);
-
-	size_t src_root_len = strlen (ctx->src_rods_root);
-	size_t dst_root_len = strlen (ctx->dst_rods_root);
-
-	const char *src_path = resource->info->rods_path;
-	char dst_path [MAX_NAME_LEN];
-
-	strcpy (dst_path, ctx->dst_rods_root);
-
-	size_t src_len = strlen (src_path);
-
-	if (src_len > src_root_len)
+	if (ctx)
 		{
-			if (dst_root_len + (src_len - src_root_len) < MAX_NAME_LEN)
+			size_t src_root_len = strlen (ctx->src_rods_root);
+			size_t dst_root_len = strlen (ctx->dst_rods_root);
+
+			const char *src_path = resource->info->rods_path;
+			char dst_path [MAX_NAME_LEN];
+
+			WHISPER("COPY: At resource <%s> srcroot<%s>, dstroot<%s>\n", resource->uri, ctx->src_rods_root, ctx->dst_rods_root);
+
+
+			strcpy (dst_path, ctx->dst_rods_root);
+
+			size_t src_len = strlen (src_path);
+
+			if (src_len > src_root_len)
 				{
-					strcat (dst_path, src_path + src_root_len);
+					if (dst_root_len + (src_len - src_root_len) < MAX_NAME_LEN)
+						{
+							strcat (dst_path, src_path + src_root_len);
+						}
+					else
+						{
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
+									"Generated a copy destination filename exceeding iRODS MAX_NAME_LEN (%u) limits for source resource <%s> (%lu+(%lu-%lu)). Aborting copy.",
+									MAX_NAME_LEN, resource->uri, dst_root_len, src_root_len, src_len);
+							return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0,
+									0, "A destination path exceeds the maximum filename length.");
+						}
+				}
+
+			WHISPER("COPY: current dest <%s>\n", dst_path);
+
+			if (resource->collection)
+				{
+					// Create collection.
+					collInp_t mkdir_params = { { 0 } };
+					strcpy (mkdir_params.collName, dst_path);
+
+					int status = rcCollCreate (resource->info->rods_conn, &mkdir_params);
+					if (status < 0)
+						{
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
+									"rcCollCreate failed: %d = %s", status,
+									get_rods_error_msg (status));
+							return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0,
+									0, "Could not create collection.");
+						}
 				}
 			else
 				{
-					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
-							"Generated a copy destination filename exceeding iRODS MAX_NAME_LEN (%u) limits for source resource <%s> (%lu+(%lu-%lu)). Aborting copy.",
-							MAX_NAME_LEN, resource->uri, dst_root_len, src_root_len, src_len);
-					return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0,
-							0, "A destination path exceeds the maximum filename length.");
+					// Copy data object.
+					dataObjCopyInp_t copy_params = { { { 0 } } };
+
+					// Set destination resource if it exists in our config.
+					if (resource->info->conf->rods_default_resource
+							&& strlen (resource->info->conf->rods_default_resource))
+						{
+							addKeyVal (&copy_params.destDataObjInp.condInput, DEST_RESC_NAME_KW,
+									resource->info->conf->rods_default_resource);
+						}
+
+					dataObjInp_t *obj_src = &copy_params.srcDataObjInp;
+					dataObjInp_t *obj_dst = &copy_params.destDataObjInp;
+
+					strcpy (obj_src->objPath, src_path);
+					strcpy (obj_dst->objPath, dst_path);
+
+					addKeyVal (&obj_dst->condInput, FORCE_FLAG_KW, "");
+
+					int status = rcDataObjCopy (resource->info->rods_conn, &copy_params);
+					if (status < 0)
+						{
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
+									"rcDataObjCopy failed: %d = %s", status,
+									get_rods_error_msg (status));
+							return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0,
+									0, "Could not copy file.");
+						}
 				}
-		}
 
-	WHISPER("COPY: current dest <%s>\n", dst_path);
-
-	if (resource->collection)
-		{
-			// Create collection.
-			collInp_t mkdir_params = { { 0 } };
-			strcpy (mkdir_params.collName, dst_path);
-
-			int status = rcCollCreate (resource->info->rods_conn, &mkdir_params);
-			if (status < 0)
-				{
-					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
-							"rcCollCreate failed: %d = %s", status,
-							get_rods_error_msg (status));
-					return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0,
-							0, "Could not create collection.");
-				}
 		}
 	else
 		{
-			// Copy data object.
-			dataObjCopyInp_t copy_params = { { { 0 } } };
-
-			// Set destination resource if it exists in our config.
-			if (resource->info->conf->rods_default_resource
-					&& strlen (resource->info->conf->rods_default_resource))
-				{
-					addKeyVal (&copy_params.destDataObjInp.condInput, DEST_RESC_NAME_KW,
-							resource->info->conf->rods_default_resource);
-				}
-
-			dataObjInp_t *obj_src = &copy_params.srcDataObjInp;
-			dataObjInp_t *obj_dst = &copy_params.destDataObjInp;
-
-			strcpy (obj_src->objPath, src_path);
-			strcpy (obj_dst->objPath, dst_path);
-
-			addKeyVal (&obj_dst->condInput, FORCE_FLAG_KW, "");
-
-			int status = rcDataObjCopy (resource->info->rods_conn, &copy_params);
-			if (status < 0)
-				{
-					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
-							"rcDataObjCopy failed: %d = %s", status,
-							get_rods_error_msg (status));
-					return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0,
-							0, "Could not copy file.");
-				}
+			err_p =  dav_new_error (resource -> pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0, "Failed to get dav copy data");
 		}
 
-	return NULL;
+	return err_p;
 }
 
 static dav_error *dav_repo_copy_resource (const dav_resource *src,
@@ -1888,62 +1962,72 @@ static dav_error *dav_repo_move_resource (dav_resource *src, dav_resource *dst,
 static dav_error *dav_repo_remove_resource (dav_resource *resource,
 		dav_response **response)
 {
-	assert(resource->exists);
+	dav_error *err_p = NULL;
 
-	request_rec *r = resource->info->r;
+ if (resource->exists)
+	 {
+			request_rec *r = resource->info->r;
 
-	if (resource->collection)
-		{
-			ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, r,
-					"Removing collection <%s>", resource->info->rods_path);
-
-			collInp_t rmcoll_params = { { 0 } };
-
-			// `rods_path` is guaranteed not to exceed MAX_NAME_LEN.
-			strcpy (rmcoll_params.collName, resource->info->rods_path);
-
-			// Do we remove recursively? Yes.
-			addKeyVal (&rmcoll_params.condInput, RECURSIVE_OPR__KW, "");
-			// Uncomment for trash bypass.
-			//addKeyVal(&rmcoll_params.condInput, FORCE_FLAG_KW, "");
-
-			int status = rcRmColl (resource->info->rods_conn, &rmcoll_params, 0);
-			if (status < 0)
+			if (resource->collection)
 				{
-					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
-							"rcRmColl failed: %d = %s", status, get_rods_error_msg (status));
-					return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0,
-							0, "Could not remove collection.");
+					ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, r,
+							"Removing collection <%s>", resource->info->rods_path);
+
+					collInp_t rmcoll_params = { { 0 } };
+
+					// `rods_path` is guaranteed not to exceed MAX_NAME_LEN.
+					strcpy (rmcoll_params.collName, resource->info->rods_path);
+
+					// Do we remove recursively? Yes.
+					addKeyVal (&rmcoll_params.condInput, RECURSIVE_OPR__KW, "");
+					// Uncomment for trash bypass.
+					//addKeyVal(&rmcoll_params.condInput, FORCE_FLAG_KW, "");
+
+					int status = rcRmColl (resource->info->rods_conn, &rmcoll_params, 0);
+					if (status < 0)
+						{
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
+									"rcRmColl failed: %d = %s", status, get_rods_error_msg (status));
+							return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0,
+									0, "Could not remove collection.");
+						}
+
+					resource->exists = 0;
+					resource->collection = 0;
+				}
+			else
+				{
+					ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, r,
+							"Removing data object <%s>", resource->info->rods_path);
+
+					dataObjInp_t unlink_params = { { 0 } };
+					strcpy (unlink_params.objPath, resource->info->rods_path);
+
+					// Uncomment for trash bypass.
+					//addKeyVal(&unlink_params.condInput, FORCE_FLAG_KW, "");
+
+					int status = rcDataObjUnlink (resource->info->rods_conn, &unlink_params);
+					if (status < 0)
+						{
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
+									"rcDataObjUnlink failed: %d = %s", status,
+									get_rods_error_msg (status));
+							return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0,
+									0, "Could not remove file.");
+						}
+
+					resource->exists = 0;
 				}
 
-			resource->exists = 0;
-			resource->collection = 0;
-		}
-	else
-		{
-			ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, r,
-					"Removing data object <%s>", resource->info->rods_path);
+	 }
+ else
+	 {
+		 char *error_s = apr_pstrcat (resource -> pool, "resource \"", resource -> uri, "\" does not exist", NULL);
+		 err_p = dav_new_error (resource -> pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0, error_s);
+	 }
 
-			dataObjInp_t unlink_params = { { 0 } };
-			strcpy (unlink_params.objPath, resource->info->rods_path);
 
-			// Uncomment for trash bypass.
-			//addKeyVal(&unlink_params.condInput, FORCE_FLAG_KW, "");
-
-			int status = rcDataObjUnlink (resource->info->rods_conn, &unlink_params);
-			if (status < 0)
-				{
-					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
-							"rcDataObjUnlink failed: %d = %s", status,
-							get_rods_error_msg (status));
-					return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0,
-							0, "Could not remove file.");
-				}
-
-			resource->exists = 0;
-		}
-
-	return NULL;
+	return err_p;
 }
 
 static const char *dav_repo_getetag (const dav_resource *resource)

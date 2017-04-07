@@ -1383,7 +1383,8 @@ dav_error* davrods_locklocal_get_locked_entries (dav_lockdb *lockdb,
 						}
 					else
 						{
-							return dav_new_error (lockdb->info->pool, HTTP_INTERNAL_SERVER_ERROR, 0, apr_err, "Failed to copy locked path entry \"%s\".", locked_path);
+							char *error_s = apr_pstrcat (lockdb -> info -> pool, "Failed to copy locked path entry ", locked_path, NULL);
+							return dav_new_error (lockdb->info->pool, HTTP_INTERNAL_SERVER_ERROR, 0, apr_err, error_s);
 						}
 				}
 		}

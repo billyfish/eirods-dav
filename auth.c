@@ -273,7 +273,7 @@ static authn_status rods_login (request_rec *r, const char *username,
 						{
 							// This shouldn't happen.
 							status = APR_EGENERAL;
-							ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_EGE, r, "Unimplemented auth scheme");
+							ap_log_rerror (APLOG_MARK, APLOG_DEBUG, status, r, "Unimplemented auth scheme");
 						}
 
 					if (status)
@@ -440,7 +440,8 @@ static authn_status GetIRodsConnection2 (request_rec *req_p, apr_pool_t *pool_p,
 			// We have an iRODS connection with an authenticated user. Was this
 			// auth check called with the same username as before?
 			char *current_username_s = NULL;
-			status = apr_pool_userdata_get (&ptr, GetUsernameKey (), pool_p);
+			void *ptr;
+			apr_status_t status = apr_pool_userdata_get (&ptr, GetUsernameKey (), pool_p);
 			current_username_s = (char *) ptr;
 
 			if ((status == OK) && (current_username_s != NULL))
@@ -502,7 +503,7 @@ static authn_status GetIRodsConnection2 (request_rec *req_p, apr_pool_t *pool_p,
 									// Get iRODS env and store it.
 									rodsEnv *env_p = apr_palloc (pool_p, sizeof(rodsEnv));
 
-									status = getRodsEnv (env_p);
+									int status = getRodsEnv (env_p);
 
 									if (status == 0)
 										{

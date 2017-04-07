@@ -25,6 +25,7 @@
 #include "apr_buckets.h"
 
 #include "mod_davrods.h"
+#include "irods/rcConnect.h"
 
 
 // I'm not sure why, but the format string apr.h generates on my machine (%lu)
@@ -65,5 +66,7 @@ rcComm_t *GetIRODSConnectionFromPool (apr_pool_t *pool_p);
 
 rodsEnv *GetRodsEnvFromPool (apr_pool_t *pool_p);
 
+
+const char *GetUsernameFromPool (apr_pool_t *pool_p);
 
 #endif /* _DAVRODS_COMMON_H_ */
