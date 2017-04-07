@@ -158,7 +158,11 @@ void *davrods_merge_dir_config(apr_pool_t *p, void *_parent, void *_child) {
     			}
     	}
 
-    assert(set_exposed_root(conf, exposed_root) >= 0);
+    if (set_exposed_root (conf, exposed_root) < 0)
+  		{
+  			ap_log_perror (APLOG_MARK, APLOG_DEBUG, APR_EGENERAL, p, "davrods_merge_dir_config: set_exposed_root failed");
+  			conf = NULL;
+  		}
 
 #undef DAVRODS_PROP_MERGE
 
