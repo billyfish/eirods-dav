@@ -49,55 +49,6 @@ const char *get_rods_error_msg(int rods_error_code) {
     return rodsErrorName(rods_error_code, &submsg);
 }
 
-/**
- * \brief Extract the davrods pool from a request, as set by the rods_auth component.
- *
- * \param r an apache request record.
- *
- * \return the davrods memory pool
- */
-apr_pool_t *get_davrods_pool_from_req (request_rec *req_p) {
-    // TODO: Remove function, move apr call to the single caller.
-    apr_pool_t *pool_p = NULL;
-    apr_status_t got_pool_status = apr_pool_userdata_get ((void **) &pool_p, GetDavrodsMemoryPoolKey (), req_p -> connection -> pool);
-
-    if (!pool_p)
-    	{
-        /*
-         * For publicly-accessible iRODS instances, check_rods will never have been called, so we'll need
-         * to get the memory pool and iRODS connection for the public user.
-         */
-
-    		// Get config.
-        davrods_dir_conf_t *conf_p = ap_get_module_config (req_p -> per_dir_config, &davrods_module);
-
-        if (conf_p)
-        	{
-        		if (conf_p -> davrods_public_username_s)
-        			{
-            		pool_p = GetDavrodsMemoryPool (req_p);
-
-            		if (pool_p)
-            			{
-            				rcComm_t *connection_p = NULL;
-
-            				authn_status status = GetIRodsConnection (req_p, &connection_p, conf_p -> davrods_public_username_s, conf_p -> davrods_public_password_s ? conf_p -> davrods_public_password_s : "");
-
-            				if (status != 0)
-            					{
-      									ap_log_rerror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_ECONNREFUSED, req_p, "error %d: Failed to connect to iRODS as public user \"%s\"", status, conf_p -> davrods_public_username_s);
-
-            						WHISPER ("GetIRodsConnection failed for anonymous user");
-            					}
-            			}
-        			}
-
-        	}		/* if (conf_p) */
-    	}
-
-
-    return pool_p;
-}
 
 // }}}
 // DAV provider definition and registration {{{

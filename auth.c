@@ -365,7 +365,7 @@ apr_pool_t *GetDavrodsMemoryPool (request_rec *req_p)
 			// iRODS connection and free related resources) when a client reuses
 			// their connection for a different username.
 			//
-			status = apr_pool_create(&pool_p, req_pool_p);
+			status = apr_pool_create (&pool_p, req_pool_p);
 
 			if (pool_p)
 				{

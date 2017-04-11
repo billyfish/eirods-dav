@@ -34,9 +34,19 @@
 #include "lock_local.h"
 #endif /* DAVRODS_ENABLE_PROVIDER_LOCALLOCK */
 
-static const char *get_rods_root (apr_pool_t *davrods_pool, request_rec *r);
 
-APLOG_USE_MODULE ( davrods);
+typedef struct walker_seen_resource_t
+{
+	const char *rods_path;
+	struct walker_seen_resource_t *next;
+} walker_seen_resource_t;
+
+
+static const char *get_rods_root (apr_pool_t *davrods_pool, request_rec *r);
+static int walker_push_seen_path (apr_pool_t *p, walker_seen_resource_t **seen, const char *rods_path);
+static dav_error *dav_repo_get_resource (request_rec *r, const char *root_dir, const char *label, int use_checked_in, dav_resource **result_resource);
+
+APLOG_USE_MODULE (davrods);
 
 const char *GetRodsExposedPath (request_rec *req_p)
 {
@@ -304,6 +314,109 @@ static dav_error *get_dav_resource_rods_info (dav_resource *resource)
 	return NULL;
 }
 
+
+
+struct dav_error *FillInPrivateResourceData (request_rec *req_p, dav_resource **resource_pp, const char *root_dir_s)
+{
+	dav_error *err_p = NULL;
+
+	// Create private resource context {{{
+	struct dav_resource_private *res_private_p = apr_pcalloc (req_p -> pool, sizeof (struct dav_resource_private));
+
+	if (res_private_p)
+		{
+			// Create private resource context {{{
+			res_private_p -> r = req_p;
+
+			// Collect properties to insert into the resource context.
+
+			// Get module config.
+			res_private_p -> conf = ap_get_module_config (req_p -> per_dir_config, &davrods_module);
+
+
+			if (res_private_p -> conf)
+				{
+					// Obtain iRODS connection.
+					res_private_p -> davrods_pool = GetDavrodsMemoryPool (req_p);
+
+
+					if (res_private_p -> davrods_pool)
+						{
+							res_private_p -> rods_conn = GetIRODSConnectionFromPool (res_private_p -> davrods_pool);
+
+							if (! (res_private_p -> rods_conn))
+								{
+					        /*
+					         * For publicly-accessible iRODS instances, check_rods will never have been called, so we'll need
+					         * to get the memory pool and iRODS connection for the public user.
+					         */
+
+									if (res_private_p -> conf -> davrods_public_username_s)
+										{
+											authn_status status = GetIRodsConnection (req_p, & (res_private_p -> rods_conn), res_private_p -> conf -> davrods_public_username_s, res_private_p -> conf -> davrods_public_password_s ? res_private_p -> conf -> davrods_public_password_s : "");
+
+											if (status != 0)
+												{
+													ap_log_rerror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_ECONNREFUSED, req_p, "error %d: Failed to connect to iRODS as public user \"%s\"", status, res_private_p -> conf -> davrods_public_username_s);
+
+													WHISPER ("GetIRodsConnection failed for anonymous user");
+												}
+										}
+								}
+
+							if (res_private_p -> rods_conn)
+								{
+									// Obtain iRODS environment.
+									if ((res_private_p -> rods_env = GetRodsEnvFromPool (res_private_p -> davrods_pool)) != NULL)
+										{
+											struct dav_resource *resource_p = NULL;
+
+											// Get iRODS exposed root dir.
+											res_private_p -> rods_root = get_rods_root (res_private_p -> davrods_pool, req_p);
+											res_private_p -> root_dir = root_dir_s;
+
+											// }}}
+											// Create DAV resource {{{
+
+											if ((resource_p = apr_pcalloc (req_p -> pool, sizeof (struct dav_resource))) != NULL)
+												{
+													resource_p -> uri = req_p -> uri;
+													resource_p -> type = DAV_RESOURCE_TYPE_REGULAR;
+													resource_p -> hooks = &davrods_hooks_repository;
+													resource_p -> pool = req_p -> pool;
+													resource_p -> info = res_private_p;
+
+													*resource_pp = resource_p;
+												} /* if ((resource_p = apr_pcalloc (req_p -> pool, sizeof (dav_resource))) != NULL) */
+
+										} /* if ((res_private_p -> rods_env = GetRodsEnvFromPool (res_private_p -> davrods_pool)) != NULL) */
+
+								} /*if (res_private_p -> rods_conn) */
+							else
+								{
+									err_p = dav_new_error (req_p -> pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0, "Failed to get connect to irods");
+								}
+						}
+					else
+						{
+							WHISPER("NO POOL!!!");
+						}
+				}
+			else
+				{
+					err_p = dav_new_error (req_p -> pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0, "Failed to get module config");
+				}
+
+		}		/* if (res_private) */
+	else
+		{
+			err_p = dav_new_error (req_p -> pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0, "Failed to allocate memory for resource");
+		}
+
+	return err_p;
+}
+
+
 /**
  * \brief Create a DAV resource struct for the given request URI.
  *
@@ -318,92 +431,20 @@ static dav_error *get_dav_resource_rods_info (dav_resource *resource)
 static dav_error *dav_repo_get_resource (request_rec *r, const char *root_dir,
 		const char *label, int use_checked_in, dav_resource **result_resource)
 {
-	dav_error *err = NULL;
+	dav_resource *resource_p = NULL;
+	dav_error *err_p = FillInPrivateResourceData (r, &resource_p, root_dir);
 
-	// Create private resource context {{{
-	dav_resource_private *res_private = apr_pcalloc(r->pool, sizeof(*res_private));
-
-	if (res_private)
+	if (!err_p)
 		{
-			// Create private resource context {{{
-			res_private->r = r;
+			err_p = get_dav_resource_rods_info (resource_p);
 
-			// Collect properties to insert into the resource context.
-
-			// Get module config.
-			res_private->conf = ap_get_module_config (r->per_dir_config,
-					&davrods_module);
-
-
-			if (res_private->conf)
+			if (!err_p)
 				{
-					// Obtain iRODS connection.
-					res_private->davrods_pool = get_davrods_pool_from_req (r);
-
-					if (res_private->davrods_pool)
-						{
-							if ((res_private->rods_conn = GetIRODSConnectionFromPool (
-									res_private->davrods_pool)) != NULL)
-								{
-									// Obtain iRODS environment.
-									if ((res_private->rods_env = GetRodsEnvFromPool (
-											res_private->davrods_pool)) != NULL)
-										{
-											dav_resource *resource = NULL;
-
-											// Get iRODS exposed root dir.
-											res_private->rods_root = get_rods_root (
-													res_private->davrods_pool, r);
-											res_private->root_dir = root_dir;
-
-											// }}}
-											// Create DAV resource {{{
-
-											if ((resource = apr_pcalloc(r->pool, sizeof(dav_resource)))
-													!= NULL)
-												{
-													resource->uri = res_private->r->uri;
-													resource->type = DAV_RESOURCE_TYPE_REGULAR;
-													resource->hooks = &davrods_hooks_repository;
-													resource->pool = res_private->r->pool;
-													resource->info = res_private;
-
-													err = get_dav_resource_rods_info (resource);
-													if (!err)
-														{
-															*result_resource = resource;
-														}
-
-												} /* if ((resource = apr_pcalloc (r -> pool, sizeof (dav_resource))) != NULL) */
-
-										} /* if ((res_private -> rods_env = GetRodsEnvFromPool (res_private -> davrods_pool)) != NULL) */
-
-								} /* if ((res_private->rods_conn = GetIRODSConnectionFromPool (res_private->davrods_pool)) != NULL) */
-
-							// Get iRODS exposed root dir.
-							res_private->rods_root = get_rods_root (res_private->davrods_pool, r);
-
-							WHISPER("Root dir is %s\n", root_dir);
-							res_private->root_dir = root_dir;
-
-						}
-					else
-						{
-							WHISPER("NO POOL!!!");
-						}
+					*result_resource = resource_p;
 				}
-			else
-				{
-					err = dav_new_error (r->pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0, "Failed to get module config");
-				}
-
-		}		/* if (res_private) */
-	else
-		{
-			err = dav_new_error (r->pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0, "Failed to allocate memory for resource");
 		}
 
-	return err;
+	return err_p;
 }
 
 static dav_error *dav_repo_get_parent_resource (const dav_resource *resource,
@@ -555,13 +596,14 @@ static dav_error *dav_repo_open_stream (const dav_resource *resource,
 					// Get the path to the parent directory.
 					// TODO: Statting the parent collection is overkill, create a separate function for this.
 					dav_resource *parent;
-					dav_error *err = dav_repo_get_parent_resource (resource, &parent);
-					if (err)
+
+					err_p = dav_repo_get_parent_resource (resource, &parent);
+					if (err_p)
 						{
-							ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, resource->info->r,
 									"Getting parent resource of <%s> failed in open_stream()",
 									resource->uri);
-							return err;
+							return err_p;
 						}
 
 					// XXX:  This assumes we have write access to the collection containing
@@ -574,96 +616,105 @@ static dav_error *dav_repo_open_stream (const dav_resource *resource,
 			else
 				{
 					// No other modes exist in mod_dav at this time.
-					assert("Unimplemented open_stream mode" && 0);
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, resource->info->r, "Unknown dav_stream_mode %d", mode);
+
+					return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0, "Unknown dav_stream_mode");
 				}
 
-			assert(stream->write_path);
-			if (strlen (stream->write_path) >= MAX_NAME_LEN)
+			if (stream -> write_path)
 				{
-					// This can only happen in the temporary file case - the check on the
-					// destination file name length happened during create_resource().
-					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
-							"Generated a temporary filename exceeding iRODS MAX_NAME_LEN limits: <%s>. Aborting open_stream().",
-							stream->write_path);
-					return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0,
-							"Could not generate a temporary filename within path length bounds");
-				}
-
-			dataObjInp_t *open_params = &stream->open_params;
-			// Set destination resource if it exists in our config.
-			if (resource->info->conf->rods_default_resource
-					&& strlen (resource->info->conf->rods_default_resource))
-				{
-					addKeyVal (&open_params->condInput, DEST_RESC_NAME_KW,
-							resource->info->conf->rods_default_resource);
-				}
-
-			strcpy (stream->open_params.objPath, stream->write_path);
-
-			WHISPER("Opening write stream to <%s> for resource <%s>\n", stream->write_path, resource->uri);
-			open_params->oprType = PUT_OPR;
-
-			if (strcmp (stream->write_path, resource->info->rods_path) == 0
-					&& resource->exists)
-				{
-
-					// We are overwriting an existing data object without the use of a temporary file.
-
-					open_params->openFlags = O_WRONLY | O_CREAT;
-					if (mode == DAV_MODE_WRITE_TRUNC)
-						open_params->openFlags |= O_TRUNC;
-
-					int status;
-
-					if ((status = rcDataObjOpen (resource->info->rods_conn, open_params))
-							>= 0)
+					if (strlen (stream->write_path) >= MAX_NAME_LEN)
 						{
-							openedDataObjInp_t *data_obj = &stream->data_obj;
-							data_obj->l1descInx = status;
+							// This can only happen in the temporary file case - the check on the
+							// destination file name length happened during create_resource().
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
+									"Generated a temporary filename exceeding iRODS MAX_NAME_LEN limits: <%s>. Aborting open_stream().",
+									stream->write_path);
+							return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0,
+									"Could not generate a temporary filename within path length bounds");
+						}
+
+					dataObjInp_t *open_params = &stream->open_params;
+					// Set destination resource if it exists in our config.
+					if (resource->info->conf->rods_default_resource
+							&& strlen (resource->info->conf->rods_default_resource))
+						{
+							addKeyVal (&open_params->condInput, DEST_RESC_NAME_KW,
+									resource->info->conf->rods_default_resource);
+						}
+
+					strcpy (stream->open_params.objPath, stream->write_path);
+
+					WHISPER("Opening write stream to <%s> for resource <%s>\n", stream->write_path, resource->uri);
+					open_params->oprType = PUT_OPR;
+
+					if (strcmp (stream->write_path, resource->info->rods_path) == 0
+							&& resource->exists)
+						{
+
+							// We are overwriting an existing data object without the use of a temporary file.
+
+							open_params->openFlags = O_WRONLY | O_CREAT;
+							if (mode == DAV_MODE_WRITE_TRUNC)
+								open_params->openFlags |= O_TRUNC;
+
+							int status;
+
+							if ((status = rcDataObjOpen (resource->info->rods_conn, open_params))
+									>= 0)
+								{
+									openedDataObjInp_t *data_obj = &stream->data_obj;
+									data_obj->l1descInx = status;
+								}
+							else
+								{
+									ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
+											"rcDataObjOpen failed for <%s>: %d = %s", open_params->objPath,
+											status, get_rods_error_msg (status));
+									return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0,
+											0, "Could not open destination resource for writing");
+								}
 						}
 					else
 						{
-							ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
-									"rcDataObjOpen failed for <%s>: %d = %s", open_params->objPath,
-									status, get_rods_error_msg (status));
-							return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0,
-									0, "Could not open destination resource for writing");
+							// The iRODS C header for rcDataObjOpen tells us we can use the O_CREAT
+							// flag on rcDataObjOpen, but doing so yields a CAT_NO_ROWS_FOUND
+							// error.
+							// We'll have to call rcDataObjCreate instead. It appears to
+							// open the file in write mode, even though the docs say it
+							// doesn't look at open_flags.
+
+							WHISPER("Object does not yet exist, will create first\n");
+
+							int status;
+
+							if ((status = rcDataObjCreate (resource->info->rods_conn, open_params))
+									>= 0)
+								{
+									openedDataObjInp_t *data_obj = &stream->data_obj;
+									data_obj->l1descInx = status;
+								}
+							else
+								{
+									ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
+											"rcDataObjCreate failed for <%s>: %d = %s", open_params->objPath,
+											status, get_rods_error_msg (status));
+									return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0,
+											0, "Could not create destination resource");
+								}
 						}
-				}
+
+					ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, resource->info->r,
+							"Will write using %luK chunks",
+							resource->info->conf->rods_tx_buffer_size / 1024);
+
+					*result_stream = stream;
+
+				}		/* if (stream -> write_path) */
 			else
 				{
-					// The iRODS C header for rcDataObjOpen tells us we can use the O_CREAT
-					// flag on rcDataObjOpen, but doing so yields a CAT_NO_ROWS_FOUND
-					// error.
-					// We'll have to call rcDataObjCreate instead. It appears to
-					// open the file in write mode, even though the docs say it
-					// doesn't look at open_flags.
-
-					WHISPER("Object does not yet exist, will create first\n");
-
-					int status;
-
-					if ((status = rcDataObjCreate (resource->info->rods_conn, open_params))
-							>= 0)
-						{
-							openedDataObjInp_t *data_obj = &stream->data_obj;
-							data_obj->l1descInx = status;
-						}
-					else
-						{
-							ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
-									"rcDataObjCreate failed for <%s>: %d = %s", open_params->objPath,
-									status, get_rods_error_msg (status));
-							return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0,
-									0, "Could not create destination resource");
-						}
+					err_p = dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0, "No path for stream");
 				}
-
-			ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, resource->info->r,
-					"Will write using %luK chunks",
-					resource->info->conf->rods_tx_buffer_size / 1024);
-
-			*result_stream = stream;
 		}
 	else
 		{
@@ -1345,7 +1396,7 @@ static dav_error *dav_repo_deliver (const dav_resource *resource,
 		{
 			davrods_dir_conf_t *conf_p = resource->info->conf;
 
-			if (conf_p->themed_listings)
+			if (conf_p -> themed_listings)
 				{
 					return DeliverThemedDirectory (resource, output);
 				}
@@ -1397,11 +1448,7 @@ static dav_error *dav_repo_create_collection (dav_resource *resource)
 	return get_dav_resource_rods_info (resource);;
 }
 
-typedef struct walker_seen_resource_t
-{
-	const char *rods_path;
-	struct walker_seen_resource_t *next;
-} walker_seen_resource_t;
+
 
 static bool walker_have_seen_path (const walker_seen_resource_t *seen,
 		const char *rods_path)
@@ -1414,31 +1461,42 @@ static bool walker_have_seen_path (const walker_seen_resource_t *seen,
 	return false;
 }
 
-static void walker_push_seen_path (apr_pool_t *p, walker_seen_resource_t **seen,
-		const char *rods_path)
+static int walker_push_seen_path (apr_pool_t *p, walker_seen_resource_t **seen, const char *rods_path)
 {
+	int res = 1;
 	walker_seen_resource_t *current;
 	current = apr_pcalloc(p, sizeof(walker_seen_resource_t));
-	assert(current);
 
-	current->rods_path = apr_pstrdup (p, rods_path);
-	assert(current->rods_path);
-
-	if (*seen)
+	if (current)
 		{
-			// Append.
-			walker_seen_resource_t *tail = *seen;
-			while (tail->next)
-				tail = tail->next;
+			current->rods_path = apr_pstrdup (p, rods_path);
 
-			tail->next = current;
+			if (current -> rods_path)
+				{
+					if (*seen)
+						{
+							// Append.
+							walker_seen_resource_t *tail = *seen;
+							while (tail->next)
+								{
+									tail = tail->next;
+								}
 
-		}
-	else
-		{
-			*seen = current;
-		}
+							tail->next = current;
+						}
+					else
+						{
+							*seen = current;
+						}
+
+				}		/* if (current -> rods_path) */
+
+
+		}		/* if (current) */
+
+	return res;
 }
+
 
 static dav_error *walker (struct dav_repo_walker_private *ctx, int depth)
 {
@@ -1577,23 +1635,34 @@ static dav_error *walker (struct dav_repo_walker_private *ctx, int depth)
 					ctx->resource.exists = 1;
 					ctx->resource.collection = (coll_entry.objType == COLL_OBJ_T);
 
-					assert(ctx->resource.info->stat);
+					if (ctx->resource.info->stat)
+						{
+							ctx->resource.info->stat->objSize =
+									ctx->resource.collection ? 0 : coll_entry.dataSize;
+							strncpy (ctx->resource.info->stat->modifyTime, coll_entry.modifyTime,
+									sizeof(ctx->resource.info->stat->modifyTime));
+							strncpy (ctx->resource.info->stat->createTime, coll_entry.createTime,
+									sizeof(ctx->resource.info->stat->createTime));
 
-					ctx->resource.info->stat->objSize =
-							ctx->resource.collection ? 0 : coll_entry.dataSize;
-					strncpy (ctx->resource.info->stat->modifyTime, coll_entry.modifyTime,
-							sizeof(ctx->resource.info->stat->modifyTime));
-					strncpy (ctx->resource.info->stat->createTime, coll_entry.createTime,
-							sizeof(ctx->resource.info->stat->createTime));
+							if (!walker_push_seen_path (ctx->resource.pool, &seen_resource, ctx->resource.info->rods_path))
+								{
+									ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, ctx->resource.info->r, "Failed to walk \"%s\"", seen_resource -> rods_path);
 
-					walker_push_seen_path (ctx->resource.pool, &seen_resource,
-							ctx->resource.info->rods_path);
+									return dav_new_error (ctx->resource.pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0, "Failed to walk path");
+								}		/* if (!walker_push_seen_path (ctx->resource.pool, &seen_resource, ctx->resource.info->rods_path)) */
 
-					walker (ctx, depth - 1);
+							walker (ctx, depth - 1);
 
-					// Reset resource paths to original.
-					ctx->uri_buffer [uri_len] = '\0';
-					ctx->resource.info->rods_path [rods_path_len] = '\0';
+							// Reset resource paths to original.
+							ctx->uri_buffer [uri_len] = '\0';
+							ctx->resource.info->rods_path [rods_path_len] = '\0';
+						}
+					else
+						{
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, ctx->resource.info->r, "Failed to stat \"%s\"", ctx->resource.info -> rods_path);
+
+							return dav_new_error (ctx->resource.pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0, "Failed to stat");
+						}
 				}
 
 		}
@@ -1708,65 +1777,79 @@ static dav_error *walker (struct dav_repo_walker_private *ctx, int depth)
 static dav_error *dav_repo_walk (const dav_walk_params *params, int depth,
 		dav_response **response)
 {
+	dav_error *err_p = NULL;
 	struct dav_repo_walker_private ctx = { 0 };
 
 	ctx.params = params;
 
-	struct dav_resource_private *ctx_res_private = apr_pcalloc(params->root->pool,
-			sizeof(*ctx_res_private));
-	assert(ctx_res_private);
+	struct dav_resource_private *ctx_res_private = apr_pcalloc(params->root->pool, sizeof(*ctx_res_private));
 
-	copy_resource_context (ctx_res_private, ctx.params->root->info);
-
-	// FIXME: Use pool provided by walker params.
-	ctx_res_private->stat = apr_pcalloc(params->root->pool,
-			sizeof(rodsObjStat_t));
-	WHISPER("Private @ %p\n", ctx_res_private);WHISPER("root info @ %p\n", ctx.params->root->info);WHISPER("root stat @ %p\n", ctx.params->root->info->stat);
-	assert(ctx_res_private->stat);
-
-	// LockNull related walks can encounter non-existant resources.
-	// Stat will be NULL for such resources.
-	if (ctx.params->root->info->stat)
-		*ctx_res_private->stat = *ctx.params->root->info->stat;
-
-	// We need to use a writable URI buffer in ctx because dav_resource's uri
-	// property is const.
-	if (strlen (ctx_res_private->r->uri) >= MAX_NAME_LEN)
+	if (ctx_res_private)
 		{
-			ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS,
-					ctx.params->root->info->r,
-					"URI length exceeds walker's URI buffer size (%u bytes)",
-					sizeof(ctx.uri_buffer));
-			return dav_new_error (ctx.params->root->pool, HTTP_INTERNAL_SERVER_ERROR,
-					0, 0, "Request URI too long");
+			copy_resource_context (ctx_res_private, ctx.params->root->info);
+
+			// FIXME: Use pool provided by walker params.
+			ctx_res_private->stat = apr_pcalloc(params->root->pool,
+					sizeof(rodsObjStat_t));
+			WHISPER("Private @ %p\n", ctx_res_private);WHISPER("root info @ %p\n", ctx.params->root->info);WHISPER("root stat @ %p\n", ctx.params->root->info->stat);
+
+			if (ctx_res_private -> stat)
+				{
+					// LockNull related walks can encounter non-existant resources.
+					// Stat will be NULL for such resources.
+					if (ctx.params->root->info->stat)
+						*ctx_res_private->stat = *ctx.params->root->info->stat;
+
+					// We need to use a writable URI buffer in ctx because dav_resource's uri
+					// property is const.
+					if (strlen (ctx_res_private->r->uri) >= MAX_NAME_LEN)
+						{
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS,
+									ctx.params->root->info->r,
+									"URI length exceeds walker's URI buffer size (%u bytes)",
+									sizeof(ctx.uri_buffer));
+							return dav_new_error (ctx.params->root->pool, HTTP_INTERNAL_SERVER_ERROR,
+									0, 0, "Request URI too long");
+						}
+					strcpy (ctx.uri_buffer, ctx.params->root->uri);
+
+					ctx.resource.exists = ctx.params->root->exists;
+					ctx.resource.collection = ctx.params->root->collection;
+
+					// Point the resource URI to our uri buffer.
+					ctx.resource.uri = ctx.uri_buffer;
+
+					ctx.resource.type = DAV_RESOURCE_TYPE_REGULAR;
+					ctx.resource.hooks = &davrods_hooks_repository;
+					ctx.resource.pool = ctx_res_private->r->pool;
+					ctx.resource.info = ctx_res_private;
+
+					err_p = set_rods_path_from_uri (&ctx.resource);
+					if (!err_p)
+						{
+							ctx.wres.walk_ctx = params->walk_ctx;
+							ctx.wres.pool = params->pool;
+							ctx.wres.resource = &ctx.resource;
+
+							err_p = walker (&ctx, depth);
+
+							*response = ctx.wres.response;
+						}
+				}		/* if (ctx_res_private -> stat) */
+			else
+				{
+					err_p = dav_new_error (params -> root -> pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0, "Failed to copy resource stat");
+				}
+
+		}		/* if (ctx_res_private) */
+	else
+		{
+			err_p = dav_new_error (params -> root -> pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0, "Failed to copy resource");
 		}
-	strcpy (ctx.uri_buffer, ctx.params->root->uri);
 
-	ctx.resource.exists = ctx.params->root->exists;
-	ctx.resource.collection = ctx.params->root->collection;
-
-	// Point the resource URI to our uri buffer.
-	ctx.resource.uri = ctx.uri_buffer;
-
-	ctx.resource.type = DAV_RESOURCE_TYPE_REGULAR;
-	ctx.resource.hooks = &davrods_hooks_repository;
-	ctx.resource.pool = ctx_res_private->r->pool;
-	ctx.resource.info = ctx_res_private;
-
-	dav_error *err = set_rods_path_from_uri (&ctx.resource);
-	if (err)
-		return err;
-
-	ctx.wres.walk_ctx = params->walk_ctx;
-	ctx.wres.pool = params->pool;
-	ctx.wres.resource = &ctx.resource;
-
-	err = walker (&ctx, depth);
-
-	*response = ctx.wres.response;
-
-	return err;
+	return err_p;
 }
+
 
 typedef struct
 {
