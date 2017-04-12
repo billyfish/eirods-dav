@@ -64,9 +64,12 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 
 genQueryOut_t *RunQuery (rcComm_t *connection_p, const int *select_columns_p, const int *where_columns_p, const char **where_values_ss, const SearchOperator *where_ops_p, size_t num_where_columns, apr_pool_t *pool_p);
 
-apr_array_header_t *GetAllDataObjectMetadataKeys (apr_pool_t *pool_p, rcComm_t *connection_p);
+apr_table_t *GetAllDataObjectMetadataKeys (apr_pool_t *pool_p, rcComm_t *connection_p);
 
 apr_status_t GetSearchOperatorFromString (const char *op_s, SearchOperator *op_p);
+
+
+apr_table_t *GetAllDataObjectMetadataValuesForKey (apr_pool_t *pool_p, rcComm_t *connection_p, const char *key_s);
 
 
 #ifdef __cplusplus

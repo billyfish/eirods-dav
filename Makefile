@@ -2,6 +2,11 @@
 # Author: Chris Smeele
 # Copyright (c) 2016, Utrecht University
 
+
+#
+# Create a file called user.prefs by copying the example-user.prefs file
+# to user.prefs and editing its values.
+#
 -include user.prefs
 
 MODNAME      ?= davrods
@@ -10,39 +15,9 @@ CC	:= gcc
 OUTPUT_DIR	 := build
 SHARED       := $(OUTPUT_DIR)/$(SHARED_FNAME)
 
+APXS := $(APACHE_DIR)/bin/apxs
 
-#
-# Create a file called user.prefs to store any make configuration data
-#
-# It can contain the following variables:
-#
-# APXS 
-# ----
-#
-# This is the path to the APXS executable to use for installing 
-# the davrods module. If you're not using a system-wide version of 
-# httpd, this allows you to use your given httpd installation.
-# 
-# E.g.
-#
-#	APXS = /home/billy/Applications/apahe/bin/apxs
-#
-#
-# IRODS_VERSION
-# -------------
-#
-# The set of libraries required differ for different versions of
-# iRODS, so set this variable to use the correct set. For instance,
-# if you have version 4.2.0 installed then this would be 
-#
-#	IRODS_VERSION = 4.2
-#
-#
-# IRODS_EXTERNALS
-# ---------------
-#
-# This is the path to the external dependencies for iRODS.
-#
+APACHE_INCLUDES_DIR := $(APACHE_DIR)/include
 
 
 ifeq ($(strip $(APXS)),)
@@ -126,8 +101,7 @@ LIBS +=                  \
 	ssl              \
 	jansson
 
-LIB_PATHS += \
-	/usr/lib/gcc/x86_64-linux-gnu/5
+
 	
 WARNINGS :=                           \
 	all                           \

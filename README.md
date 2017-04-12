@@ -15,6 +15,9 @@ Notable features include:
 - Supports SSL encryption for the entire iRODS connection.
 - Easy to configure using Apache configuration directives.
 - Supports iRODS server versions 4+ and is backwards compatible with 3.3.1.
+- Themeable listings similar to using mod_autoindex.
+- Expose and navigate by metadata key-value pairs.
+- Search the metadata catalogue.
 
 ## Installation ##
 
@@ -147,20 +150,22 @@ example vhost config is provided for your convenience.
 Please report any issues you encounter on the
 [issues page](https://github.com/UtrechtUniversity/davrods/issues).
 
-## Author ##
+## Authors ##
 
-[Chris Smeele](https://github.com/cjsmeele)
+[Chris Smeele](https://github.com/cjsmeele) and [Simon Tyrrell](https://github.com/billyfish).
 
 ## Contact information ##
 
-For questions or support, contact Chris Smeele or Ton Smeele either
+For questions or support on the WebDAV functionality, contact Chris Smeele or Ton Smeele either
 directly or via the
 [Utrecht University RDM](http://www.uu.nl/en/research/research-data-management/contact-us)
 page.
+For questions or support on the themeable listings and metadata functionality, contact Simon Tyrrell
+directly or via the [Earlham Institute](http://www.earlham.ac.uk/contact-us/) page.
 
 ## License ##
 
-Copyright (c) 2016, Utrecht University.
+Copyright (c) 2016, Utrecht University  and (c) 2017, Earlham Institute.
 
 Davrods is licensed under the GNU Lesser General Public License version
 3 or higher (LGPLv3+). See the COPYING.LESSER file for details.

@@ -21,6 +21,7 @@ static int AreIconsDisplayed (const struct HtmlTheme *theme_p);
 
 static apr_status_t PrintParentLink (const char *icon_s, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p);
 
+static int PrintTableEntryToOption (void *data_p, const char *key_s, const char *value_s);
 
 /*************************************/
 
@@ -38,6 +39,7 @@ void InitHtmlTheme (struct HtmlTheme *theme_p)
   theme_p -> ht_rest_api_s = NULL;
 
   theme_p -> ht_show_ids_flag = 0;
+  theme_p -> ht_add_search_form_flag = 1;
   theme_p -> ht_icons_map_p = NULL;
 }
 
@@ -72,7 +74,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 	// Make brigade.
 	apr_bucket_brigade *bucket_brigade_p = apr_brigade_create (pool_p, output_p -> c -> bucket_alloc);
-	apr_status_t apr_status = PrintAllHTMLBeforeListing (theme_p, davrods_resource_p -> relative_uri, user_s, conf_p -> rods_zone, req_p, bucket_brigade_p, pool_p);
+	apr_status_t apr_status = PrintAllHTMLBeforeListing (theme_p, davrods_resource_p -> relative_uri, user_s, conf_p -> rods_zone, conf_p -> davrods_api_path_s, req_p, bucket_brigade_p, pool_p);
 
 
 	if (apr_status == APR_SUCCESS)
@@ -201,7 +203,7 @@ apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, request_rec *r
 }
 
 
-apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * const relative_uri_s, const char * const user_s, const char * const zone_s, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
+apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * const relative_uri_s, const char * const user_s, const char * const zone_s, const char * const api_path_s, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
 {
 	// Send start of HTML document.
 	const char *escaped_relative_uri_s = ap_escape_html (pool_p, relative_uri_s);
@@ -264,6 +266,43 @@ apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * 
 
 		}		/* if (theme_p -> ht_top_s) */
 
+
+	if (theme_p -> ht_add_search_form_flag)
+		{
+			apr_pool_t *davrods_pool_p = GetDavrodsMemoryPool (req_p);
+
+			if (davrods_pool_p)
+				{
+					rcComm_t *connection_p  = GetIRODSConnectionFromPool (davrods_pool_p);
+
+					if (connection_p)
+						{
+							apr_table_t *keys_p = GetAllDataObjectMetadataKeys (req_p -> pool, connection_p);
+
+							if (keys_p)
+								{
+									/* Get the Location path where davrods is hosted */
+									const char *ptr = strstr (req_p -> uri, api_path_s);
+									char *davrods_path_s = NULL;
+
+									if (ptr)
+										{
+											davrods_path_s = apr_pstrmemdup (req_p -> pool, req_p -> uri, ptr - (req_p -> uri));
+										}
+									else
+										{
+											davrods_path_s = req_p -> uri;
+										}
+
+									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<form action=\"%s/%s/metadata\" class=\"search_form\">\nSearch: <select name=\"key\">\n", davrods_path_s, api_path_s);
+									apr_table_do (PrintTableEntryToOption, bucket_brigade_p, keys_p, NULL);
+									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "</select>\n<input type=\"text\" name=\"value\" /></form>");
+
+								}
+						}
+				}
+
+		}		/* if (theme_p -> ht_add_search_form_flag) */
 
 	/*
 	 * Print the user status
@@ -339,6 +378,15 @@ apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * 
 	return apr_status;
 }
 
+
+static int PrintTableEntryToOption (void *data_p, const char *key_s, const char *value_s)
+{
+	apr_bucket_brigade *bucket_brigade_p = (apr_bucket_brigade *) data_p;
+	apr_status_t status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<option>%s</option>\n", key_s);
+
+	/* TRUE:continue iteration. FALSE:stop iteration */
+	return (status == APR_SUCCESS) ? TRUE : 0;
+}
 
 
 static apr_status_t PrintParentLink (const char *icon_s, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)

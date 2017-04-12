@@ -446,7 +446,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 	struct HtmlTheme *theme_p = & (conf_p -> theme);
 	apr_bucket_brigade *bucket_brigade_p = apr_brigade_create (pool_p, bucket_allocator_p);
 
-	apr_status_t apr_status = PrintAllHTMLBeforeListing (theme_p, relative_uri_s, username_s, conf_p -> rods_zone, req_p, bucket_brigade_p, pool_p);
+	apr_status_t apr_status = PrintAllHTMLBeforeListing (theme_p, relative_uri_s, username_s, conf_p -> rods_zone, conf_p -> davrods_api_path_s, req_p, bucket_brigade_p, pool_p);
 
 	/*
 	 * SELECT meta_id FROM r_meta_main WHERE meta_attr_name = ' ' AND meta_attr_value = ' ';
@@ -1139,9 +1139,9 @@ apr_status_t PrintMetadata (const apr_array_header_t *metadata_list_p, apr_bucke
 
 
 
-apr_array_header_t *GetAllDataObjectMetadataKeys (apr_pool_t *pool_p, rcComm_t *connection_p)
+apr_table_t *GetAllDataObjectMetadataKeys (apr_pool_t *pool_p, rcComm_t *connection_p)
 {
-	apr_array_header_t *metadata_keys_p = NULL;
+	apr_table_t *metadata_keys_p = NULL;
 	int select_columns_p [3] = { COL_META_DATA_ATTR_NAME, COL_META_DATA_ATTR_VALUE, -1};
 	genQueryOut_t *results_p = RunQuery (connection_p, select_columns_p, NULL, NULL, NULL, 0, pool_p);
 
@@ -1149,11 +1149,29 @@ apr_array_header_t *GetAllDataObjectMetadataKeys (apr_pool_t *pool_p, rcComm_t *
 		{
 			if (results_p -> rowCnt > 0)
 				{
+					metadata_keys_p = apr_table_make (pool_p, results_p -> rowCnt);
 
+					if (metadata_keys_p)
+						{
+							int i;
+							sqlResult_t *sql_p = & (results_p -> sqlResult [0]);
+							char *value_s = sql_p -> value;
+
+							for (i = 0; i < results_p -> rowCnt; ++ i, value_s += sql_p -> len)
+								{
+									 apr_table_set (metadata_keys_p, value_s, value_s);
+								}
+						}
 				}
 		}
 
 	return metadata_keys_p;
+}
+
+
+apr_table_t *GetAllDataObjectMetadataValuesForKey (apr_pool_t *pool_p, rcComm_t *connection_p, const char *key_s)
+{
+	return NULL;
 }
 
 
