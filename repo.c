@@ -346,22 +346,7 @@ struct dav_error *FillInPrivateResourceData (request_rec *req_p, dav_resource **
 
 							if (! (res_private_p -> rods_conn))
 								{
-					        /*
-					         * For publicly-accessible iRODS instances, check_rods will never have been called, so we'll need
-					         * to get the memory pool and iRODS connection for the public user.
-					         */
-
-									if (res_private_p -> conf -> davrods_public_username_s)
-										{
-											authn_status status = GetIRodsConnection (req_p, & (res_private_p -> rods_conn), res_private_p -> conf -> davrods_public_username_s, res_private_p -> conf -> davrods_public_password_s ? res_private_p -> conf -> davrods_public_password_s : "");
-
-											if (status != 0)
-												{
-													ap_log_rerror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_ECONNREFUSED, req_p, "error %d: Failed to connect to iRODS as public user \"%s\"", status, res_private_p -> conf -> davrods_public_username_s);
-
-													WHISPER ("GetIRodsConnection failed for anonymous user");
-												}
-										}
+									res_private_p -> rods_conn = GetIRODSConnectionForPublicUser (req_p, res_private_p -> davrods_pool, res_private_p -> conf);
 								}
 
 							if (res_private_p -> rods_conn)

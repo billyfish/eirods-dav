@@ -132,6 +132,31 @@ apr_status_t PrintBasicStringToBucketBrigade (const char *value_s, apr_bucket_br
 }
 
 
+
+rcComm_t *GetIRODSConnectionForPublicUser (request_rec *req_p, apr_pool_t *davrods_pool_p, davrods_dir_conf_t *conf_p)
+{
+	rcComm_t *connection_p = NULL;
+
+	/*
+   * For publicly-accessible iRODS instances, check_rods will never have been called, so we'll need
+   * to get the memory pool and iRODS connection for the public user.
+   */
+	if (conf_p -> davrods_public_username_s)
+		{
+			authn_status status = GetIRodsConnection (req_p, &connection_p, conf_p -> davrods_public_username_s, conf_p -> davrods_public_password_s ? conf_p -> davrods_public_password_s : "");
+
+			if (status != 0)
+				{
+					ap_log_rerror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_ECONNREFUSED, req_p, "error %d: Failed to connect to iRODS as public user \"%s\"", status, conf_p -> davrods_public_username_s);
+
+					WHISPER ("GetIRodsConnection failed for anonymous user");
+				}
+		}
+
+	return connection_p;
+}
+
+
 rcComm_t *GetIRODSConnectionFromPool (apr_pool_t *pool_p)
 {
 	rcComm_t *connection_p = NULL;

@@ -20,7 +20,7 @@
 #include "config.h"
 #include "meta.h"
 #include "auth.h"
-
+#include "common.h"
 
 struct APICall;
 
@@ -148,6 +148,7 @@ static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_
 				{
 					SearchOperator op = SO_LIKE;
 					const char *op_s = apr_table_get (params_p, "op");
+					apr_pool_t *davrods_pool_p = GetDavrodsMemoryPool (req_p);
 
 					if (op_s)
 						{
@@ -159,32 +160,18 @@ static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_
 								}
 						}
 
-
-			    /* Get the iRods connection */
-					rcComm_t *rods_connection_p = NULL;
-					const char *username_s = req_p -> user;
-					authn_status status = AUTH_USER_NOT_FOUND;
-
-					if (username_s)
+					if (davrods_pool_p)
 						{
-							const char *password_s = NULL;
+							rcComm_t *rods_connection_p = GetIRODSConnectionFromPool (davrods_pool_p);
 
-							res = ap_get_basic_auth_pw (req_p, &password_s);
-
-							if (res == OK)
+							if (!rods_connection_p)
 								{
-									status = GetIRodsConnection (req_p, &rods_connection_p, username_s, password_s);
+									rods_connection_p  = GetIRODSConnectionForPublicUser (req_p, davrods_pool_p, config_p);
 								}
-						}
-					else
-						{
-      				status = GetIRodsConnection (req_p, &rods_connection_p, config_p -> davrods_public_username_s, config_p -> davrods_public_password_s ? config_p -> davrods_public_password_s : "");
-						}
 
-					if (status == AUTH_GRANTED)
-						{
 							if (rods_connection_p)
 								{
+
 									char *relative_uri_s = apr_pstrcat (pool_p, "metadata search results for ", key_s, ":", value_s, NULL);
 
 									char *result_s = DoMetadataSearch (key_s, value_s, op, rods_connection_p -> clientUser.userName, relative_uri_s, pool_p, rods_connection_p, req_p -> connection -> bucket_alloc, config_p, req_p, davrods_path_s);
@@ -193,9 +180,12 @@ static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_
 										{
 											ap_rputs (result_s, req_p);
 										}
+
 									res = OK;
-								}
-						}
+								}		/* if (rods_connection_p) */
+
+						}		/* if (davrods_pool_p) */
+
 				}
 
 		}

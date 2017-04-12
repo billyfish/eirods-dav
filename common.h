@@ -25,6 +25,8 @@
 #include "apr_buckets.h"
 
 #include "mod_davrods.h"
+#include "config.h"
+
 #include "irods/rcConnect.h"
 
 
@@ -55,6 +57,9 @@ apr_status_t PrintBasicStringToBucketBrigade (const char *value_s, apr_bucket_br
 
 
 rcComm_t *GetIRODSConnectionFromPool (apr_pool_t *pool_p);
+
+rcComm_t *GetIRODSConnectionForPublicUser (request_rec *req_p, apr_pool_t *davrods_pool_p, davrods_dir_conf_t *conf_p);
+
 
 rodsEnv *GetRodsEnvFromPool (apr_pool_t *pool_p);
 
