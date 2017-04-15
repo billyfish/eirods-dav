@@ -27,6 +27,8 @@ static const char * const S_SEARCH_OPERATOR_EQUALS_S = "=";
 
 static const char * const S_SEARCH_OPERATOR_LIKE_S = "like";
 
+static int s_debug_flag = 0;
+
 /**************************************/
 
 static int InitGenQuery (genQueryInp_t *query_p, const char * const zone_s);
@@ -117,8 +119,11 @@ apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t o
 
 							if (coll_id_results_p)
 								{
-									fprintf (stderr, "collection results:\n");
-									PrintBasicGenQueryOut (coll_id_results_p);
+									if (s_debug_flag)
+										{
+											fprintf (stderr, "collection results:\n");
+											PrintBasicGenQueryOut (coll_id_results_p);
+										}
 
 									if ((coll_id_results_p -> attriCnt == 1) && (coll_id_results_p -> rowCnt == 1))
 										{
@@ -162,8 +167,11 @@ apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t o
 								{
 									genQueryOut_t *meta_id_results_p = NULL;
 
-									fprintf (stderr, "initial query:");
-									printGenQI (&in_query);
+									if (s_debug_flag)
+										{
+											fprintf (stderr, "initial query:");
+											printGenQI (&in_query);
+										}
 
 									meta_id_results_p = ExecuteGenQuery (irods_connection_p, &in_query);
 
@@ -172,8 +180,11 @@ apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t o
 											/* Reset out input query */
 											success_code = SetMetadataQuery (&in_query, zone_s);
 
-											fprintf (stderr, "initial results:\n");
-											PrintBasicGenQueryOut (meta_id_results_p);
+											if (s_debug_flag)
+												{
+													fprintf (stderr, "initial results:\n");
+													PrintBasicGenQueryOut (meta_id_results_p);
+												}
 
 											if (success_code == 0)
 												{
@@ -220,15 +231,21 @@ apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t o
 																		{
 																			genQueryOut_t *metadata_query_results_p = NULL;
 
-																			fprintf (stderr, "output %d: \"%s\"", i, meta_id_s);
-																			printGenQI (&in_query);
+																			if (s_debug_flag)
+																				{
+																					fprintf (stderr, "output %d: \"%s\"", i, meta_id_s);
+																					printGenQI (&in_query);
+																				}
 
 																			metadata_query_results_p = ExecuteGenQuery (irods_connection_p, &in_query);
 
 																			if (metadata_query_results_p)
 																				{
-																					fprintf (stderr, "output results:\n");
-																					PrintBasicGenQueryOut (metadata_query_results_p);
+																					if (s_debug_flag)
+																						{
+																							fprintf (stderr, "output results:\n");
+																							PrintBasicGenQueryOut (metadata_query_results_p);
+																						}
 
 																					/*
 																					 * We requested 3 metadata attributes (name, value and units)
@@ -322,11 +339,11 @@ genQueryOut_t *RunQuery (rcComm_t *connection_p, const int *select_columns_p, co
 						}
 					else if (status == CAT_NO_ROWS_FOUND)
 						{
-							printf ("No rows found\n");
+							WHISPER ("No rows found\n");
 						}
 					else if (status < 0 )
 						{
-							printf ("error status: %d\n", status);
+							WHISPER ("error status: %d\n", status);
 						}
 
 				}
@@ -954,11 +971,11 @@ static genQueryOut_t *ExecuteGenQuery (rcComm_t *connection_p, genQueryInp_t * c
 	else if (status == CAT_NO_ROWS_FOUND)
 		{
 
-			printf ("No rows found\n");
+			WHISPER ("No rows found\n");
 		}
 	else if (status < 0 )
 		{
-			printf ("error status: %d\n", status);
+			WHISPER ("error status: %d\n", status);
 		}
 	else
 		{
