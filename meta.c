@@ -33,9 +33,13 @@ static int s_debug_flag = 0;
 
 static int InitGenQuery (genQueryInp_t *query_p, const char * const zone_s);
 
+static int InitSpecificQuery (specificQueryInp_t *query_p, const char * const zone_s);
+
 static int SetMetadataQuery (genQueryInp_t *query_p, const char * const zone_s);
 
 static genQueryOut_t *ExecuteGenQuery (rcComm_t *connection_p, genQueryInp_t * const in_query_p);
+
+static genQueryOut_t *ExecuteSpecificQuery (rcComm_t *connection_p, specificQueryInp_t * const in_query_p);
 
 static char *GetQuotedValue (const char * const input_s, const SearchOperator op, apr_pool_t *pool_p);
 
@@ -196,6 +200,7 @@ apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t o
 														{
 															int i;
 															char *meta_id_s = meta_id_results_p -> sqlResult [0].value;
+															char *sql_s = apr_pstrcat (pool_p, "SELECT META_USER_ATTR_NAME, META_USER_ATTR_VALUE, META_USER_ATTR_UNITS WHERE META_USER_ATTR_ID IN (", NULL);
 
 															/*
 															 * Iterate over the metadata id results from our previous query and get
@@ -203,84 +208,153 @@ apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t o
 															 */
 															for (i = 0; i < meta_id_results_p -> rowCnt; ++ i, meta_id_s += meta_id_results_p -> sqlResult [0].len)
 																{
+																	const char *prefix_s = (i != 0) ? ", '" : "'";
 
-																	if (i == 0)
+																	sql_s = apr_pstrcat (pool_p, sql_s, prefix_s, meta_id_s, "' ", NULL);
+
+																	if (!sql_s)
 																		{
-																			condition_and_where_value_s = GetQuotedValue (meta_id_s, SO_EQUALS, pool_p);
-																			success_code = addInxVal (& (in_query.sqlCondInp), COL_META_DATA_ATTR_ID, condition_and_where_value_s);
+																			break;
 																		}
-																	else
+																}
+
+															if (sql_s)
+																{
+																	specificQueryInp_t specific_query;
+																	genQueryOut_t *metadata_query_results_p = NULL;
+
+																	sql_s = apr_pstrcat (pool_p, sql_s, ")", NULL);
+
+																	InitSpecificQuery (&specific_query, NULL);
+																	specific_query.sql = sql_s;
+
+
+																	if (s_debug_flag)
 																		{
-																			condition_and_where_value_s = GetQuotedValue (meta_id_s, SO_EQUALS, pool_p);
-
-																			if (condition_and_where_value_s)
-																				{
-																					//free (in_query.sqlCondInp.value [0]);
-																					in_query.sqlCondInp.value [0] = condition_and_where_value_s;
-
-																					success_code = 0;
-																				}
-																			else
-																				{
-																					success_code = -1;
-																				}
+																			fprintf (stderr, "output %d: \"%s\"", i, meta_id_s);
+																			printGenQI (&in_query);
 																		}
 
-																	/* Did we set the input query successfully? */
-																	if (success_code == 0)
-																		{
-																			genQueryOut_t *metadata_query_results_p = NULL;
+																	metadata_query_results_p = ExecuteSpecificQuery (irods_connection_p, &specific_query);
 
+																	if (metadata_query_results_p)
+																		{
 																			if (s_debug_flag)
 																				{
-																					fprintf (stderr, "output %d: \"%s\"", i, meta_id_s);
-																					printGenQI (&in_query);
+																					fprintf (stderr, "output results:\n");
+																					PrintBasicGenQueryOut (metadata_query_results_p);
 																				}
 
-																			metadata_query_results_p = ExecuteGenQuery (irods_connection_p, &in_query);
-
-																			if (metadata_query_results_p)
+																			/*
+																			 * We requested 3 metadata attributes (name, value and units)
+																			 * so make sure we have 3 here
+																			 */
+																			if (metadata_query_results_p -> attriCnt == 3)
 																				{
-																					if (s_debug_flag)
+																					int j;
+																					char *key_s = metadata_query_results_p -> sqlResult [0].value;
+																					char *value_s = metadata_query_results_p -> sqlResult [1].value;
+																					char *units_s = metadata_query_results_p -> sqlResult [2].value;
+
+
+																					for (j = 0; j < metadata_query_results_p -> rowCnt; ++ j)
 																						{
-																							fprintf (stderr, "output results:\n");
-																							PrintBasicGenQueryOut (metadata_query_results_p);
-																						}
+																							IrodsMetadata *metadata_p = AllocateIrodsMetadata (key_s, value_s, units_s, pool_p);
 
-																					/*
-																					 * We requested 3 metadata attributes (name, value and units)
-																					 * so make sure we have 3 here
-																					 */
-																					if (metadata_query_results_p -> attriCnt == 3)
-																						{
-																							int j;
-																							char *key_s = metadata_query_results_p -> sqlResult [0].value;
-																							char *value_s = metadata_query_results_p -> sqlResult [1].value;
-																							char *units_s = metadata_query_results_p -> sqlResult [2].value;
-
-
-																							for (j = 0; j < metadata_query_results_p -> rowCnt; ++ j)
+																							if (metadata_p)
 																								{
-																									IrodsMetadata *metadata_p = AllocateIrodsMetadata (key_s, value_s, units_s, pool_p);
-
-																									if (metadata_p)
-																										{
-																											APR_ARRAY_PUSH (metadata_array_p, IrodsMetadata *) = metadata_p;
-																										}
-
-																									key_s += metadata_query_results_p -> sqlResult [0].len;
-																									value_s += metadata_query_results_p -> sqlResult [1].len;
-																									units_s += metadata_query_results_p -> sqlResult [2].len;
+																									APR_ARRAY_PUSH (metadata_array_p, IrodsMetadata *) = metadata_p;
 																								}
 
+																							key_s += metadata_query_results_p -> sqlResult [0].len;
+																							value_s += metadata_query_results_p -> sqlResult [1].len;
+																							units_s += metadata_query_results_p -> sqlResult [2].len;
 																						}
 
-																					freeGenQueryOut (&metadata_query_results_p);
-																				}		/* metadata_query_results_p */
+																				}
 
-																		}		/* if (success_code == 0) */
+																			freeGenQueryOut (&metadata_query_results_p);
+																		}		/* metadata_query_results_p */
+																}
 
-																}		/* for (i = 0; i < meta_id_results_p -> rowCnt; ++ i) */
+
+//																	if (i == 0)
+//																		{
+//																			condition_and_where_value_s = GetQuotedValue (meta_id_s, SO_EQUALS, pool_p);
+//																			success_code = addInxVal (& (in_query.sqlCondInp), COL_META_DATA_ATTR_ID, condition_and_where_value_s);
+//																		}
+//																	else
+//																		{
+//																			condition_and_where_value_s = GetQuotedValue (meta_id_s, SO_EQUALS, pool_p);
+//
+//																			if (condition_and_where_value_s)
+//																				{
+//																					//free (in_query.sqlCondInp.value [0]);
+//																					in_query.sqlCondInp.value [0] = condition_and_where_value_s;
+//
+//																					success_code = 0;
+//																				}
+//																			else
+//																				{
+//																					success_code = -1;
+//																				}
+//																		}
+//
+//																	/* Did we set the input query successfully? */
+//																	if (success_code == 0)
+//																		{
+//																			genQueryOut_t *metadata_query_results_p = NULL;
+//
+//																			if (s_debug_flag)
+//																				{
+//																					fprintf (stderr, "output %d: \"%s\"", i, meta_id_s);
+//																					printGenQI (&in_query);
+//																				}
+//
+//																			metadata_query_results_p = ExecuteGenQuery (irods_connection_p, &in_query);
+//
+//																			if (metadata_query_results_p)
+//																				{
+//																					if (s_debug_flag)
+//																						{
+//																							fprintf (stderr, "output results:\n");
+//																							PrintBasicGenQueryOut (metadata_query_results_p);
+//																						}
+//
+//																					/*
+//																					 * We requested 3 metadata attributes (name, value and units)
+//																					 * so make sure we have 3 here
+//																					 */
+//																					if (metadata_query_results_p -> attriCnt == 3)
+//																						{
+//																							int j;
+//																							char *key_s = metadata_query_results_p -> sqlResult [0].value;
+//																							char *value_s = metadata_query_results_p -> sqlResult [1].value;
+//																							char *units_s = metadata_query_results_p -> sqlResult [2].value;
+//
+//
+//																							for (j = 0; j < metadata_query_results_p -> rowCnt; ++ j)
+//																								{
+//																									IrodsMetadata *metadata_p = AllocateIrodsMetadata (key_s, value_s, units_s, pool_p);
+//
+//																									if (metadata_p)
+//																										{
+//																											APR_ARRAY_PUSH (metadata_array_p, IrodsMetadata *) = metadata_p;
+//																										}
+//
+//																									key_s += metadata_query_results_p -> sqlResult [0].len;
+//																									value_s += metadata_query_results_p -> sqlResult [1].len;
+//																									units_s += metadata_query_results_p -> sqlResult [2].len;
+//																								}
+//
+//																						}
+//
+//																					freeGenQueryOut (&metadata_query_results_p);
+//																				}		/* metadata_query_results_p */
+//
+//																		}		/* if (success_code == 0) */
+//
+//																}		/* for (i = 0; i < meta_id_results_p -> rowCnt; ++ i) */
 
 														}		/* if (meta_id_results_p -> attriCnt == 1) */
 													else
@@ -898,6 +972,25 @@ static char *GetQuotedValue (const char * const input_s, const SearchOperator op
 }
 
 
+static int InitSpecificQuery (specificQueryInp_t *query_p, const char * const zone_s)
+{
+	int res = 0;
+
+	memset (query_p, 0, sizeof (specificQueryInp_t));
+	query_p -> maxRows = MAX_SQL_ROWS;
+	query_p -> continueInx = 0;
+
+	//query_p -> options = UPPER_CASE_WHERE;
+
+	if (zone_s)
+		{
+			res = addKeyVal (& (query_p -> condInput), ZONE_KW, zone_s);
+		}
+
+	return res;
+}
+
+
 static int InitGenQuery (genQueryInp_t *query_p, const char * const zone_s)
 {
 	int res = 0;
@@ -954,6 +1047,35 @@ static int SetMetadataQuery (genQueryInp_t *query_p, const char * const zone_s)
 		}
 
 	return success_code;
+}
+
+
+static genQueryOut_t *ExecuteSpecificQuery (rcComm_t *connection_p, specificQueryInp_t * const in_query_p)
+{
+	genQueryOut_t *out_query_p = NULL;
+	int status = rcSpecificQuery (connection_p, in_query_p, &out_query_p);
+
+	/* Did we run it successfully? */
+	if (status == 0)
+		{
+#if QUERY_DEBUG >= STM_LEVEL_FINER
+#endif
+		}
+	else if (status == CAT_NO_ROWS_FOUND)
+		{
+
+			WHISPER ("No rows found\n");
+		}
+	else if (status < 0 )
+		{
+			WHISPER ("error status: %d\n", status);
+		}
+	else
+		{
+			//printBasicGenQueryOut (out_query_p, "result: \"%s\" \"%s\"\n");
+		}
+
+	return out_query_p;
 }
 
 
