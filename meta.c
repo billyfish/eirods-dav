@@ -1229,7 +1229,7 @@ static char *GetMetadataSqlClause (genQueryOut_t *meta_id_results_p, apr_pool_t 
 			int i;
 			char *meta_id_s = meta_id_results_p -> sqlResult [0].value;
 
-			for (i = meta_id_results_p -> rowCnt; i >= 0; -- i, meta_id_s += meta_id_results_p -> sqlResult [0].len)
+			for (i = 0; i < meta_id_results_p -> rowCnt; ++ i, meta_id_s += meta_id_results_p -> sqlResult [0].len)
 				{
 					const char *prefix_s = (i != 0) ? ", '" : "'";
 
