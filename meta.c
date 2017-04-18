@@ -987,7 +987,7 @@ static genQueryOut_t *ExecuteGenQuery (rcComm_t *connection_p, genQueryInp_t * c
 	if (status == 0)
 		{
 			#if QUERY_DEBUG >= STM_LEVEL_FINER
-			PrintBasicGenQueryOut (out_query_p, "result: \"%s\" \"%s\"\n");
+			PrintBasicGenQueryOut (out_query_p);
 			#endif
 		}
 	else if (status == CAT_NO_ROWS_FOUND)
