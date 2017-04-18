@@ -986,21 +986,17 @@ static genQueryOut_t *ExecuteGenQuery (rcComm_t *connection_p, genQueryInp_t * c
 	/* Did we run it successfully? */
 	if (status == 0)
 		{
-#if QUERY_DEBUG >= STM_LEVEL_FINER
-#endif
+			#if QUERY_DEBUG >= STM_LEVEL_FINER
+			printBasicGenQueryOut (out_query_p, "result: \"%s\" \"%s\"\n");
+			#endif
 		}
 	else if (status == CAT_NO_ROWS_FOUND)
 		{
-
 			WHISPER ("No rows found\n");
 		}
 	else if (status < 0 )
 		{
 			WHISPER ("error status: %d\n", status);
-		}
-	else
-		{
-			//printBasicGenQueryOut (out_query_p, "result: \"%s\" \"%s\"\n");
 		}
 
 	return out_query_p;
