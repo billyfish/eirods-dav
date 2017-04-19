@@ -277,13 +277,14 @@ apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * 
 
 					if (connection_p)
 						{
-							apr_table_t *keys_p = GetAllDataObjectMetadataKeys (req_p -> pool, connection_p);
+							apr_array_header_t *keys_p = GetAllDataObjectMetadataKeys (req_p -> pool, connection_p);
 
 							if (keys_p)
 								{
 									/* Get the Location path where davrods is hosted */
 									const char *ptr = strstr (req_p -> uri, api_path_s);
 									char *davrods_path_s = NULL;
+									int i;
 
 									if (ptr)
 										{
@@ -295,7 +296,18 @@ apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * 
 										}
 
 									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<form action=\"%s/%s/metadata\" class=\"search_form\">\nSearch: <select name=\"key\">\n", davrods_path_s, api_path_s);
-									apr_table_do (PrintTableEntryToOption, bucket_brigade_p, keys_p, NULL);
+
+							    for (i = 0; i < keys_p -> nelts; ++ i)
+							    	{
+							    		char *value_s = ((char **) keys_p -> elts) [i];
+											apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<option>%s</option>\n", value_s);
+
+											if (apr_status != APR_SUCCESS)
+												{
+													break;
+												}
+							    	}
+
 									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "</select>\n<input type=\"text\" name=\"value\" /></form>");
 
 								}

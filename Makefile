@@ -133,6 +133,7 @@ CFLAGS +=                              \
 	-g3                            \
 	-ggdb                          \
 	-O0							\
+	-pg \
 	-std=c99                       \
 	-pedantic                      \
 	$(addprefix -W, $(WARNINGS))   \

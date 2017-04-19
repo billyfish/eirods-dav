@@ -6,6 +6,7 @@
  */
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "apr_strings.h"
 
@@ -31,9 +32,9 @@ static int s_debug_flag = 0;
 
 /**************************************/
 
-static int InitGenQuery (genQueryInp_t *query_p, const char * const zone_s);
+static int InitGenQuery (genQueryInp_t *query_p, const int options, const char * const zone_s);
 
-static int InitSpecificQuery (specificQueryInp_t *query_p, const char * const zone_s);
+static int InitSpecificQuery (specificQueryInp_t *query_p, const int options, const char * const zone_s);
 
 static int SetMetadataQuery (genQueryInp_t *query_p, const char * const zone_s);
 
@@ -64,6 +65,9 @@ static int CompareIrodsMetadata (const void *v0_p, const void *v1_p);
 
 static char *GetMetadataSqlClause (genQueryOut_t *meta_id_results_p, apr_pool_t *pool_p);
 
+static int SortStringPointers (const void  *v0_p, const void *v1_p);
+
+static int CopyTableKeysToArray (void *data_p, const char *key_s, const char *value_s);
 
 /*************************************/
 
@@ -89,7 +93,7 @@ apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t o
 			const char *where_value_s = NULL;
 			genQueryInp_t in_query;
 
-			InitGenQuery (&in_query, zone_s);
+			InitGenQuery (&in_query, 0, zone_s);
 
 			switch (object_type)
 				{
@@ -124,7 +128,7 @@ apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t o
 							const char *where_values_ss [] = { coll_name_s };
 							SearchOperator where_ops_p [] = { SO_EQUALS };
 
-							genQueryOut_t *coll_id_results_p = RunQuery (irods_connection_p, select_columns_p, where_columns_p, where_values_ss, where_ops_p, 1, pool_p);
+							genQueryOut_t *coll_id_results_p = RunQuery (irods_connection_p, select_columns_p, where_columns_p, where_values_ss, where_ops_p, 1, 0, pool_p);
 
 							if (coll_id_results_p)
 								{
@@ -292,13 +296,13 @@ void SortIRodsMetadataArray (apr_array_header_t *metadata_array_p, int (*compare
 }
 
 
-genQueryOut_t *RunQuery (rcComm_t *connection_p, const int *select_columns_p, const int *where_columns_p, const char **where_values_ss, const SearchOperator *where_ops_p, size_t num_where_columns, apr_pool_t *pool_p)
+genQueryOut_t *RunQuery (rcComm_t *connection_p, const int *select_columns_p, const int *where_columns_p, const char **where_values_ss, const SearchOperator *where_ops_p, size_t num_where_columns, const int options, apr_pool_t *pool_p)
 {
 	genQueryOut_t *out_query_p = NULL;
 	genQueryInp_t in_query;
 	int success_code;
 
-	if (InitGenQuery (&in_query, NULL) == 0)
+	if (InitGenQuery (&in_query, options, NULL) == 0)
 		{
 			success_code = AddClausesToQuery (&in_query, select_columns_p, where_columns_p, where_values_ss, where_ops_p, num_where_columns, pool_p);
 
@@ -442,7 +446,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 	/*
 	 * SELECT meta_id FROM r_meta_main WHERE meta_attr_name = ' ' AND meta_attr_value = ' ';
 	 */
-	meta_id_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, ops_p, num_where_columns, pool_p);
+	meta_id_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, ops_p, num_where_columns, 0, pool_p);
 
 	if (meta_id_results_p)
 		{
@@ -484,7 +488,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 									 * SELECT object_id FROM r_objt_metamap WHERE meta_id = ' ';
 									 */
 
-									id_results_p = RunQuery (connection_p, object_id_select_columns_p, where_columns_p, where_values_ss, NULL, 1, pool_p);
+									id_results_p = RunQuery (connection_p, object_id_select_columns_p, where_columns_p, where_values_ss, NULL, 1, 0, pool_p);
 
 									if (id_results_p)
 										{
@@ -519,7 +523,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 
 															where_values_ss [0] = id_s;
 
-															collection_name_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, NULL, num_where_columns, pool_p);
+															collection_name_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, NULL, num_where_columns, 0, pool_p);
 
 															if (collection_name_results_p)
 																{
@@ -573,7 +577,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 									where_columns_p [0] = COL_META_DATA_ATTR_ID;
 									where_values_ss [0] = meta_id_s;
 
-									id_results_p = RunQuery (connection_p, object_id_select_columns_p, where_columns_p, where_values_ss, NULL, 1, pool_p);
+									id_results_p = RunQuery (connection_p, object_id_select_columns_p, where_columns_p, where_values_ss, NULL, 1, 0, pool_p);
 
 									if (id_results_p)
 										{
@@ -606,7 +610,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 															 * 		SELECT data_name, coll_id FROM r_data_main where data_id = 10001;
 															 *
 															 */
-															data_id_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, NULL, 1, pool_p);
+															data_id_results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, NULL, 1, 0, pool_p);
 
 															if (data_id_results_p)
 																{
@@ -629,7 +633,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 																					 * We have the local data object name, we now need to get the collection name
 																					 * and join the two together
 																					 */
-																					coll_id_results_p = RunQuery (connection_p, coll_id_select_columns_p, coll_id_where_columns_p, coll_id_where_values_ss, NULL, num_coll_id_where_columns, pool_p);
+																					coll_id_results_p = RunQuery (connection_p, coll_id_select_columns_p, coll_id_where_columns_p, coll_id_where_values_ss, NULL, num_coll_id_where_columns, 0, pool_p);
 
 																					if (coll_id_results_p)
 																						{
@@ -872,15 +876,14 @@ static char *GetQuotedValue (const char * const input_s, const SearchOperator op
 }
 
 
-static int InitSpecificQuery (specificQueryInp_t *query_p, const char * const zone_s)
+static int InitSpecificQuery (specificQueryInp_t *query_p, const int options, const char * const zone_s)
 {
 	int res = 0;
 
 	memset (query_p, 0, sizeof (specificQueryInp_t));
 	query_p -> maxRows = MAX_SQL_ROWS;
 	query_p -> continueInx = 0;
-
-	//query_p -> options = UPPER_CASE_WHERE;
+	query_p -> options = options;
 
 	if (zone_s)
 		{
@@ -891,15 +894,14 @@ static int InitSpecificQuery (specificQueryInp_t *query_p, const char * const zo
 }
 
 
-static int InitGenQuery (genQueryInp_t *query_p, const char * const zone_s)
+static int InitGenQuery (genQueryInp_t *query_p, const int options, const char * const zone_s)
 {
 	int res = 0;
 
 	memset (query_p, 0, sizeof (genQueryInp_t));
 	query_p -> maxRows = MAX_SQL_ROWS;
 	query_p -> continueInx = 0;
-
-	//query_p -> options = UPPER_CASE_WHERE;
+	query_p -> options = options;
 
 	if (zone_s)
 		{
@@ -921,7 +923,7 @@ static int SetMetadataQuery (genQueryInp_t *query_p, const char * const zone_s)
 	int success_code;
 
 	/* Reset out input query */
-	InitGenQuery (query_p, zone_s);
+	InitGenQuery (query_p, 0, zone_s);
 
 	/*
 	 * Add the values that we want:
@@ -1173,30 +1175,53 @@ apr_status_t PrintMetadata (const apr_array_header_t *metadata_list_p, apr_bucke
 
 
 
-apr_table_t *GetAllDataObjectMetadataKeys (apr_pool_t *pool_p, rcComm_t *connection_p)
+apr_array_header_t *GetAllDataObjectMetadataKeys (apr_pool_t *pool_p, rcComm_t *connection_p)
 {
-	apr_table_t *metadata_keys_p = NULL;
+	apr_array_header_t *metadata_keys_p = NULL;
 	int select_columns_p [3] = { COL_META_DATA_ATTR_NAME, COL_META_DATA_ATTR_VALUE, -1};
-	genQueryOut_t *results_p = RunQuery (connection_p, select_columns_p, NULL, NULL, NULL, 0, pool_p);
+	genQueryOut_t *results_p = RunQuery (connection_p, select_columns_p, NULL, NULL, NULL, 0, 0, pool_p);
 
 	if (results_p)
 		{
 			if (results_p -> rowCnt > 0)
 				{
-					metadata_keys_p = apr_table_make (pool_p, results_p -> rowCnt);
+					/* remove all duplicates */
+					apr_table_t *table_p = apr_table_make (pool_p, results_p -> rowCnt);
 
-					if (metadata_keys_p)
+					if (table_p)
 						{
 							int i;
 							sqlResult_t *sql_p = & (results_p -> sqlResult [0]);
 							char *value_s = sql_p -> value;
+							size_t count = 0;
 
-							for (i = 0; i < results_p -> rowCnt; ++ i, value_s += sql_p -> len)
+							for (i = results_p -> rowCnt; i > 0; -- i, value_s += sql_p -> len)
 								{
-									 apr_table_set (metadata_keys_p, value_s, value_s);
+									if (!apr_table_get (table_p, value_s))
+										{
+											apr_table_setn (table_p, value_s, value_s);
+											++ count;
+										}
 								}
-						}
+
+							/* Now the table contains no duplicates */
+							/* Copy each of the keys into an arrayULL */
+							metadata_keys_p = apr_array_make (pool_p, count, (sizeof (char *)));
+
+							if (metadata_keys_p)
+								{
+									if (apr_table_do (CopyTableKeysToArray, metadata_keys_p, table_p, NULL) == TRUE)
+										{
+											/* Sort the array into alphabetical order keeping the terminating NULL */
+											qsort (metadata_keys_p -> elts, metadata_keys_p -> nelts, sizeof (char *), SortStringPointers);
+										}
+								}
+
+						}		/* if (table_p) */
+
 				}
+
+			freeGenQueryOut (&results_p);
 		}
 
 	return metadata_keys_p;
@@ -1239,8 +1264,6 @@ static char *GetMetadataSqlClause (genQueryOut_t *meta_id_results_p, apr_pool_t 
 
 			if (sql_s)
 				{
-					genQueryOut_t *metadata_query_results_p = NULL;
-
 					sql_s = apr_pstrcat (pool_p, sql_s, ")", NULL);
 				}
 
@@ -1249,3 +1272,30 @@ static char *GetMetadataSqlClause (genQueryOut_t *meta_id_results_p, apr_pool_t 
 	return sql_s;
 }
 
+
+static int SortStringPointers (const void  *v0_p, const void *v1_p)
+{
+	const char *value_0_s = * ((const char **) v0_p);
+	const char *value_1_s = * ((const char **) v1_p);
+
+	return strcmp (value_0_s, value_1_s);
+}
+
+
+static int CopyTableKeysToArray (void *data_p, const char *key_s, const char *value_s)
+{
+	int res = 1;
+	apr_array_header_t *metadata_keys_p = (apr_array_header_t *) data_p;
+	char *copied_key_s = apr_pstrdup (metadata_keys_p -> pool, key_s);
+
+	if (copied_key_s)
+		{
+			* (char **) apr_array_push (metadata_keys_p) = copied_key_s;
+		}		/* if (copied_key_s) */
+	else
+		{
+			res = 0;
+		}
+
+	return res;
+}

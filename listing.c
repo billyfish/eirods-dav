@@ -60,7 +60,7 @@ apr_status_t SetIRodsObjectFromCollEntry (IRodsObject *obj_p, const collEnt_t *c
 			int where_columns_p [1] = { COL_COLL_NAME };
 			const char *where_values_ss [1] = { coll_entry_p -> collName };
 
-			genQueryOut_t *results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, NULL, 1, pool_p);
+			genQueryOut_t *results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, NULL, 1, 0, pool_p);
 
 			if (results_p)
 				{
