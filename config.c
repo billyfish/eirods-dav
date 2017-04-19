@@ -84,23 +84,16 @@ void *davrods_create_dir_config(apr_pool_t *p, char *dir) {
         conf -> davrods_api_path_s = NULL;
         conf -> davrods_public_username_s = NULL;
         conf -> davrods_public_password_s = NULL;
+        conf -> theme_p = AllocateHtmlTheme (p);
         conf -> themed_listings = 0;
-        InitHtmlTheme (& (conf -> theme));
     }
     return conf;
 }
 
 void *davrods_merge_dir_config(apr_pool_t *p, void *_parent, void *_child) {
-    davrods_dir_conf_t *parent = _parent;
-    davrods_dir_conf_t *child  = _child;
-    davrods_dir_conf_t *conf   = davrods_create_dir_config(p, "merge__");
-
-#define DAVRODS_PROP_MERGE(_prop) \
-    conf->_prop = child->_prop \
-        ? child->_prop \
-        : parent->_prop \
-            ? parent->_prop \
-            : conf->_prop
+    davrods_dir_conf_t *parent_p = _parent;
+    davrods_dir_conf_t *child_p  = _child;
+    davrods_dir_conf_t *conf_p   = davrods_create_dir_config(p, "merge__");
 
     DAVRODS_PROP_MERGE(rods_host);
     DAVRODS_PROP_MERGE(rods_port);
@@ -109,11 +102,11 @@ void *davrods_merge_dir_config(apr_pool_t *p, void *_parent, void *_child) {
     DAVRODS_PROP_MERGE(rods_env_file);
     DAVRODS_PROP_MERGE(rods_auth_scheme);
 
-    const char *exposed_root = child->rods_exposed_root
-        ? child->rods_exposed_root
-        : parent->rods_exposed_root
-            ? parent->rods_exposed_root
-            : conf->rods_exposed_root;
+    const char *exposed_root = child_p->rods_exposed_root
+        ? child_p->rods_exposed_root
+        : parent_p->rods_exposed_root
+            ? parent_p->rods_exposed_root
+            : conf_p->rods_exposed_root;
 
     DAVRODS_PROP_MERGE(rods_tx_buffer_size);
     DAVRODS_PROP_MERGE(rods_rx_buffer_size);
@@ -124,49 +117,19 @@ void *davrods_merge_dir_config(apr_pool_t *p, void *_parent, void *_child) {
     DAVRODS_PROP_MERGE(davrods_api_path_s);
     DAVRODS_PROP_MERGE(davrods_public_username_s);
     DAVRODS_PROP_MERGE(davrods_public_password_s);
+
     DAVRODS_PROP_MERGE(themed_listings);
-    DAVRODS_PROP_MERGE(theme.ht_head_s);
-    DAVRODS_PROP_MERGE(theme.ht_top_s);
-    DAVRODS_PROP_MERGE(theme.ht_bottom_s);
-    DAVRODS_PROP_MERGE(theme.ht_collection_icon_s);
-    DAVRODS_PROP_MERGE(theme.ht_object_icon_s);
-    DAVRODS_PROP_MERGE(theme.ht_parent_icon_s);
-    DAVRODS_PROP_MERGE(theme.ht_listing_class_s);
-    DAVRODS_PROP_MERGE(theme.ht_show_metadata_flag);
-    DAVRODS_PROP_MERGE(theme.ht_show_ids_flag);
 
-    if (child -> theme.ht_icons_map_p)
-    	{
-    		if (parent -> theme.ht_icons_map_p)
-    			{
-    				conf -> theme.ht_icons_map_p = apr_table_overlay (p, parent -> theme.ht_icons_map_p, child -> theme.ht_icons_map_p);
-    			}
-    		else
-    			{
-    				conf -> theme.ht_icons_map_p = child -> theme.ht_icons_map_p;
-    			}
-    	}
-    else
-    	{
-    		if (parent -> theme.ht_icons_map_p)
-    			{
-    				conf -> theme.ht_icons_map_p = parent -> theme.ht_icons_map_p;
-    			}
-    		else
-    			{
-    				conf -> theme.ht_icons_map_p = NULL;
-    			}
-    	}
+    MergeThemeConfigs (conf_p, parent_p, child_p, p);
 
-    if (set_exposed_root (conf, exposed_root) < 0)
+
+    if (set_exposed_root (conf_p, exposed_root) < 0)
   		{
   			ap_log_perror (APLOG_MARK, APLOG_DEBUG, APR_EGENERAL, p, "davrods_merge_dir_config: set_exposed_root failed");
-  			conf = NULL;
+  			conf_p = NULL;
   		}
 
-#undef DAVRODS_PROP_MERGE
-
-    return conf;
+    return conf_p;
 }
 
 // Config setters {{{
@@ -342,7 +305,7 @@ static const char *cmd_davrods_html_header (cmd_parms *cmd_p, void *config_p, co
 {
     davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-    conf_p -> theme.ht_head_s = arg_p;
+    conf_p -> theme_p -> ht_head_s = arg_p;
 
     return NULL;
 }
@@ -353,7 +316,7 @@ static const char *cmd_davrods_html_top (cmd_parms *cmd_p, void *config_p, const
 {
     davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-    conf_p -> theme.ht_top_s = arg_p;
+    conf_p -> theme_p -> ht_top_s = arg_p;
 
     return NULL;
 }
@@ -364,7 +327,7 @@ static const char *cmd_davrods_html_bottom (cmd_parms *cmd_p, void *config_p, co
 {
     davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-    conf_p -> theme.ht_bottom_s = arg_p;
+    conf_p -> theme_p -> ht_bottom_s = arg_p;
 
     return NULL;
 }
@@ -375,7 +338,7 @@ static const char *cmd_davrods_html_collection_icon (cmd_parms *cmd_p, void *con
 {
     davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-    conf_p -> theme.ht_collection_icon_s = arg_p;
+    conf_p -> theme_p -> ht_collection_icon_s = arg_p;
 
     return NULL;
 }
@@ -386,7 +349,7 @@ static const char *cmd_davrods_html_object_icon (cmd_parms *cmd_p, void *config_
 {
     davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-    conf_p -> theme.ht_object_icon_s = arg_p;
+    conf_p -> theme_p -> ht_object_icon_s = arg_p;
 
     return NULL;
 }
@@ -397,7 +360,7 @@ static const char *cmd_davrods_html_parent_icon (cmd_parms *cmd_p, void *config_
 {
     davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-    conf_p -> theme.ht_parent_icon_s = arg_p;
+    conf_p -> theme_p -> ht_parent_icon_s = arg_p;
 
     return NULL;
 }
@@ -407,7 +370,7 @@ static const char *cmd_davrods_html_listing_class (cmd_parms *cmd_p, void *confi
 {
     davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-    conf_p -> theme.ht_listing_class_s = arg_p;
+    conf_p -> theme_p -> ht_listing_class_s = arg_p;
 
     return NULL;
 }
@@ -431,7 +394,7 @@ static const char *cmd_davrods_html_metadata (cmd_parms *cmd_p, void *config_p, 
 
     if (!strcasecmp (arg_p, "true"))
     	{
-    		conf_p -> theme.ht_show_metadata_flag = 1;
+    		conf_p -> theme_p -> ht_show_metadata_flag = 1;
     	}
 
     return NULL;
@@ -444,7 +407,7 @@ static const char *cmd_davrods_html_ids (cmd_parms *cmd_p, void *config_p, const
 
     if (!strcasecmp (arg_p, "true"))
     	{
-    		conf_p -> theme.ht_show_ids_flag = 1;
+    		conf_p -> theme_p -> ht_show_ids_flag = 1;
     	}
 
     return NULL;
@@ -482,13 +445,13 @@ static const char *cmd_davrods_html_add_icon (cmd_parms *cmd_p, void *config_p, 
 {
   davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-  if (! (conf_p -> theme.ht_icons_map_p))
+  if (! (conf_p -> theme_p -> ht_icons_map_p))
   	{
   		const int INITIAL_TABLE_SIZE = 16;
-  		conf_p -> theme.ht_icons_map_p = apr_table_make (cmd_p -> pool, INITIAL_TABLE_SIZE);
+  		conf_p -> theme_p -> ht_icons_map_p = apr_table_make (cmd_p -> pool, INITIAL_TABLE_SIZE);
   	}
 
-  apr_table_set (conf_p -> theme.ht_icons_map_p, suffix_s, icon_s);
+  apr_table_set (conf_p -> theme_p -> ht_icons_map_p, suffix_s, icon_s);
 
   return NULL;
 }

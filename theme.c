@@ -26,21 +26,28 @@ static int PrintTableEntryToOption (void *data_p, const char *key_s, const char 
 /*************************************/
 
 
-void InitHtmlTheme (struct HtmlTheme *theme_p)
+struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 {
-  theme_p -> ht_head_s = NULL;
-  theme_p -> ht_top_s = NULL;
-  theme_p -> ht_bottom_s = NULL;
-  theme_p -> ht_collection_icon_s = NULL;
-  theme_p -> ht_object_icon_s = NULL;
-  theme_p -> ht_parent_icon_s = NULL;
-  theme_p -> ht_listing_class_s = NULL;
-  theme_p -> ht_show_metadata_flag = 0;
-  theme_p -> ht_rest_api_s = NULL;
+	struct HtmlTheme *theme_p = (struct HtmlTheme *) apr_pcalloc (pool_p, sizeof (struct HtmlTheme));
 
-  theme_p -> ht_show_ids_flag = 0;
-  theme_p -> ht_add_search_form_flag = 1;
-  theme_p -> ht_icons_map_p = NULL;
+	if (theme_p)
+		{
+		  theme_p -> ht_head_s = NULL;
+		  theme_p -> ht_top_s = NULL;
+		  theme_p -> ht_bottom_s = NULL;
+		  theme_p -> ht_collection_icon_s = NULL;
+		  theme_p -> ht_object_icon_s = NULL;
+		  theme_p -> ht_parent_icon_s = NULL;
+		  theme_p -> ht_listing_class_s = NULL;
+		  theme_p -> ht_show_metadata_flag = 0;
+		  theme_p -> ht_rest_api_s = NULL;
+
+		  theme_p -> ht_show_ids_flag = 0;
+		  theme_p -> ht_add_search_form_flag = 1;
+		  theme_p -> ht_icons_map_p = NULL;
+		}
+
+	return theme_p;
 }
 
 
@@ -68,13 +75,12 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 		}
 
 	davrods_dir_conf_t *conf_p = davrods_resource_p->conf;
-	struct HtmlTheme *theme_p = &(conf_p->theme);
 
 	const char * const user_s = davrods_resource_p -> rods_conn -> clientUser.userName;
 
 	// Make brigade.
 	apr_bucket_brigade *bucket_brigade_p = apr_brigade_create (pool_p, output_p -> c -> bucket_alloc);
-	apr_status_t apr_status = PrintAllHTMLBeforeListing (theme_p, davrods_resource_p -> relative_uri, user_s, conf_p -> rods_zone, conf_p -> davrods_api_path_s, req_p, bucket_brigade_p, pool_p);
+	apr_status_t apr_status = PrintAllHTMLBeforeListing (davrods_resource_p -> relative_uri, user_s, conf_p, req_p, bucket_brigade_p, pool_p);
 
 
 	if (apr_status == APR_SUCCESS)
@@ -99,7 +105,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 									if (apr_status == APR_SUCCESS)
 										{
-											apr_status = PrintItem (theme_p, &irods_obj, &irods_config, bucket_brigade_p, pool_p, resource_p -> info -> rods_conn, req_p);
+											apr_status = PrintItem (conf_p -> theme_p, &irods_obj, &irods_config, bucket_brigade_p, pool_p, resource_p -> info -> rods_conn, req_p);
 
 											if (apr_status != APR_SUCCESS)
 												{
@@ -152,7 +158,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "PrintAllHTMLBeforeListing failed");
 		}
 
-	apr_status = PrintAllHTMLAfterListing (theme_p, req_p, bucket_brigade_p, pool_p);
+	apr_status = PrintAllHTMLAfterListing (conf_p -> theme_p, req_p, bucket_brigade_p, pool_p);
 	if (apr_status != APR_SUCCESS)
 		{
 			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "PrintAllHTMLAfterListing failed");
@@ -203,11 +209,14 @@ apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, request_rec *r
 }
 
 
-apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * const relative_uri_s, const char * const user_s, const char * const zone_s, const char * const api_path_s, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
+
+apr_status_t PrintAllHTMLBeforeListing (const char * const relative_uri_s, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
 {
 	// Send start of HTML document.
 	const char *escaped_relative_uri_s = ap_escape_html (pool_p, relative_uri_s);
-	const char *escaped_zone_s = ap_escape_html (pool_p, zone_s);
+	const char *escaped_zone_s = ap_escape_html (pool_p, conf_p -> rods_zone);
+	const char * const api_path_s = conf_p -> davrods_api_path_s;
+
 
 	/*
 	 * Print the start of the doc
@@ -224,9 +233,9 @@ apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * 
 	/*
 	 * If we have additional data for the <head> section, add it here.
 	 */
-	if (theme_p -> ht_head_s)
+	if (conf_p -> theme_p -> ht_head_s)
 		{
-			apr_status = PrintBasicStringToBucketBrigade (theme_p -> ht_head_s, bucket_brigade_p, req_p, __FILE__, __LINE__);
+			apr_status = PrintBasicStringToBucketBrigade (conf_p -> theme_p -> ht_head_s, bucket_brigade_p, req_p, __FILE__, __LINE__);
 
 			if (apr_status != APR_SUCCESS)
 				{
@@ -255,9 +264,9 @@ apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * 
 	/*
 	 * If we have additional data to go above the directory listing, add it here.
 	 */
-	if (theme_p -> ht_top_s)
+	if (conf_p -> theme_p -> ht_top_s)
 		{
-			apr_status = PrintBasicStringToBucketBrigade (theme_p -> ht_top_s, bucket_brigade_p, req_p, __FILE__, __LINE__);
+			apr_status = PrintBasicStringToBucketBrigade (conf_p -> theme_p -> ht_top_s, bucket_brigade_p, req_p, __FILE__, __LINE__);
 
 			if (apr_status != APR_SUCCESS)
 				{
@@ -267,7 +276,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * 
 		}		/* if (theme_p -> ht_top_s) */
 
 
-	if (theme_p -> ht_add_search_form_flag)
+	if (conf_p -> theme_p -> ht_add_search_form_flag)
 		{
 			apr_pool_t *davrods_pool_p = GetDavrodsMemoryPool (req_p);
 
@@ -319,7 +328,15 @@ apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * 
 	/*
 	 * Print the user status
 	 */
-	apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<main>\n<h1>You are logged in as %s and browsing the index of %s on %s</h1>\n", user_s, escaped_relative_uri_s, escaped_zone_s);
+	if (strcmp (user_s, conf_p -> davrods_public_username_s) != 0)
+		{
+			apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<main>\n<h1>You are logged in as %s and browsing the index of %s on %s</h1>\n", user_s, escaped_relative_uri_s, escaped_zone_s);
+		}
+	else
+		{
+			apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<main>\n<h1>You are browsing the index of %s on %s</h1>\n", escaped_relative_uri_s, escaped_zone_s);
+		}
+
 	if (apr_status != APR_SUCCESS)
 		{
 			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to add the user status with user \"%s\", uri \"%s\", zone \"%s\"", user_s, escaped_relative_uri_s, escaped_zone_s);
@@ -329,7 +346,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * 
 
 	if (strcmp (relative_uri_s, "/"))
 		{
-			apr_status = PrintParentLink (theme_p -> ht_parent_icon_s, req_p, bucket_brigade_p, pool_p);
+			apr_status = PrintParentLink (conf_p -> theme_p -> ht_parent_icon_s, req_p, bucket_brigade_p, pool_p);
 
 			if (apr_status != APR_SUCCESS)
 				{
@@ -343,10 +360,10 @@ apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * 
 	/*
 	 * Add the listing class
 	 */
-	apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<table class=\"%s\">\n<thead>\n<tr>", theme_p -> ht_listing_class_s ? theme_p -> ht_listing_class_s : "listing");
+	apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<table class=\"%s\">\n<thead>\n<tr>", conf_p -> theme_p -> ht_listing_class_s ? conf_p -> theme_p -> ht_listing_class_s : "listing");
 	if (apr_status != APR_SUCCESS)
 		{
-			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to add start of table listing with class \"%s\"", theme_p -> ht_listing_class_s ? theme_p -> ht_listing_class_s : "listing");
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to add start of table listing with class \"%s\"",conf_p -> theme_p -> ht_listing_class_s ? conf_p -> theme_p -> ht_listing_class_s : "listing");
 			return apr_status;
 		} /* if (apr_ret != APR_SUCCESS) */
 
@@ -354,7 +371,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * 
 	/*
 	 * If we are going to display icons, add the column
 	 */
-	if (AreIconsDisplayed (theme_p))
+	if (AreIconsDisplayed (conf_p -> theme_p))
 		{
 			apr_status = PrintBasicStringToBucketBrigade ("<th class=\"icon\"></th>", bucket_brigade_p, req_p, __FILE__, __LINE__);
 
@@ -373,7 +390,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * 
 		} /* if (apr_ret != APR_SUCCESS) */
 
 
-	if (theme_p -> ht_show_metadata_flag)
+	if (conf_p -> theme_p -> ht_show_metadata_flag)
 		{
 			apr_status = PrintBasicStringToBucketBrigade ("<th class=\"properties\">Properties</th>", bucket_brigade_p, req_p, __FILE__, __LINE__);
 
@@ -551,6 +568,45 @@ apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_
 
 	return status;
 }
+
+
+void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p, davrods_dir_conf_t *child_p, apr_pool_t *pool_p)
+{
+	DAVRODS_PROP_MERGE(theme_p -> ht_head_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_top_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_bottom_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_collection_icon_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_object_icon_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_parent_icon_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_listing_class_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_show_metadata_flag);
+	DAVRODS_PROP_MERGE(theme_p -> ht_show_ids_flag);
+
+	if (child_p -> theme_p -> ht_icons_map_p)
+		{
+			if (parent_p -> theme_p -> ht_icons_map_p)
+				{
+					conf_p -> theme_p -> ht_icons_map_p = apr_table_overlay (pool_p, parent_p -> theme_p -> ht_icons_map_p, child_p -> theme_p -> ht_icons_map_p);
+				}
+			else
+				{
+					conf_p -> theme_p -> ht_icons_map_p = child_p -> theme_p -> ht_icons_map_p;
+				}
+		}
+	else
+		{
+			if (parent_p -> theme_p -> ht_icons_map_p)
+				{
+					conf_p -> theme_p -> ht_icons_map_p = parent_p -> theme_p -> ht_icons_map_p;
+				}
+			else
+				{
+					conf_p -> theme_p -> ht_icons_map_p = NULL;
+				}
+		}
+}
+
+
 
 
 static int AreIconsDisplayed (const struct HtmlTheme *theme_p)

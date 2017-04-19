@@ -19,6 +19,7 @@
 #include "common.h"
 #include "rest.h"
 #include "auth.h"
+#include "theme.h"
 
 /*************************************/
 
@@ -438,10 +439,9 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 	SearchOperator ops_p [] = { SO_EQUALS, op };
 	int select_columns_p [] =  { COL_META_DATA_ATTR_ID, -1, -1};
 	genQueryOut_t *meta_id_results_p = NULL;
-	struct HtmlTheme *theme_p = & (conf_p -> theme);
 	apr_bucket_brigade *bucket_brigade_p = apr_brigade_create (pool_p, bucket_allocator_p);
 
-	apr_status_t apr_status = PrintAllHTMLBeforeListing (theme_p, relative_uri_s, username_s, conf_p -> rods_zone, conf_p -> davrods_api_path_s, req_p, bucket_brigade_p, pool_p);
+	apr_status_t apr_status = PrintAllHTMLBeforeListing (relative_uri_s, username_s, conf_p, req_p, bucket_brigade_p, pool_p);
 
 	/*
 	 * SELECT meta_id FROM r_meta_main WHERE meta_attr_name = ' ' AND meta_attr_value = ' ';
@@ -542,7 +542,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 
 																							SetIRodsObject (&irods_obj, COLL_OBJ_T, id_s, NULL, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize);
 
-																							apr_status = PrintItem (theme_p, &irods_obj, &irods_config, bucket_brigade_p, pool_p, connection_p, req_p);
+																							apr_status = PrintItem (conf_p -> theme_p, &irods_obj, &irods_config, bucket_brigade_p, pool_p, connection_p, req_p);
 
 																							if (apr_status != APR_SUCCESS)
 																								{
@@ -657,7 +657,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 
 																															SetIRodsObject (&irods_obj, DATA_OBJ_T, id_s, data_name_s, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize);
 
-																															apr_status = PrintItem (theme_p, &irods_obj, &irods_config, bucket_brigade_p, pool_p, connection_p, req_p);
+																															apr_status = PrintItem (conf_p -> theme_p, &irods_obj, &irods_config, bucket_brigade_p, pool_p, connection_p, req_p);
 
 																															if (apr_status != APR_SUCCESS)
 																																{
@@ -707,7 +707,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 		}		/* if (meta_id_results_p) */
 
 
-	apr_status = PrintAllHTMLAfterListing (theme_p, req_p, bucket_brigade_p, pool_p);
+	apr_status = PrintAllHTMLAfterListing (conf_p -> theme_p, req_p, bucket_brigade_p, pool_p);
 
 
 	CloseBucketsStream (bucket_brigade_p);

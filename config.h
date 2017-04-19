@@ -24,12 +24,13 @@
 
 #include "mod_davrods.h"
 
-#include "theme.h"
+/* forawrd declaration */
+struct HtmlTheme;
 
 /**
  * \brief Davrods per-directory config structure.
  */
-typedef struct {
+typedef struct davrods_dir_conf {
     const char *rods_host;
     uint16_t    rods_port;
     const char *rods_zone;
@@ -64,7 +65,7 @@ typedef struct {
     } rods_exposed_root_type;
 
     int themed_listings;
-    struct HtmlTheme theme;
+    struct HtmlTheme *theme_p;
 
     const char *davrods_api_path_s;
     const char *davrods_public_username_s;
@@ -76,5 +77,14 @@ extern const command_rec davrods_directives[];
 
 void *davrods_create_dir_config(apr_pool_t *p, char *dir);
 void *davrods_merge_dir_config( apr_pool_t *p, void *base, void *overrides);
+
+
+#define DAVRODS_PROP_MERGE(_prop) \
+    conf_p->_prop = child_p->_prop \
+        ? child_p->_prop \
+        : parent_p->_prop \
+            ? parent_p->_prop \
+            : conf_p->_prop
+
 
 #endif /* _DAVRODS_CONFIG_H_ */

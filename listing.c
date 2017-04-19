@@ -10,6 +10,7 @@
 
 #include "repo.h"
 #include "meta.h"
+#include "theme.h"
 
 #include "apr_strings.h"
 #include "apr_time.h"

@@ -17,7 +17,7 @@
 
 
 #include "listing.h"
-
+#include "config.h"
 
 struct HtmlTheme
 {
@@ -43,9 +43,14 @@ struct HtmlTheme
 
 	int ht_add_search_form_flag;
 
+	int ht_active_flag;
+
 	apr_table_t *ht_icons_map_p;
 };
 
+
+/* forward declaration */
+struct davrods_dir_conf;
 
 
 #ifdef __cplusplus
@@ -55,15 +60,17 @@ extern "C"
 
 
 
-void InitHtmlTheme (struct HtmlTheme *theme_p);
+struct HtmlTheme * AllocateHtmlTheme (apr_pool_t *pool_p);
 
 dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *output_p);
 
 apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_p, const IRodsConfig *config_p, apr_bucket_brigade *bb_p, apr_pool_t *pool_p, rcComm_t *connection_p, request_rec *req_p);
 
-apr_status_t PrintAllHTMLBeforeListing (struct HtmlTheme *theme_p, const char * const relative_uri_s, const char * const user_s, const char * const zone_s, const char * const api_path_s, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p);
+apr_status_t PrintAllHTMLBeforeListing (const char * const relative_uri_s, const char * const user_s, struct davrods_dir_conf *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p);
 
 apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p);
+
+void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p, davrods_dir_conf_t *child_p, apr_pool_t *pool_p);
 
 
 #ifdef __cplusplus
