@@ -1178,7 +1178,7 @@ apr_status_t PrintMetadata (const apr_array_header_t *metadata_list_p, apr_bucke
 apr_array_header_t *GetAllDataObjectMetadataKeys (apr_pool_t *pool_p, rcComm_t *connection_p)
 {
 	apr_array_header_t *metadata_keys_p = NULL;
-	int select_columns_p [3] = { COL_META_DATA_ATTR_NAME, COL_META_DATA_ATTR_VALUE, -1};
+	int select_columns_p [2] = { COL_META_DATA_ATTR_NAME, -1};
 	genQueryOut_t *results_p = RunQuery (connection_p, select_columns_p, NULL, NULL, NULL, 0, 0, pool_p);
 
 	if (results_p)
