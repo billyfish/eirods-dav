@@ -441,7 +441,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 	genQueryOut_t *meta_id_results_p = NULL;
 	apr_bucket_brigade *bucket_brigade_p = apr_brigade_create (pool_p, bucket_allocator_p);
 
-	apr_status_t apr_status = PrintAllHTMLBeforeListing (relative_uri_s, username_s, conf_p, req_p, bucket_brigade_p, pool_p);
+	apr_status_t apr_status = PrintAllHTMLBeforeListing (NULL, relative_uri_s, username_s, conf_p, req_p, bucket_brigade_p, pool_p);
 
 	/*
 	 * SELECT meta_id FROM r_meta_main WHERE meta_attr_name = ' ' AND meta_attr_value = ' ';

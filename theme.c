@@ -80,7 +80,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 	// Make brigade.
 	apr_bucket_brigade *bucket_brigade_p = apr_brigade_create (pool_p, output_p -> c -> bucket_alloc);
-	apr_status_t apr_status = PrintAllHTMLBeforeListing (davrods_resource_p -> relative_uri, user_s, conf_p, req_p, bucket_brigade_p, pool_p);
+	apr_status_t apr_status = PrintAllHTMLBeforeListing (davrods_resource_p, NULL, user_s, conf_p, req_p, bucket_brigade_p, pool_p);
 
 
 	if (apr_status == APR_SUCCESS)
@@ -210,13 +210,22 @@ apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, request_rec *r
 
 
 
-apr_status_t PrintAllHTMLBeforeListing (const char * const relative_uri_s, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
+apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_resource_p, const char *relative_uri_s, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
 {
 	// Send start of HTML document.
-	const char *escaped_relative_uri_s = ap_escape_html (pool_p, relative_uri_s);
+	const char *escaped_relative_uri_s = NULL;
 	const char *escaped_zone_s = ap_escape_html (pool_p, conf_p -> rods_zone);
 	const char * const api_path_s = conf_p -> davrods_api_path_s;
 
+
+	if (davrods_resource_p)
+		{
+			escaped_relative_uri_s = ap_escape_html (pool_p, davrods_resource_p -> relative_uri);
+		}
+	else if (relative_uri_s)
+		{
+			escaped_relative_uri_s = ap_escape_html (pool_p, relative_uri_s);
+		}
 
 	/*
 	 * Print the start of the doc
@@ -291,17 +300,16 @@ apr_status_t PrintAllHTMLBeforeListing (const char * const relative_uri_s, const
 							if (keys_p)
 								{
 									/* Get the Location path where davrods is hosted */
-									const char *ptr = strstr (req_p -> uri, api_path_s);
-									char *davrods_path_s = NULL;
+									const char *davrods_path_s = NULL;
 									int i;
 
-									if (ptr)
+									if (davrods_resource_p)
 										{
-											davrods_path_s = apr_pstrmemdup (req_p -> pool, req_p -> uri, ptr - (req_p -> uri));
-										}
+											davrods_path_s = davrods_resource_p -> root_dir;
+										}		/* if (davrods_resource_p) */
 									else
 										{
-											davrods_path_s = req_p -> uri;
+											davrods_path_s = relative_uri_s;
 										}
 
 									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<form action=\"%s/%s/metadata\" class=\"search_form\">\nSearch: <select name=\"key\">\n", davrods_path_s, api_path_s);
@@ -344,7 +352,7 @@ apr_status_t PrintAllHTMLBeforeListing (const char * const relative_uri_s, const
 		} /* if (apr_ret != APR_SUCCESS) */
 
 
-	if (strcmp (relative_uri_s, "/"))
+	if ((davrods_resource_p != NULL) && (strcmp (davrods_resource_p -> relative_uri, "/")))
 		{
 			apr_status = PrintParentLink (conf_p -> theme_p -> ht_parent_icon_s, req_p, bucket_brigade_p, pool_p);
 
