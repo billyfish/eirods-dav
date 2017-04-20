@@ -210,30 +210,29 @@ apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, request_rec *r
 
 
 
-apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_resource_p, const char *relative_uri_s, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
+apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_resource_p, const char * const page_title_s, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
 {
 	// Send start of HTML document.
-	const char *escaped_relative_uri_s = NULL;
+	const char *escaped_page_title_s = "";
 	const char *escaped_zone_s = ap_escape_html (pool_p, conf_p -> rods_zone);
 	const char * const api_path_s = conf_p -> davrods_api_path_s;
 
 
 	if (davrods_resource_p)
 		{
-			escaped_relative_uri_s = ap_escape_html (pool_p, davrods_resource_p -> relative_uri);
+			escaped_page_title_s = ap_escape_html (pool_p, davrods_resource_p -> relative_uri);
 		}
-	else if (relative_uri_s)
+	else if (page_title_s)
 		{
-			escaped_relative_uri_s = ap_escape_html (pool_p, relative_uri_s);
+			escaped_page_title_s = ap_escape_html (pool_p, page_title_s);
 		}
-
 	/*
 	 * Print the start of the doc
 	 */
-	apr_status_t apr_status =	apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<!DOCTYPE html>\n<html lang=\"en\">\n<head><title>Index of %s on %s</title>\n", escaped_relative_uri_s, escaped_zone_s);
+	apr_status_t apr_status =	apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<!DOCTYPE html>\n<html lang=\"en\">\n<head><title>Index of %s on %s</title>\n", escaped_page_title_s, escaped_zone_s);
 	if (apr_status != APR_SUCCESS)
 		{
-			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to add start of html doc with relative uri \"%s\" and zone \"%s\"", escaped_relative_uri_s, escaped_zone_s);
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to add start of html doc with relative uri \"%s\" and zone \"%s\"", escaped_page_title_s, escaped_zone_s);
 
 			return apr_status;
 		}
@@ -311,7 +310,17 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 										}		/* if (davrods_resource_p) */
 									else
 										{
-											davrods_path_s = relative_uri_s;
+											char *metadata_path_s = apr_pstrcat (pool_p, api_path_s, REST_METADATA_PATH_S, NULL);
+
+											if (metadata_path_s)
+												{
+													char *api_in_uri_s = strstr (req_p -> uri, metadata_path_s);
+
+													if (api_in_uri_s)
+														{
+															davrods_path_s = apr_pstrndup (pool_p, req_p -> uri, api_in_uri_s - (req_p -> uri));
+														}
+												}
 										}
 
 									/*
@@ -356,7 +365,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 												}
 										}
 
-									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<form action=\"%s%s%smetadata\" class=\"search_form\">\nSearch: <select name=\"key\">\n", davrods_path_s, first_delimiter_s, api_path_s, second_delimiter_s);
+									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<form action=\"%s%s%s%s%s\" class=\"search_form\">\nSearch: <select name=\"key\">\n", davrods_path_s, first_delimiter_s, api_path_s, second_delimiter_s, REST_METADATA_PATH_S);
 
 							    for (i = 0; i < keys_p -> nelts; ++ i)
 							    	{
@@ -382,16 +391,16 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 	 */
 	if (strcmp (user_s, conf_p -> davrods_public_username_s) != 0)
 		{
-			apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<main>\n<h1>You are logged in as %s and browsing the index of %s on %s</h1>\n", user_s, escaped_relative_uri_s, escaped_zone_s);
+			apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<main>\n<h1>You are logged in as %s and browsing the index of %s on %s</h1>\n", user_s, escaped_page_title_s, escaped_zone_s);
 		}
 	else
 		{
-			apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<main>\n<h1>You are browsing the index of %s on %s</h1>\n", escaped_relative_uri_s, escaped_zone_s);
+			apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<main>\n<h1>You are browsing the index of %s on %s</h1>\n", escaped_page_title_s, escaped_zone_s);
 		}
 
 	if (apr_status != APR_SUCCESS)
 		{
-			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to add the user status with user \"%s\", uri \"%s\", zone \"%s\"", user_s, escaped_relative_uri_s, escaped_zone_s);
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to add the user status with user \"%s\", uri \"%s\", zone \"%s\"", user_s, escaped_page_title_s);
 			return apr_status;
 		} /* if (apr_ret != APR_SUCCESS) */
 

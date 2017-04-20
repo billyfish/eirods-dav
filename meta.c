@@ -415,7 +415,7 @@ static int AddWhereClausesToQuery (genQueryInp_t *query_p, const int *where_colu
 }
 
 
-char *DoMetadataSearch (const char * const key_s, const char *value_s, const SearchOperator op, const char * const username_s, const char * const relative_uri_s, apr_pool_t *pool_p, rcComm_t *connection_p, struct apr_bucket_alloc_t *bucket_allocator_p, davrods_dir_conf_t *conf_p, request_rec *req_p, const char *davrods_path_s)
+char *DoMetadataSearch (const char * const key_s, const char *value_s, const SearchOperator op, const char * const username_s, apr_pool_t *pool_p, rcComm_t *connection_p, struct apr_bucket_alloc_t *bucket_allocator_p, davrods_dir_conf_t *conf_p, request_rec *req_p, const char *davrods_path_s)
 {
     /*
      * SELECT meta_id FROM r_meta_main WHERE meta_attr_name = ' ' AND meta_attr_value = ' ';
@@ -440,6 +440,8 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 	int select_columns_p [] =  { COL_META_DATA_ATTR_ID, -1, -1};
 	genQueryOut_t *meta_id_results_p = NULL;
 	apr_bucket_brigade *bucket_brigade_p = apr_brigade_create (pool_p, bucket_allocator_p);
+
+	char *relative_uri_s = apr_pstrcat (pool_p, "metadata search results for ", key_s, ":", value_s, NULL);
 
 	apr_status_t apr_status = PrintAllHTMLBeforeListing (NULL, relative_uri_s, username_s, conf_p, req_p, bucket_brigade_p, pool_p);
 

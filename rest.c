@@ -171,10 +171,7 @@ static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_
 
 							if (rods_connection_p)
 								{
-
-									char *relative_uri_s = apr_pstrcat (pool_p, "metadata search results for ", key_s, ":", value_s, NULL);
-
-									char *result_s = DoMetadataSearch (key_s, value_s, op, rods_connection_p -> clientUser.userName, relative_uri_s, pool_p, rods_connection_p, req_p -> connection -> bucket_alloc, config_p, req_p, davrods_path_s);
+									char *result_s = DoMetadataSearch (key_s, value_s, op, rods_connection_p -> clientUser.userName, pool_p, rods_connection_p, req_p -> connection -> bucket_alloc, config_p, req_p, davrods_path_s);
 
 									if (result_s)
 										{
