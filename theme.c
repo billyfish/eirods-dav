@@ -301,7 +301,9 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 								{
 									/* Get the Location path where davrods is hosted */
 									const char *davrods_path_s = NULL;
-									int i;
+									const char *first_delimiter_s = "/";
+									const char *second_delimiter_s = "/";
+									int i = 0;
 
 									if (davrods_resource_p)
 										{
@@ -312,7 +314,49 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 											davrods_path_s = relative_uri_s;
 										}
 
-									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<form action=\"%s/%s/metadata\" class=\"search_form\">\nSearch: <select name=\"key\">\n", davrods_path_s, api_path_s);
+									/*
+									 * make sure we don't have double forward-slash in the form action
+									 *
+									 * davrods_path_s/api_path_s
+									 */
+									if (davrods_path_s)
+										{
+											size_t davrods_path_length = strlen (davrods_path_s);
+
+											if (* (davrods_path_s + (davrods_path_length - 1)) == '/')
+												{
+													if ((api_path_s) && (*api_path_s == '/'))
+														{
+															first_delimiter_s = "\b";
+														}
+													else
+														{
+															first_delimiter_s = "";
+														}
+
+													i = 1;
+												}
+										}
+
+									if (api_path_s)
+										{
+											size_t api_path_length = strlen (api_path_s);
+
+											if (i == 0)
+												{
+													if (*api_path_s == '/')
+														{
+															first_delimiter_s = "";
+														}
+												}
+
+											if (* (api_path_s + (api_path_length - 1)) == '/')
+												{
+													second_delimiter_s = "";
+												}
+										}
+
+									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<form action=\"%s%s%smetadata\" class=\"search_form\">\nSearch: <select name=\"key\">\n", davrods_path_s, first_delimiter_s, api_path_s, second_delimiter_s);
 
 							    for (i = 0; i < keys_p -> nelts; ++ i)
 							    	{
