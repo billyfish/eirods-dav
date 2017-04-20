@@ -188,11 +188,11 @@ char *GetIRodsObjectRelativeLink (const IRodsObject *irods_obj_p, const IRodsCon
 
 			if (strncmp (config_p -> ic_exposed_root_s, irods_obj_p -> io_collection_s, l) == 0)
 				{
-					//char *escaped_uri_root_s = ap_escape_html (pool_p, ap_escape_uri (pool_p, config_p -> ic_root_path_s));
+					char *escaped_uri_root_s = ap_escape_html (pool_p, ap_escape_uri (pool_p, config_p -> ic_root_path_s));
 					char *escaped_relative_collection_s = ap_escape_html (pool_p, ap_escape_uri (pool_p, (irods_obj_p -> io_collection_s) + l));
 					const char *separator_s = "";
 
-					/*
+
 					l = strlen (escaped_uri_root_s);
 
 					if (l == 0)
@@ -206,19 +206,19 @@ char *GetIRodsObjectRelativeLink (const IRodsObject *irods_obj_p, const IRodsCon
 									separator_s = "/";
 								}
 						}
-					*/
+
 
 					if (irods_obj_p -> io_data_s)
 						{
 							char *escaped_data_s = ap_escape_html (pool_p, irods_obj_p -> io_data_s);
 
-							res_s = apr_pstrcat (pool_p, escaped_relative_collection_s, "/", escaped_data_s, NULL);
-						//	res_s = apr_pstrcat (pool_p, escaped_uri_root_s, separator_s, escaped_relative_collection_s, "/", escaped_data_s, NULL);
+							//res_s = apr_pstrcat (pool_p, "./", escaped_relative_collection_s, "/", escaped_data_s, NULL);
+							res_s = apr_pstrcat (pool_p, escaped_uri_root_s, separator_s, escaped_relative_collection_s, "/", escaped_data_s, NULL);
 						}
 					else
 						{
-						//	res_s = apr_pstrcat (pool_p, escaped_uri_root_s, separator_s, escaped_relative_collection_s, "/", NULL);
-							res_s = apr_pstrcat (pool_p, escaped_relative_collection_s, "/", NULL);
+							res_s = apr_pstrcat (pool_p, escaped_uri_root_s, separator_s, escaped_relative_collection_s, "/", NULL);
+							//res_s = apr_pstrcat (pool_p, "./", escaped_relative_collection_s, "/", NULL);
 						}
 
 				}
