@@ -70,6 +70,9 @@ static int SortStringPointers (const void  *v0_p, const void *v1_p);
 
 static int CopyTableKeysToArray (void *data_p, const char *key_s, const char *value_s);
 
+static int AddKeysToTable (apr_pool_t *pool_p, rcComm_t *connection_p, const int *columns_p, apr_table_t *table_p);
+
+
 /*************************************/
 
 
@@ -1180,35 +1183,27 @@ apr_status_t PrintMetadata (const apr_array_header_t *metadata_list_p, apr_bucke
 apr_array_header_t *GetAllDataObjectMetadataKeys (apr_pool_t *pool_p, rcComm_t *connection_p)
 {
 	apr_array_header_t *metadata_keys_p = NULL;
-	int select_columns_p [2] = { COL_META_DATA_ATTR_NAME, -1};
-	genQueryOut_t *results_p = RunQuery (connection_p, select_columns_p, NULL, NULL, NULL, 0, 0, pool_p);
+	const int INITIAL_TABLE_SIZE = 32;
+	apr_table_t *table_p = apr_table_make (pool_p, INITIAL_TABLE_SIZE);
 
-	if (results_p)
+	if (table_p)
 		{
-			if (results_p -> rowCnt > 0)
+			int columns_p [2] = { COL_META_DATA_ATTR_NAME, -1};
+			int data_count = AddKeysToTable (pool_p, connection_p, columns_p, table_p);
+
+			if (data_count >= 0)
 				{
-					/* remove all duplicates */
-					apr_table_t *table_p = apr_table_make (pool_p, results_p -> rowCnt);
+					int coll_count;
 
-					if (table_p)
+					*columns_p = COL_META_COLL_ATTR_NAME;
+
+					coll_count = AddKeysToTable (pool_p, connection_p, columns_p, table_p);
+
+					if (coll_count >= 0)
 						{
-							int i;
-							sqlResult_t *sql_p = & (results_p -> sqlResult [0]);
-							char *value_s = sql_p -> value;
-							size_t count = 0;
-
-							for (i = results_p -> rowCnt; i > 0; -- i, value_s += sql_p -> len)
-								{
-									if (!apr_table_get (table_p, value_s))
-										{
-											apr_table_setn (table_p, value_s, value_s);
-											++ count;
-										}
-								}
-
 							/* Now the table contains no duplicates */
 							/* Copy each of the keys into an arrayULL */
-							metadata_keys_p = apr_array_make (pool_p, count, (sizeof (char *)));
+							metadata_keys_p = apr_array_make (pool_p, coll_count + data_count, (sizeof (char *)));
 
 							if (metadata_keys_p)
 								{
@@ -1218,15 +1213,46 @@ apr_array_header_t *GetAllDataObjectMetadataKeys (apr_pool_t *pool_p, rcComm_t *
 											qsort (metadata_keys_p -> elts, metadata_keys_p -> nelts, sizeof (char *), SortStringPointers);
 										}
 								}
+						}
+				}
+		}
 
-						}		/* if (table_p) */
 
+
+	return metadata_keys_p;
+}
+
+
+static int AddKeysToTable (apr_pool_t *pool_p, rcComm_t *connection_p, const int *columns_p, apr_table_t *table_p)
+{
+	int count = -1;
+	genQueryOut_t *results_p = RunQuery (connection_p, columns_p, NULL, NULL, NULL, 0, 0, pool_p);
+
+	if (results_p)
+		{
+			count = 0;
+
+			if (results_p -> rowCnt > 0)
+				{
+					/* remove all duplicates */
+					int i;
+					sqlResult_t *sql_p = & (results_p -> sqlResult [0]);
+					char *value_s = sql_p -> value;
+
+					for (i = results_p -> rowCnt; i > 0; -- i, value_s += sql_p -> len)
+						{
+							if (!apr_table_get (table_p, value_s))
+								{
+									apr_table_setn (table_p, value_s, value_s);
+									++ count;
+								}
+						}
 				}
 
 			freeGenQueryOut (&results_p);
 		}
 
-	return metadata_keys_p;
+	return count;
 }
 
 
