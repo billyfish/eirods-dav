@@ -1,5 +1,6 @@
 # Davrods build system.
 # Author: Chris Smeele
+# Author: Simon Tyrrell
 # Copyright (c) 2016, Utrecht University
 
 
