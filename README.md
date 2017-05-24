@@ -19,6 +19,9 @@ Notable features include:
 - Expose and navigate by metadata key-value pairs.
 - Search the metadata catalogue.
 
+An working demo of this module showing the themeable listings along with metadata searching and linking is available at  https://wheatis.tgac.ac.uk/davrods/browse/reads/.
+
+
 ## Installation ##
 
 ### Prerequisites ###
