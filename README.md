@@ -40,12 +40,20 @@ These three packages all provide the necessary libraries in
 ### Using the binary distribution ###
 
 For binary installation, download the package for your platform at
-https://github.com/UtrechtUniversity/davrods/releases and install it
-using your package manager.
+https://github.com/billyfish/davrods/releases and copy the module to the 
+`modules` directory of your Apache httpd installation. If the binary version 
+is not available, then you can compile the module from source.
 
-We currently distribute RPM packages for CentOS 7 only.
-If you require packaging for a different platform, please contact us
-by creating an issue.
+
+### Compiling 
+
+To compile Davrods from source, copy `example-user.prefs` to `user.prefs` and edit 
+it to contain values valid for your system. The file is commented and should be able to 
+to be set up with a minimum of effort.
+
+Once this is complete, then ```make``` followed by ```make install``` will create 
+and install `mod_davrods.so` to your Apache httpd installation.
+
 
 See the __Configuration__ section for instructions on how to configure
 Davrods once it has been installed.
