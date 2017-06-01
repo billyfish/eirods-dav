@@ -1156,7 +1156,7 @@ apr_status_t PrintMetadata (const apr_array_header_t *metadata_list_p, apr_bucke
 
 					apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"key\">%s</span>: <span class=\"value\">%s</span>", metadata_p -> im_key_s, metadata_p -> im_value_s);
 
-					if (metadata_p -> im_units_s)
+					if ((metadata_p -> im_units_s) && (strlen (metadata_p -> im_units_s) > 0))
 						{
 							apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"units\">%s</span>", metadata_p -> im_units_s);
 						}
@@ -1243,8 +1243,17 @@ static int AddKeysToTable (apr_pool_t *pool_p, rcComm_t *connection_p, const int
 						{
 							if (!apr_table_get (table_p, value_s))
 								{
-									apr_table_setn (table_p, value_s, value_s);
-									++ count;
+									char *copied_value_s = apr_pstrdup (pool_p, value_s);
+
+									if (copied_value_s)
+										{
+											apr_table_setn (table_p, copied_value_s, copied_value_s);
+											++ count;
+										}
+									else
+										{
+											WHISPER ("Failed to make copy of \"%s\" to add to metadata keys table", value_s);
+										}
 								}
 						}
 				}

@@ -197,7 +197,7 @@ const char *GetUsernameFromPool (apr_pool_t *pool_p)
 {
 	const char *username_s = NULL;
 	void *ptr = NULL;
-	apr_status_t status = apr_pool_userdata_get (&ptr, GetRodsEnvKey (), pool_p);
+	apr_status_t status = apr_pool_userdata_get (&ptr, GetUsernameKey (), pool_p);
 
 	if (status == APR_SUCCESS)
 		{
