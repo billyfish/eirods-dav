@@ -369,11 +369,15 @@ static dav_error * dav_generic_really_open_lockdb (dav_lockdb *lockdb)
 
 	if (status)
 		{
+			const char * const default_error_s = "Could not open the lock database";
+			char *error_s = apr_pstrcat (lockdb -> info -> pool, default_error_s, ": \"", lockdb -> info -> lockdb_path, "\"", NULL);
+
 			err = dav_generic_dbm_new_error (lockdb->info->db, lockdb->info->pool,
 					status);
+
 			return dav_push_error (lockdb->info->pool,
 			HTTP_INTERNAL_SERVER_ERROR,
-			DAV_ERR_LOCK_OPENDB, "Could not open the lock database.", err);
+			DAV_ERR_LOCK_OPENDB, error_s ? error_s : default_error_s, err);
 		}
 
 	/* all right. it is opened now. */

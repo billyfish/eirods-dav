@@ -311,6 +311,18 @@ file can be used as is (but please read the __Configuration__ section).
 Finally, set up httpd to serve Davrods where you want it to. An
 example vhost config is provided for your convenience.
 
+## Tips and Tricks ##
+
+If you are dealing with big files, you will almost certainly want to enable 
+Apache's compression functionality using [mod_deflate](http://httpd.apache.org/docs/current/mod/mod_deflate.html).
+
+For instance, to enable compressed response bodies from Apache, you might want a configuration such as
+
+```
+LoadModule deflate_module modules/mod_deflate.so
+SetOutputFilter DEFLATE
+SetEnvIfNoCase Request_URI "\.(?:gif|jpe?g|png|gzip|zip|bz2)$" no-gzip
+```
 
 ## Bugs and ToDos ##
 
