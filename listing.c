@@ -11,10 +11,19 @@
 #include "repo.h"
 #include "meta.h"
 #include "theme.h"
+#include "rest.h"
 
 #include "apr_strings.h"
 #include "apr_time.h"
 
+
+static char *GetId (char *value_s, objType_t *type_p, apr_pool_t *pool_p);
+
+
+void InitIRodsObject (IRodsObject *obj_p)
+{
+	memset (obj_p, 0, sizeof (IRodsObject));
+}
 
 
 
@@ -25,6 +34,71 @@ apr_status_t SetIRodsConfig (IRodsConfig *config_p, const char *exposed_root_s, 
 	config_p -> ic_exposed_root_s = exposed_root_s;
 	config_p -> ic_root_path_s = root_path_s;
 	config_p -> ic_metadata_root_link_s = metadata_root_link_s;
+
+	return status;
+}
+
+
+apr_status_t SetIRodsObjectFromIdString (IRodsObject *obj_p, const char *id_s, rcComm_t *connection_p, apr_pool_t *pool_p)
+{
+	apr_status_t status = APR_EGENERAL;
+	int select_columns_p [6] = { COL_DATA_NAME, COL_D_OWNER_NAME, COL_COLL_NAME, COL_D_MODIFY_TIME, COL_DATA_SIZE, -1 };
+	int where_columns_p [1] = { COL_D_DATA_ID };
+	const char *where_values_ss [1];
+	genQueryOut_t *results_p = NULL;
+	const char *minor_s = GetMinorId (id_s);
+
+	if (!minor_s)
+		{
+			minor_s = id_s;
+		}
+
+	*where_values_ss = minor_s;
+
+	results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, NULL, 1, 0, pool_p);
+
+	if (results_p)
+		{
+			if (results_p -> rowCnt == 1)
+				{
+					const char *name_s = results_p -> sqlResult [0].value;
+					const char *owner_s = results_p -> sqlResult [1].value;
+					const char *coll_s = results_p -> sqlResult [2].value;
+					const char *modify_s = results_p -> sqlResult [3].value;
+					const char *size_s = results_p -> sqlResult [4].value;
+
+					rodsLong_t size = atoi (size_s);
+
+					status = SetIRodsObject (obj_p, DATA_OBJ_T, id_s, name_s, coll_s, owner_s, modify_s, size);
+				}
+			else
+				{
+					/* it may be a column */
+					select_columns_p [0] = COL_COLL_NAME;
+					select_columns_p [1] = COL_COLL_OWNER_NAME;
+					select_columns_p [2] = COL_COLL_NAME;
+					select_columns_p [3] = COL_COLL_CREATE_TIME;
+					select_columns_p [4] = -1;
+
+					where_columns_p [0] = COL_COLL_ID;
+
+					freeGenQueryOut (&results_p);
+
+					results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, NULL, 1, 0, pool_p);
+
+					if (results_p)
+						{
+							const char *name_s = results_p -> sqlResult [0].value;
+							const char *owner_s = results_p -> sqlResult [1].value;
+							const char *coll_s = results_p -> sqlResult [2].value;
+							const char *modify_s = results_p -> sqlResult [3].value;
+
+							status = SetIRodsObject (obj_p, COLL_OBJ_T, id_s, name_s, coll_s, owner_s, modify_s, 0);
+
+							freeGenQueryOut (&results_p);
+						}
+				}
+		}
 
 	return status;
 }
@@ -44,6 +118,7 @@ apr_status_t SetIRodsObject (IRodsObject *obj_p, const objType_t obj_type, const
 
 	return status;
 }
+
 
 apr_status_t SetIRodsObjectFromCollEntry (IRodsObject *obj_p, const collEnt_t *coll_entry_p, rcComm_t *connection_p, apr_pool_t *pool_p)
 {
@@ -298,7 +373,8 @@ char *GetIRodsObjectLastModifiedTime (const  IRodsObject *irods_obj_p, apr_pool_
 }
 
 
-apr_status_t GetAndPrintMetadataForIRodsObject (const IRodsObject *irods_obj_p, const char * const link_s, const char *zone_s, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p)
+
+apr_status_t GetAndPrintMetadataForIRodsObject (const IRodsObject *irods_obj_p, const char * const link_s, const char *zone_s, struct HtmlTheme *theme_p, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p)
 {
 	int status = -1;
 	apr_array_header_t *metadata_array_p = GetMetadata (connection_p, irods_obj_p -> io_obj_type, irods_obj_p -> io_id_s, irods_obj_p -> io_collection_s, zone_s, pool_p);
@@ -309,7 +385,7 @@ apr_status_t GetAndPrintMetadataForIRodsObject (const IRodsObject *irods_obj_p, 
 		{
 			if (!apr_is_empty_array (metadata_array_p))
 				{
-					status = PrintMetadata (metadata_array_p, bb_p, link_s, pool_p);
+					status = PrintMetadata (metadata_array_p, theme_p, bb_p, link_s, pool_p);
 				}		/* if (!apr_is_empty_array (metadata_array_p)) */
 
 		}		/* if (metadata_array_p) */
@@ -317,4 +393,141 @@ apr_status_t GetAndPrintMetadataForIRodsObject (const IRodsObject *irods_obj_p, 
 	apr_brigade_puts(bb_p, NULL, NULL, "</td>");
 
 	return status;
+}
+
+
+apr_status_t GetAndPrintMetadataRestLinkForIRodsObject (const IRodsObject *irods_obj_p, const char * const link_s, const char *zone_s, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p)
+{
+	int status = -1;
+	objType_t obj_type = UNKNOWN_OBJ_T;
+
+	switch (irods_obj_p -> io_obj_type)
+		{
+			case DATA_OBJ_T:
+			case COLL_OBJ_T:
+				obj_type = irods_obj_p -> io_obj_type;
+				break;
+
+			default:
+				break;
+
+		}
+
+	if (obj_type != UNKNOWN_OBJ_T)
+		{
+			char *parent_id_s = GetParentCollectionId (irods_obj_p -> io_id_s, obj_type, zone_s, connection_p, pool_p);
+
+			if (apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"metatable\"><a class=\"get_metadata\" id=\"2.%s_%d.%s\"></a></td>", parent_id_s, obj_type, irods_obj_p -> io_id_s) == APR_SUCCESS)
+				{
+					status = APR_SUCCESS;
+				}
+		}
+
+	return status;
+}
+
+
+apr_status_t GetMetadataTableForId (char *combined_id_s, struct HtmlTheme *theme_p, rcComm_t *connection_p, apr_pool_t *pool_p, apr_bucket_brigade *bucket_brigade_p)
+{
+	apr_status_t status = APR_EGENERAL;
+	char *parent_id_s = NULL;
+	char *child_id_s = NULL;
+	char *ids_sep_s = strchr (combined_id_s, '_');
+	objType_t obj_type = UNKNOWN_OBJ_T;
+
+	if (ids_sep_s)
+		{
+			*ids_sep_s = '\0';
+			parent_id_s = GetId (combined_id_s, NULL, pool_p);
+
+			if (parent_id_s)
+				{
+					child_id_s = GetId (ids_sep_s + 1, &obj_type, pool_p);
+				}
+		}
+	else
+		{
+			child_id_s = GetId (combined_id_s, &obj_type, pool_p);
+		}
+
+
+	if (child_id_s)
+		{
+			char *zone_s = NULL;
+			char *minor_id_s = (char *) GetMinorId (child_id_s);
+
+			if (minor_id_s)
+				{
+					apr_array_header_t *metadata_array_p = GetMetadata (connection_p, obj_type, minor_id_s, parent_id_s, zone_s, pool_p);
+
+					if (metadata_array_p)
+						{
+							if (!apr_is_empty_array (metadata_array_p))
+								{
+									char *link_s = NULL;
+
+									status = PrintMetadata (metadata_array_p, theme_p, bucket_brigade_p, link_s, pool_p);
+								}		/* if (!apr_is_empty_array (metadata_array_p)) */
+						}
+
+				}
+
+		}
+
+	return status;
+}
+
+
+static char *GetId (char *value_s, objType_t *type_p, apr_pool_t *pool_p)
+{
+	char *id_s = NULL;
+	char *sep_s = strchr (value_s, '.');
+
+	if (sep_s)
+		{
+			objType_t obj_type = UNKNOWN_OBJ_T;
+			long l = -1;
+
+			*sep_s = '\0';
+			l = strtol (value_s, NULL, 10);
+			*sep_s = '.';
+
+			switch (l)
+				{
+					case DATA_OBJ_T:
+					case COLL_OBJ_T:
+						obj_type = l;
+						break;
+
+					default:
+						break;
+
+				}
+
+			if (obj_type != UNKNOWN_OBJ_T)
+				{
+					if (type_p)
+						{
+							*type_p = obj_type;
+						}
+
+					sep_s = strpbrk (value_s, " \t\n\r\v\f");
+
+					if (sep_s)
+						{
+							char c = *sep_s;
+
+							*sep_s = '\0';
+							id_s = apr_pstrdup (pool_p, value_s);
+							*sep_s = c;
+						}
+					else
+						{
+							id_s = apr_pstrdup (pool_p, value_s);
+						}
+				}
+
+		}
+
+	return id_s;
 }

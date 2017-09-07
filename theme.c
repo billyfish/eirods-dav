@@ -23,6 +23,9 @@ static apr_status_t PrintParentLink (const char *icon_s, request_rec *req_p, apr
 
 static int PrintTableEntryToOption (void *data_p, const char *key_s, const char *value_s);
 
+static apr_status_t PrintMetadataEditor (struct HtmlTheme *theme_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p);
+
+
 /*************************************/
 
 
@@ -39,12 +42,19 @@ struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 		  theme_p -> ht_object_icon_s = NULL;
 		  theme_p -> ht_parent_icon_s = NULL;
 		  theme_p -> ht_listing_class_s = NULL;
-		  theme_p -> ht_show_metadata_flag = 0;
+		  theme_p -> ht_add_metadata_icon_s = NULL;
+		  theme_p -> ht_edit_metadata_icon_s = NULL;
+		  theme_p -> ht_delete_metadata_icon_s = NULL;
+		  theme_p -> ht_show_metadata_flag = MD_NONE;
 		  theme_p -> ht_rest_api_s = NULL;
+
+		  theme_p -> ht_ok_icon_s = NULL;
+		  theme_p -> ht_cancel_icon_s = NULL;
 
 		  theme_p -> ht_show_ids_flag = 0;
 		  theme_p -> ht_add_search_form_flag = 1;
 		  theme_p -> ht_icons_map_p = NULL;
+
 		}
 
 	return theme_p;
@@ -87,7 +97,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 		{
 			const char *davrods_root_path_s = davrods_resource_p -> root_dir;
 			const char *exposed_root_s = GetRodsExposedPath (req_p);
-			char *metadata_link_s = apr_pstrcat (pool_p, davrods_resource_p -> root_dir, conf_p -> davrods_api_path_s, REST_METADATA_PATH_S, NULL);
+			char *metadata_link_s = apr_pstrcat (pool_p, davrods_resource_p -> root_dir, conf_p -> davrods_api_path_s, REST_METADATA_SEARCH_S, NULL);
 			IRodsConfig irods_config;
 
 			if (SetIRodsConfig (&irods_config, exposed_root_s, davrods_root_path_s, metadata_link_s) == APR_SUCCESS)
@@ -187,6 +197,8 @@ apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, request_rec *r
 
 	if (apr_status == APR_SUCCESS)
 		{
+			apr_status = PrintMetadataEditor (theme_p, req_p, bucket_brigade_p);
+
 			if (theme_p -> ht_bottom_s)
 				{
 					apr_status = PrintBasicStringToBucketBrigade (theme_p -> ht_bottom_s, bucket_brigade_p, req_p, __FILE__, __LINE__);
@@ -198,6 +210,8 @@ apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, request_rec *r
 
 				}		/* if (theme_p -> ht_bottom_s) */
 
+
+
 			apr_status =  PrintBasicStringToBucketBrigade ("\n</body>\n</html>\n", bucket_brigade_p, req_p, __FILE__, __LINE__);
 		}
 	else
@@ -208,6 +222,50 @@ apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, request_rec *r
 	return apr_status;
 }
 
+
+static apr_status_t PrintMetadataEditor (struct HtmlTheme *theme_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p)
+{
+	apr_status_t status;
+
+	const char * const form_s = "<div id=\"edit_metadata_pop_up\">\n"
+		"<form method=\"get\" id=\"metadata_editor\" action=\"/davrods/api/metadata/add\">\n"
+		"<fieldset>\n"
+		"<legend id=\"metadata_editor_title\">Edit Metadata</legend>\n"
+		"<span class=\"add_group row\"><label for=\"attribute_editor\">Attribute:</label><input type=\"text\" name=\"key\" id=\"attribute_editor\" /></span>\n"
+		"<span class=\"add_group row\"><label for=\"value_editor\">Value:</label><input type=\"text\" name=\"value\" id=\"value_editor\" /></span>\n"
+		"<span class=\"add_group row\"><label for=\"units_editor\">Units:</label><input type=\"text\" name=\"units\"id=\"units_editor\" /></span>\n"
+		"<span class=\"edit_group row\"><label for=\"new_attribute_editor\">Attribute:</label><input type=\"text\" name=\"new_key\" id=\"new_attribute_editor\" /></span>\n"
+		"<span class=\"edit_group row\"><label for=\"new_value_editor\">Value:</label><input type=\"text\" name=\"new_value\" id=\"new_value_editor\" /></span>\n"
+		"<span class=\"edit_group row\"><label for=\"new_units_editor\">Units:</label><input type=\"text\" name=\"new_units\" id=\"new_units_editor\" /></span>\n"
+		"<input type=\"hidden\" name=\"id\" id=\"id_editor\" />\n"
+		"</fieldset>\n"
+		"<div class=\"toolbar\">";
+
+	status = PrintBasicStringToBucketBrigade (form_s, bucket_brigade_p, req_p, __FILE__, __LINE__);
+
+	if (theme_p -> ht_ok_icon_s)
+		{
+			status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<img src=\"%s\" alt=\"Save Metadata\"  id=\"save_metadata\" />", theme_p -> ht_ok_icon_s);
+		}
+	else
+		{
+			PrintBasicStringToBucketBrigade ("<input type=\"button\" value=\"Save\" id=\"save_metadata\" />", bucket_brigade_p, req_p, __FILE__, __LINE__);
+		}
+
+	if (theme_p -> ht_cancel_icon_s)
+		{
+			status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<img src=\"%s\" alt=\"Discard\" id=\"cancel_metadata\" />", theme_p -> ht_cancel_icon_s);
+		}
+	else
+		{
+			PrintBasicStringToBucketBrigade ("<input type=\"button\" value=\"Cancel\" id=\"cancel_metadata\" /> ", bucket_brigade_p, req_p, __FILE__, __LINE__);
+		}
+
+
+	status = PrintBasicStringToBucketBrigade ("</div>\n</form>\n</div>\n", bucket_brigade_p, req_p, __FILE__, __LINE__);
+
+	return status;
+}
 
 
 apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_resource_p, const char * const page_title_s, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
@@ -310,7 +368,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 										}		/* if (davrods_resource_p) */
 									else
 										{
-											char *metadata_path_s = apr_pstrcat (pool_p, api_path_s, REST_METADATA_PATH_S, NULL);
+											char *metadata_path_s = apr_pstrcat (pool_p, api_path_s, REST_METADATA_SEARCH_S, NULL);
 
 											if (metadata_path_s)
 												{
@@ -365,7 +423,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 												}
 										}
 
-									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<form action=\"%s%s%s%s%s\" class=\"search_form\">\nSearch: <select name=\"key\">\n", davrods_path_s, first_delimiter_s, api_path_s, second_delimiter_s, REST_METADATA_PATH_S);
+									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<form action=\"%s%s%s%s%s\" class=\"search_form\">\nSearch: <select name=\"key\">\n", davrods_path_s, first_delimiter_s, api_path_s, second_delimiter_s, REST_METADATA_SEARCH_S);
 
 							    for (i = 0; i < keys_p -> nelts; ++ i)
 							    	{
@@ -421,12 +479,14 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 	/*
 	 * Add the listing class
 	 */
-	apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<table class=\"%s\">\n<thead>\n<tr>", conf_p -> theme_p -> ht_listing_class_s ? conf_p -> theme_p -> ht_listing_class_s : "listing");
+	apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<table id=\"listings_table\" class=\"%s%s\">\n<thead>\n<tr>", conf_p -> theme_p -> ht_listing_class_s ? conf_p -> theme_p -> ht_listing_class_s : "listing", conf_p -> theme_p -> ht_show_metadata_flag == MD_ON_DEMAND ? " ajax" : "");
 	if (apr_status != APR_SUCCESS)
 		{
 			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to add start of table listing with class \"%s\"",conf_p -> theme_p -> ht_listing_class_s ? conf_p -> theme_p -> ht_listing_class_s : "listing");
 			return apr_status;
 		} /* if (apr_ret != APR_SUCCESS) */
+
+
 
 
 	/*
@@ -527,17 +587,18 @@ apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_
 
 	if (theme_p -> ht_show_ids_flag)
 		{
-			apr_brigade_printf (bb_p, NULL, NULL, "<tr class=\"id\" id=\"%s\">", irods_obj_p -> io_id_s);
+			status = apr_brigade_printf (bb_p, NULL, NULL, "<tr class=\"id\" id=\"%d.%s\">", irods_obj_p -> io_obj_type, irods_obj_p -> io_id_s);
 		}
 	else
 		{
-			status = PrintBasicStringToBucketBrigade ("<tr>", bb_p, req_p, __FILE__, __LINE__);
-
-			if (status != APR_SUCCESS)
-				{
-					return status;
-				}
+			status = apr_brigade_printf (bb_p, NULL, NULL, "<tr id=\"%d.%s\">", irods_obj_p -> io_obj_type, irods_obj_p -> io_id_s);
 		}
+
+	if (status != APR_SUCCESS)
+		{
+			return status;
+		}
+
 
 	if (name_s)
 		{
@@ -610,15 +671,33 @@ apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_
 				}
 		}
 
-
-	if (theme_p -> ht_show_metadata_flag)
+	switch (theme_p -> ht_show_metadata_flag)
 		{
-			const char *zone_s = NULL;
-
-			if (GetAndPrintMetadataForIRodsObject (irods_obj_p, config_p -> ic_metadata_root_link_s, zone_s, bb_p, connection_p, pool_p) != 0)
+			case MD_FULL:
 				{
+					const char *zone_s = NULL;
 
+					if (GetAndPrintMetadataForIRodsObject (irods_obj_p, config_p -> ic_metadata_root_link_s, zone_s, theme_p, bb_p, connection_p, pool_p) != 0)
+						{
+
+						}
 				}
+				break;
+
+			case MD_ON_DEMAND:
+				{
+					const char *zone_s = NULL;
+
+					if (GetAndPrintMetadataRestLinkForIRodsObject (irods_obj_p, config_p -> ic_metadata_root_link_s, zone_s, bb_p, connection_p, pool_p) != 0)
+						{
+
+						}
+				}
+
+				break;
+
+			default:
+				break;
 		}
 
 	status = PrintBasicStringToBucketBrigade ("</tr>\n", bb_p, req_p, __FILE__, __LINE__);
@@ -639,6 +718,11 @@ void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p
 	DAVRODS_PROP_MERGE(theme_p -> ht_collection_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_object_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_parent_icon_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_add_metadata_icon_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_edit_metadata_icon_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_delete_metadata_icon_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_ok_icon_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_cancel_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_listing_class_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_show_metadata_flag);
 	DAVRODS_PROP_MERGE(theme_p -> ht_show_ids_flag);

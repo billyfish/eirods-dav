@@ -49,6 +49,9 @@ extern "C"
 #endif
 
 
+void InitIRodsObject (IRodsObject *obj_p);
+
+
 apr_status_t SetIRodsConfig (IRodsConfig *config_p, const char *exposed_root_s, const char *root_path_s, const char *metadata_root_link_s);
 
 
@@ -56,6 +59,10 @@ apr_status_t SetIRodsObject (IRodsObject *obj_p, const objType_t io_obj_type, co
 
 
 apr_status_t SetIRodsObjectFromCollEntry (IRodsObject *obj_p, const collEnt_t *coll_entry_p, rcComm_t *connection_p, apr_pool_t *pool_p);
+
+
+apr_status_t SetIRodsObjectFromIdString (IRodsObject *obj_p, const char *id_s, rcComm_t *connection_p, apr_pool_t *pool_p);
+
 
 
 /**
@@ -116,9 +123,14 @@ char *GetIRodsObjectSizeAsString (const IRodsObject *irods_obj_p, apr_pool_t *po
 char *GetIRodsObjectLastModifiedTime (const  IRodsObject *irods_obj_p, apr_pool_t *pool_p);
 
 
-apr_status_t GetAndPrintMetadataForIRodsObject (const IRodsObject *irods_obj_p, const char * const link_s, const char *zone_s, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p);
+apr_status_t GetAndPrintMetadataForIRodsObject (const IRodsObject *irods_obj_p, const char * const link_s, const char *zone_s, struct HtmlTheme *theme_p, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p);
 
 
+apr_status_t GetAndPrintMetadataRestLinkForIRodsObject (const IRodsObject *irods_obj_p, const char * const link_s, const char *zone_s, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p);
+
+
+
+apr_status_t GetMetadataTableForId (char *combined_id_s, struct HtmlTheme *theme_p, rcComm_t *connection_p, apr_pool_t *pool_p, apr_bucket_brigade *bucket_brigade_p);
 
 #ifdef __cplusplus
 }

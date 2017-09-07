@@ -132,6 +132,46 @@ apr_status_t PrintBasicStringToBucketBrigade (const char *value_s, apr_bucket_br
 }
 
 
+apr_status_t PrintFileToBucketBrigade (const char *filename_s, apr_bucket_brigade *brigade_p, request_rec *req_p, const char *file_s, const int line)
+{
+	apr_status_t status = APR_EGENERAL;
+	FILE *in_f = fopen (filename_s, "r");
+
+	if (in_f)
+		{
+			while (! ((feof (in_f)) && (ferror (in_f))))
+				{
+					#define BUFFER_SIZE (1025)
+
+					char buffer_s [BUFFER_SIZE];
+					size_t num_read	= fread (buffer_s, 1, BUFFER_SIZE - 1, in_f);
+
+					if ((num_read == BUFFER_SIZE) || (ferror (in_f) == 0))
+						{
+							status = apr_brigade_write (brigade_p, NULL, NULL, buffer_s, num_read);
+
+							if (status != APR_SUCCESS)
+								{
+									ap_log_rerror (file_s, line, APLOG_MODULE_INDEX, APLOG_ERR, status, req_p, "Failed to store %s from file", buffer_s, filename_s);
+								}
+						}
+					else
+						{
+							ap_log_rerror (file_s, line, APLOG_MODULE_INDEX, APLOG_ERR, status, req_p, "Failed to get contents of %s", filename_s);
+						}
+				}
+
+			fclose (in_f);
+		}
+	else
+		{
+			ap_log_rerror (file_s, line, APLOG_MODULE_INDEX, APLOG_ERR, status, req_p, "Failed to open %s", filename_s);
+		}
+
+	return status;
+}
+
+
 
 rcComm_t *GetIRODSConnectionForPublicUser (request_rec *req_p, apr_pool_t *davrods_pool_p, davrods_dir_conf_t *conf_p)
 {

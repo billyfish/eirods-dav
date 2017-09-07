@@ -19,6 +19,16 @@
 #include "listing.h"
 #include "config.h"
 
+
+enum MetadataDisplay
+{
+	MD_NONE,
+	MD_FULL,
+	MD_ON_DEMAND,
+	MD_NUM_ENTRIES
+};
+
+
 struct HtmlTheme
 {
 	const char *ht_head_s;
@@ -35,7 +45,18 @@ struct HtmlTheme
 
 	const char *ht_listing_class_s;
 
-	int ht_show_metadata_flag;
+	enum MetadataDisplay ht_show_metadata_flag;
+
+	const char *ht_add_metadata_icon_s;
+
+	const char *ht_edit_metadata_icon_s;
+
+	const char *ht_delete_metadata_icon_s;
+
+	const char *ht_ok_icon_s;
+
+	const char *ht_cancel_icon_s;
+
 
 	const char *ht_rest_api_s;
 

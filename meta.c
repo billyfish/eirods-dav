@@ -29,7 +29,7 @@ static const char * const S_SEARCH_OPERATOR_EQUALS_S = "=";
 
 static const char * const S_SEARCH_OPERATOR_LIKE_S = "like";
 
-static int s_debug_flag = 0;
+static int s_debug_flag = 1;
 
 /**************************************/
 
@@ -84,7 +84,76 @@ apr_array_header_t *GetMetadataForCollEntry (const dav_resource *resource_p, con
 
 
 
+char *GetParentCollectionId (const char *child_id_s, const objType_t object_type, const char *zone_s, rcComm_t *irods_connection_p, apr_pool_t *pool_p)
+{
+	char *result_s = NULL;
+	int select_col = -1;
+	int where_col = COL_D_DATA_ID;
+	const char *where_value_s = child_id_s;
+	genQueryInp_t in_query;
 
+	InitGenQuery (&in_query, 0, zone_s);
+
+	switch (object_type)
+		{
+			/*
+			 * Get all of the meta_id values for a given object_id.
+			 *
+			 * in psql:
+			 *
+			 * 		SELECT meta_id FROM r_objt_metamap WHERE object_id = '10002';
+			 *
+			 * in iquest:
+			 *
+			 * 		iquest "SELECT META_DATA_ATTR_ID WHERE DATA_ID = '10002'";
+			 *
+			 */
+			case DATA_OBJ_T:
+				select_col = COL_D_COLL_ID;
+				break;
+
+			case COLL_OBJ_T:
+				select_col = COL_COLL_ID;
+				break;
+
+			default:
+				break;
+		}
+
+	if (select_col != -1)
+		{
+			int success_code = addInxIval (& (in_query.selectInp), select_col, 1);
+
+			if (success_code == 0)
+				{
+					char *condition_and_where_value_s = GetQuotedValue (where_value_s, SO_EQUALS, pool_p);
+
+					success_code = addInxVal (& (in_query.sqlCondInp), where_col, condition_and_where_value_s);
+
+					if (success_code == 0)
+						{
+							genQueryOut_t *results_p = NULL;
+
+							if (s_debug_flag)
+								{
+									fprintf (stderr, "initial query:");
+									printGenQI (&in_query);
+								}
+
+							results_p = ExecuteGenQuery (irods_connection_p, &in_query);
+
+							if (results_p)
+								{
+									result_s = apr_pstrdup (pool_p, results_p -> sqlResult [0].value);
+									freeGenQueryOut (&results_p);
+								}
+						}
+				}
+
+		}
+
+	return result_s;
+}
 
 apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t object_type, const char *id_s, const char *coll_name_s, const char *zone_s, apr_pool_t *pool_p)
 {
@@ -127,39 +196,50 @@ apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t o
 					 */
 					case COLL_OBJ_T:
 						{
-							int select_columns_p [] = { COL_COLL_ID, -1};
-							int where_columns_p [] = { COL_COLL_NAME };
-							const char *where_values_ss [] = { coll_name_s };
-							SearchOperator where_ops_p [] = { SO_EQUALS };
-
-							genQueryOut_t *coll_id_results_p = RunQuery (irods_connection_p, select_columns_p, where_columns_p, where_values_ss, where_ops_p, 1, 0, pool_p);
-
-							if (coll_id_results_p)
+							if (coll_name_s == NULL)
 								{
-									if (s_debug_flag)
-										{
-											fprintf (stderr, "collection results:\n");
-											PrintBasicGenQueryOut (coll_id_results_p);
-										}
 
-									if ((coll_id_results_p -> attriCnt == 1) && (coll_id_results_p -> rowCnt == 1))
-										{
-											char *coll_id_s = coll_id_results_p -> sqlResult [0].value;
+								}
 
-											if (coll_id_s)
+							if (coll_name_s)
+								{
+									int select_columns_p [] = { COL_COLL_ID, -1};
+									int where_columns_p [] = { COL_COLL_NAME };
+									SearchOperator where_ops_p [] = { SO_EQUALS };
+
+									const char *where_values_ss [] = { coll_name_s };
+
+									genQueryOut_t *coll_id_results_p = RunQuery (irods_connection_p, select_columns_p, where_columns_p, where_values_ss, where_ops_p, 1, 0, pool_p);
+
+									if (coll_id_results_p)
+										{
+											if (s_debug_flag)
 												{
-													where_value_s = apr_pstrdup (pool_p, coll_id_s);
+													fprintf (stderr, "collection results:\n");
+													PrintBasicGenQueryOut (coll_id_results_p);
+												}
 
-													if (where_value_s)
+											if ((coll_id_results_p -> attriCnt == 1) && (coll_id_results_p -> rowCnt == 1))
+												{
+													char *coll_id_s = coll_id_results_p -> sqlResult [0].value;
+
+													if (coll_id_s)
 														{
-															where_col = COL_COLL_ID;
-															select_col = COL_META_COLL_ATTR_ID;
+															where_value_s = apr_pstrdup (pool_p, coll_id_s);
+
+															if (where_value_s)
+																{
+																	where_col = COL_COLL_ID;
+																	select_col = COL_META_COLL_ATTR_ID;
+																}
 														}
 												}
+
+											freeGenQueryOut (&coll_id_results_p);
 										}
 
-									freeGenQueryOut (&coll_id_results_p);
 								}
+
 						}
 						break;
 
@@ -462,7 +542,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 					const int meta_results_inc = meta_id_results_p -> sqlResult [0].len;
 					const char *meta_id_s = meta_id_results_p -> sqlResult [0].value;
 
-					char *metadata_root_link_s = apr_pstrcat (pool_p, davrods_path_s, conf_p -> davrods_api_path_s, REST_METADATA_PATH_S, NULL);
+					char *metadata_root_link_s = apr_pstrcat (pool_p, davrods_path_s, conf_p -> davrods_api_path_s, REST_METADATA_SEARCH_S, NULL);
 
 					const char *exposed_root_s = GetRodsExposedPath (req_p);
 
@@ -1131,7 +1211,7 @@ static int CompareIrodsMetadata (const void *v0_p, const void *v1_p)
 
 
 
-apr_status_t PrintMetadata (const apr_array_header_t *metadata_list_p, apr_bucket_brigade *bb_p, const char *metadata_search_link_s, apr_pool_t *pool_p)
+apr_status_t PrintMetadata (const apr_array_header_t *metadata_list_p, struct HtmlTheme *theme_p, apr_bucket_brigade *bb_p, const char *metadata_search_link_s, apr_pool_t *pool_p)
 {
 	apr_status_t status = apr_brigade_puts (bb_p, NULL, NULL, "<ul class=\"metadata\">");
 
@@ -1145,6 +1225,17 @@ apr_status_t PrintMetadata (const apr_array_header_t *metadata_list_p, apr_bucke
 					const IrodsMetadata *metadata_p = APR_ARRAY_IDX (metadata_list_p, i, IrodsMetadata *);
 
 					apr_brigade_puts (bb_p, NULL, NULL, "<li>");
+
+					if (theme_p -> ht_delete_metadata_icon_s)
+						{
+							apr_brigade_printf (bb_p, NULL, NULL, "<img class=\"button delete_metadata\" src=\"%s\" alt=\"delete metadata attribute-value pair\" />", theme_p -> ht_delete_metadata_icon_s);
+						}
+
+					if (theme_p -> ht_edit_metadata_icon_s)
+						{
+							apr_brigade_printf (bb_p, NULL, NULL, "<img class=\"button edit_metadata\" src=\"%s\" alt=\"edit metadata attribute-value pair\" />", theme_p -> ht_edit_metadata_icon_s);
+						}
+
 
 					if (metadata_search_link_s)
 						{
@@ -1174,6 +1265,17 @@ apr_status_t PrintMetadata (const apr_array_header_t *metadata_list_p, apr_bucke
 			apr_brigade_puts (bb_p, NULL, NULL, "</ul>");
 
 		}
+
+
+	if (theme_p -> ht_add_metadata_icon_s)
+		{
+			apr_brigade_printf (bb_p, NULL, NULL, "<p><img class=\"button add_metadata\" src=\"%s\" alt=\"add metadata attribute-value pair\" /></p>", theme_p -> ht_add_metadata_icon_s);
+		}
+	else
+		{
+			apr_brigade_printf (bb_p, NULL, NULL, "<p><a href=\"#\" class=\"add_metadata\">Add Metadata</a></p>");
+		}
+
 
 	return status;
 }

@@ -392,9 +392,17 @@ static const char *cmd_davrods_html_metadata (cmd_parms *cmd_p, void *config_p, 
 {
     davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-    if (!strcasecmp (arg_p, "true"))
+    if (!strcasecmp (arg_p, "none"))
     	{
-    		conf_p -> theme_p -> ht_show_metadata_flag = 1;
+    		conf_p -> theme_p -> ht_show_metadata_flag = MD_NONE;
+    	}
+    else if (!strcasecmp (arg_p, "full"))
+    	{
+    		conf_p -> theme_p -> ht_show_metadata_flag = MD_FULL;
+    	}
+    else if (!strcasecmp (arg_p, "on_demand"))
+    	{
+    		conf_p -> theme_p -> ht_show_metadata_flag = MD_ON_DEMAND;
     	}
 
     return NULL;
@@ -413,6 +421,53 @@ static const char *cmd_davrods_html_ids (cmd_parms *cmd_p, void *config_p, const
     return NULL;
 }
 
+
+
+static const char *cmd_davrods_add_metadata_image (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> theme_p -> ht_add_metadata_icon_s = arg_p;
+
+    return NULL;
+}
+
+static const char *cmd_davrods_delete_metadata_image (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> theme_p -> ht_delete_metadata_icon_s = arg_p;
+
+    return NULL;
+}
+
+static const char *cmd_davrods_edit_metadata_image (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> theme_p -> ht_edit_metadata_icon_s = arg_p;
+
+    return NULL;
+}
+
+
+static const char *cmd_davrods_ok_image (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> theme_p -> ht_ok_icon_s = arg_p;
+
+    return NULL;
+}
+
+static const char *cmd_davrods_cancel_image (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> theme_p -> ht_cancel_icon_s = arg_p;
+
+    return NULL;
+}
 
 static const char *cmd_davrods_api_path (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
@@ -547,6 +602,31 @@ const command_rec davrods_directives[] = {
     AP_INIT_TAKE1(
         DAVRODS_CONFIG_PREFIX "HTMLMetadata", cmd_davrods_html_metadata,
         NULL, ACCESS_CONF, "Options for displaying metadata"
+    ),
+
+    AP_INIT_TAKE1(
+        DAVRODS_CONFIG_PREFIX "HTMLDeleteMetadataImage", cmd_davrods_delete_metadata_image,
+        NULL, ACCESS_CONF, "Image for the delete metadata button"
+    ),
+
+    AP_INIT_TAKE1(
+        DAVRODS_CONFIG_PREFIX "HTMLEditMetadataImage", cmd_davrods_edit_metadata_image,
+        NULL, ACCESS_CONF, "Image for the edit metadata button"
+    ),
+
+    AP_INIT_TAKE1(
+        DAVRODS_CONFIG_PREFIX "HTMLAddMetadataImage", cmd_davrods_add_metadata_image,
+        NULL, ACCESS_CONF, "Image for the add metadata button"
+    ),
+
+    AP_INIT_TAKE1(
+        DAVRODS_CONFIG_PREFIX "HTMLOkImage", cmd_davrods_ok_image,
+        NULL, ACCESS_CONF, "Image for the OK button"
+    ),
+
+    AP_INIT_TAKE1(
+        DAVRODS_CONFIG_PREFIX "HTMLCancelImage", cmd_davrods_cancel_image,
+        NULL, ACCESS_CONF, "Image for the Cancel button"
     ),
 
     AP_INIT_ITERATE2 (DAVRODS_CONFIG_PREFIX "AddIcon", cmd_davrods_html_add_icon, NULL, ACCESS_CONF, "an icon URL followed by one or more filenames"),
