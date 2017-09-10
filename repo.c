@@ -41,7 +41,6 @@ typedef struct walker_seen_resource_t
 	struct walker_seen_resource_t *next;
 } walker_seen_resource_t;
 
-
 static const char *get_rods_root (apr_pool_t *davrods_pool, request_rec *r);
 static int walker_push_seen_path (apr_pool_t *p, walker_seen_resource_t **seen, const char *rods_path);
 static dav_error *dav_repo_get_resource (request_rec *r, const char *root_dir, const char *label, int use_checked_in, dav_resource **result_resource);
@@ -187,7 +186,8 @@ static void copy_resource_context (dav_resource_private *dest,
 	dest->stat = NULL;
 }
 
-static const char *get_rods_root (apr_pool_t *davrods_pool, request_rec *r)
+
+const char *get_rods_root (apr_pool_t *davrods_pool, request_rec *r)
 {
 	const char *root = NULL;
 

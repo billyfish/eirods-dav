@@ -6,6 +6,7 @@
  */
 
 #include <stdlib.h>
+#include <string.h>
 
 #define ALLOCATE_REST_CONSTANTS (1)
 #include "rest.h"
@@ -59,19 +60,16 @@ static const char *GetParameterValue (apr_table_t *params_p, const char * const 
 static rcComm_t *GetIRODSConnectionForAPI (request_rec *req_p, davrods_dir_conf_t *config_p);
 
 
-static int EasyModifyMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s, const char *command_s);
+static apr_status_t EasyModifyMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s, const char *command_s);
 
 
-static int ModifyMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s, const char *command_s, const char *new_key_s, const char *new_value_s, const char *new_units_s);
+static apr_status_t ModifyMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s, const char *command_s, const char *new_key_s, const char *new_value_s, const char *new_units_s);
 
 
-static char *GetModValue (apr_table_t *params_p, const char *param_key_s, const char *value_prefix_s, apr_pool_t *pool_p);
+static char *GetModValue (apr_table_t *params_p, const char *param_key_s, const char *value_prefix_s, const char *old_key_s, apr_pool_t *pool_p);
 
 
-
-
-
-
+static apr_status_t AddDecodedJSONResponse (const APICall *call_p, apr_status_t status, const char *id_s, request_rec *req_p);
 
 /*
  * STATIC VARIABLES
@@ -256,7 +254,7 @@ static int GetMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_t
 
 					if (rods_connection_p)
 						{
-							if (GetMetadataTableForId ((char *) id_s, config_p -> theme_p, rods_connection_p, pool_p, bucket_brigade_p) == APR_SUCCESS)
+							if (GetMetadataTableForId ((char *) id_s, config_p, rods_connection_p, req_p, pool_p, bucket_brigade_p) == APR_SUCCESS)
 								{
 									apr_size_t len = 0;
 									char *result_s = NULL;
@@ -300,29 +298,43 @@ static int GetMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_t
 
 static int DeleteMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s)
 {
-	return EasyModifyMetadataForEntry (call_p, req_p, params_p, config_p, davrods_path_s, "rm");
+	int res = HTTP_INTERNAL_SERVER_ERROR;
+	apr_status_t status = EasyModifyMetadataForEntry (call_p, req_p, params_p, config_p, davrods_path_s, "rm");
+
+	if (status == APR_SUCCESS)
+		{
+			res = OK;
+		}
+
+	return res;
 }
 
 
 static int AddMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s)
 {
+
 	return EasyModifyMetadataForEntry (call_p, req_p, params_p, config_p, davrods_path_s, "add");
 }
 
 
 
-static char *GetModValue (apr_table_t *params_p, const char *param_key_s, const char *value_prefix_s, apr_pool_t *pool_p)
+static char *GetModValue (apr_table_t *params_p, const char *param_key_s, const char *value_prefix_s, const char *old_key_s, apr_pool_t *pool_p)
 {
 	char *mod_value_s = NULL;
 	const char *value_s = GetParameterValue (params_p, param_key_s, pool_p);
 
-	if (value_s)
+	if (value_s && (strlen (value_s) > 0))
 		{
-			mod_value_s = apr_pstrcat (pool_p, value_prefix_s, value_s, NULL);
+			const char *old_value_s = GetParameterValue (params_p, old_key_s, pool_p);
 
-			if (!mod_value_s)
+			if (value_s && (strlen (value_s) > 0) && (strcmp (old_value_s, value_s) != 0))
 				{
-					ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_BADARG, pool_p, "Failed to create modified value for \"%s\"", value_s);
+					mod_value_s = apr_pstrcat (pool_p, value_prefix_s, value_s, NULL);
+
+					if (!mod_value_s)
+						{
+							ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_BADARG, pool_p, "Failed to create modified value for \"%s\"", value_s);
+						}
 				}
 		}
 
@@ -335,28 +347,33 @@ static int EditMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_
 	int res = DECLINED;
 	apr_pool_t *pool_p = req_p -> pool;
 
-	const char *new_key_s = GetModValue (params_p, "new_key", "n:", pool_p);
-	const char *new_value_s = GetModValue (params_p, "new_value", "v:", pool_p);
-	const char *new_units_s = GetModValue (params_p, "new_units", "u:", pool_p);
+	const char *new_key_s = GetModValue (params_p, "new_key", "n:", "key", pool_p);
+	const char *new_value_s = GetModValue (params_p, "new_value", "v:", "value", pool_p);
+	const char *new_units_s = GetModValue (params_p, "new_units", "u:", "units", pool_p);
 
 	if (new_key_s || new_value_s || new_units_s)
 		{
-			if (!new_key_s)
+			const char *args_ss [3] = { "", "", "" };
+			const char **arg_ss = args_ss;
+
+			if (new_key_s)
 				{
-					new_key_s = "";
+					*arg_ss = new_key_s;
+					++ arg_ss;
 				}
 
-			if (!new_value_s)
+			if (new_value_s)
 				{
-					new_value_s = "";
+					*arg_ss = new_value_s;
+					++ arg_ss;
 				}
 
-			if (!new_units_s)
+			if (new_units_s)
 				{
-					new_units_s = "";
+					*arg_ss = new_units_s;
 				}
 
-			res = ModifyMetadataForEntry (call_p, req_p, params_p, config_p, davrods_path_s, "mod", new_key_s, new_value_s, new_units_s);
+			res = ModifyMetadataForEntry (call_p, req_p, params_p, config_p, davrods_path_s, "mod", *args_ss, * (args_ss + 1), * (args_ss + 2));
 		}
 	else
 		{
@@ -368,15 +385,35 @@ static int EditMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_
 }
 
 
-static int EasyModifyMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s, const char *command_s)
+static apr_status_t EasyModifyMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s, const char *command_s)
 {
 	return ModifyMetadataForEntry (call_p, req_p, params_p, config_p, davrods_path_s, command_s, "", "", "");
 }
 
 
-static int ModifyMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s, const char *command_s, const char *new_key_s, const char *new_value_s, const char *new_units_s)
+static apr_status_t AddDecodedJSONResponse (const APICall *call_p, apr_status_t status, const char *id_s, request_rec *req_p)
 {
-	int res = DECLINED;
+	apr_status_t local_status = APR_EGENERAL;
+	char *res_s = apr_psprintf (req_p -> pool, "{\t\"call\": \"%s\",\n\t\"id\": \"%s\",\n\t\"success\": %s\n}\n", call_p -> ac_action_s, id_s, status == APR_SUCCESS ? "true" : "false");
+
+	if (res_s)
+		{
+			if (ap_rputs (res_s, req_p) > 0)
+				{
+					ap_set_content_type (req_p, "application/json");
+
+					local_status = APR_SUCCESS;
+				}
+		}
+
+
+	return local_status;
+}
+
+
+static apr_status_t ModifyMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s, const char *command_s, const char *arg_0_s, const char *arg_1_s, const char *arg_2_s)
+{
+	apr_status_t res = APR_EGENERAL;
 	apr_pool_t *pool_p = req_p -> pool;
 	const char * const id_s = GetParameterValue (params_p, "id", pool_p);
 
@@ -433,20 +470,27 @@ static int ModifyMetadataForEntry (const APICall *call_p, request_rec *req_p, ap
 															const char *units_s = GetParameterValue (params_p, "units", pool_p);
 															char *full_name_s = apr_pstrcat (req_p -> pool, irods_obj.io_collection_s, "/", irods_obj.io_data_s, NULL);
 
-
-															if (!units_s)
-																{
-																	units_s = "";
-																}
-
 															mod.arg1 = (char *) type_s;
 															mod.arg2 = full_name_s;
 															mod.arg3 = (char *) key_s;
 															mod.arg4 = (char *) value_s;
-															mod.arg5 = (char *) units_s;
-															mod.arg6 = (char *) new_key_s;
-															mod.arg7 = (char *) new_value_s;
-															mod.arg8 = (char *) new_units_s;
+
+
+															if (units_s && (strlen (units_s) > 0))
+																{
+																	mod.arg5 = (char *) units_s;
+																	mod.arg6 = (char *) arg_0_s;
+																	mod.arg7 = (char *) arg_1_s;
+																	mod.arg8 = (char *) arg_2_s;
+																}
+															else
+																{
+																	mod.arg5 = (char *) arg_0_s;
+																	mod.arg6 = (char *) arg_1_s;
+																	mod.arg7 = (char *) arg_2_s;
+																	mod.arg8 = (char *) "";
+																}
+
 															mod.arg9 = "";
 
 															status = rcModAVUMetadata (rods_connection_p, &mod);
@@ -459,6 +503,8 @@ static int ModifyMetadataForEntry (const APICall *call_p, request_rec *req_p, ap
 																{
 																	res = APR_EGENERAL;
 																}
+
+															AddDecodedJSONResponse (call_p, res, id_s, req_p);
 
 														}		/* if (type_s) */
 													else

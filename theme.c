@@ -102,6 +102,8 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 			if (SetIRodsConfig (&irods_config, exposed_root_s, davrods_root_path_s, metadata_link_s) == APR_SUCCESS)
 				{
+					int row_index = 0;
+
 					// Actually print the directory listing, one table row at a time.
 					do
 						{
@@ -115,7 +117,8 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 									if (apr_status == APR_SUCCESS)
 										{
-											apr_status = PrintItem (conf_p -> theme_p, &irods_obj, &irods_config, bucket_brigade_p, pool_p, resource_p -> info -> rods_conn, req_p);
+											apr_status = PrintItem (conf_p -> theme_p, &irods_obj, &irods_config, row_index, bucket_brigade_p, pool_p, resource_p -> info -> rods_conn, req_p);
+											++ row_index;
 
 											if (apr_status != APR_SUCCESS)
 												{
@@ -227,6 +230,7 @@ static apr_status_t PrintMetadataEditor (struct HtmlTheme *theme_p, request_rec 
 {
 	apr_status_t status;
 
+	/*
 	const char * const form_s = "<div id=\"edit_metadata_pop_up\">\n"
 		"<form method=\"get\" id=\"metadata_editor\" action=\"/davrods/api/metadata/add\">\n"
 		"<fieldset>\n"
@@ -240,12 +244,31 @@ static apr_status_t PrintMetadataEditor (struct HtmlTheme *theme_p, request_rec 
 		"<input type=\"hidden\" name=\"id\" id=\"id_editor\" />\n"
 		"</fieldset>\n"
 		"<div class=\"toolbar\">";
+	*/
+
+	const char * const form_s = "<div id=\"edit_metadata_pop_up\">\n"
+		"<form method=\"get\" id=\"metadata_editor\" action=\"/davrods/api/metadata/add\">\n"
+		"<fieldset>\n"
+		"<legend id=\"metadata_editor_title\">Edit Metadata</legend>\n"
+		"<div class=\"add_group\">\n"
+		"<div class=\"row\"><label for=\"attribute_editor\">Attribute:</label><input type=\"text\" name=\"key\" id=\"attribute_editor\" /></div>\n"
+		"<div class=\"row\"><label for=\"value_editor\">Value:</label><input type=\"text\" name=\"value\" id=\"value_editor\" /></div>\n"
+		"<div class=\"row\"><label for=\"units_editor\">Units:</label><input type=\"text\" name=\"units\" id=\"units_editor\" /></div>\n"
+		"</div>\n"
+		"<div class=\"edit_group\">\n"
+		"<div class=\"row\"><label for=\"new_attribute_editor\">Attribute:</label><input type=\"text\" name=\"new_key\" id=\"new_attribute_editor\" /></div>\n"
+		"<div class=\"row\"><label for=\"new_value_editor\">Value:</label><input type=\"text\" name=\"new_value\" id=\"new_value_editor\" /></div>\n"
+		"<div class=\"row\"><label for=\"new_units_editor\">Units:</label><input type=\"text\" name=\"new_units\" id=\"new_units_editor\" /></div>\n"
+		"</div>\n"
+		"<input type=\"hidden\" name=\"id\" id=\"id_editor\" />\n"
+		"</fieldset>\n"
+		"<div class=\"toolbar\">";
 
 	status = PrintBasicStringToBucketBrigade (form_s, bucket_brigade_p, req_p, __FILE__, __LINE__);
 
 	if (theme_p -> ht_ok_icon_s)
 		{
-			status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<img src=\"%s\" alt=\"Save Metadata\"  id=\"save_metadata\" />", theme_p -> ht_ok_icon_s);
+			status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<img class=\"button\" src=\"%s\" alt=\"Save Metadata\" title=\"Save the changes for this metadata key-value pair\" id=\"save_metadata\" /> Ok", theme_p -> ht_ok_icon_s);
 		}
 	else
 		{
@@ -254,17 +277,36 @@ static apr_status_t PrintMetadataEditor (struct HtmlTheme *theme_p, request_rec 
 
 	if (theme_p -> ht_cancel_icon_s)
 		{
-			status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<img src=\"%s\" alt=\"Discard\" id=\"cancel_metadata\" />", theme_p -> ht_cancel_icon_s);
+			status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<img class=\"button\" src=\"%s\" alt=\"Discard\" title=\"Discard any changes\" id=\"cancel_metadata\" /> Cancel", theme_p -> ht_cancel_icon_s);
 		}
 	else
 		{
-			PrintBasicStringToBucketBrigade ("<input type=\"button\" value=\"Cancel\" id=\"cancel_metadata\" /> ", bucket_brigade_p, req_p, __FILE__, __LINE__);
+			PrintBasicStringToBucketBrigade ("<input type=\"button\" value=\"Cancel\" id=\"cancel_metadata\" />", bucket_brigade_p, req_p, __FILE__, __LINE__);
 		}
 
 
 	status = PrintBasicStringToBucketBrigade ("</div>\n</form>\n</div>\n", bucket_brigade_p, req_p, __FILE__, __LINE__);
 
 	return status;
+}
+
+
+char *GetLocationPath (request_rec *req_p, davrods_dir_conf_t *conf_p, apr_pool_t *pool_p, const char *needle_s)
+{
+	char *davrods_path_s = NULL;
+	char *metadata_path_s = apr_pstrcat (pool_p, conf_p -> davrods_api_path_s, needle_s, NULL);
+
+	if (metadata_path_s)
+		{
+			char *api_in_uri_s = strstr (req_p -> uri, metadata_path_s);
+
+			if (api_in_uri_s)
+				{
+					davrods_path_s = apr_pstrndup (pool_p, req_p -> uri, api_in_uri_s - (req_p -> uri));
+				}
+		}
+
+	return davrods_path_s;
 }
 
 
@@ -368,17 +410,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 										}		/* if (davrods_resource_p) */
 									else
 										{
-											char *metadata_path_s = apr_pstrcat (pool_p, api_path_s, REST_METADATA_SEARCH_S, NULL);
-
-											if (metadata_path_s)
-												{
-													char *api_in_uri_s = strstr (req_p -> uri, metadata_path_s);
-
-													if (api_in_uri_s)
-														{
-															davrods_path_s = apr_pstrndup (pool_p, req_p -> uri, api_in_uri_s - (req_p -> uri));
-														}
-												}
+											davrods_path_s = GetLocationPath (req_p, conf_p, pool_p, REST_METADATA_SEARCH_S);
 										}
 
 									/*
@@ -577,7 +609,7 @@ static apr_status_t PrintParentLink (const char *icon_s, request_rec *req_p, apr
 }
 
 
-apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_p, const IRodsConfig *config_p, apr_bucket_brigade *bb_p, apr_pool_t *pool_p, rcComm_t *connection_p, request_rec *req_p)
+apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_p, const IRodsConfig *config_p, unsigned int row_index, apr_bucket_brigade *bb_p, apr_pool_t *pool_p, rcComm_t *connection_p, request_rec *req_p)
 {
 	apr_status_t status = APR_SUCCESS;
 	const char *link_suffix_s = irods_obj_p -> io_obj_type == COLL_OBJ_T ? "/" : NULL;
@@ -585,13 +617,16 @@ apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_
 	char *timestamp_s = GetIRodsObjectLastModifiedTime (irods_obj_p, pool_p);
 	char *size_s = GetIRodsObjectSizeAsString (irods_obj_p, pool_p);
 
+	const char * const row_classes_ss [] = { "odd", "even" };
+	const char *row_class_s = row_classes_ss [(row_index % 2 == 0) ? 0 : 1];
+
 	if (theme_p -> ht_show_ids_flag)
 		{
-			status = apr_brigade_printf (bb_p, NULL, NULL, "<tr class=\"id\" id=\"%d.%s\">", irods_obj_p -> io_obj_type, irods_obj_p -> io_id_s);
+			status = apr_brigade_printf (bb_p, NULL, NULL, "<tr class=\"id %s\" id=\"%d.%s\">", row_class_s, irods_obj_p -> io_obj_type, irods_obj_p -> io_id_s);
 		}
 	else
 		{
-			status = apr_brigade_printf (bb_p, NULL, NULL, "<tr id=\"%d.%s\">", irods_obj_p -> io_obj_type, irods_obj_p -> io_id_s);
+			status = apr_brigade_printf (bb_p, NULL, NULL, "<tr class=\"%s\" id=\"%d.%s\">", row_class_s, irods_obj_p -> io_obj_type, irods_obj_p -> io_id_s);
 		}
 
 	if (status != APR_SUCCESS)
@@ -677,7 +712,9 @@ apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_
 				{
 					const char *zone_s = NULL;
 
-					if (GetAndPrintMetadataForIRodsObject (irods_obj_p, config_p -> ic_metadata_root_link_s, zone_s, theme_p, bb_p, connection_p, pool_p) != 0)
+					status = GetAndPrintMetadataForIRodsObject (irods_obj_p, config_p -> ic_metadata_root_link_s, zone_s, theme_p, bb_p, connection_p, pool_p);
+
+					if (status == APR_SUCCESS)
 						{
 
 						}
@@ -688,10 +725,13 @@ apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_
 				{
 					const char *zone_s = NULL;
 
-					if (GetAndPrintMetadataRestLinkForIRodsObject (irods_obj_p, config_p -> ic_metadata_root_link_s, zone_s, bb_p, connection_p, pool_p) != 0)
+					status = GetAndPrintMetadataRestLinkForIRodsObject (irods_obj_p, config_p -> ic_metadata_root_link_s, zone_s, bb_p, connection_p, pool_p);
+
+					if (status == APR_SUCCESS)
 						{
 
 						}
+
 				}
 
 				break;
@@ -699,6 +739,9 @@ apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_
 			default:
 				break;
 		}
+
+
+
 
 	status = PrintBasicStringToBucketBrigade ("</tr>\n", bb_p, req_p, __FILE__, __LINE__);
 	if (status != APR_SUCCESS)

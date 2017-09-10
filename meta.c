@@ -627,7 +627,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 
 																							SetIRodsObject (&irods_obj, COLL_OBJ_T, id_s, NULL, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize);
 
-																							apr_status = PrintItem (conf_p -> theme_p, &irods_obj, &irods_config, bucket_brigade_p, pool_p, connection_p, req_p);
+																							apr_status = PrintItem (conf_p -> theme_p, &irods_obj, &irods_config, j, bucket_brigade_p, pool_p, connection_p, req_p);
 
 																							if (apr_status != APR_SUCCESS)
 																								{
@@ -742,7 +742,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 
 																															SetIRodsObject (&irods_obj, DATA_OBJ_T, id_s, data_name_s, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize);
 
-																															apr_status = PrintItem (conf_p -> theme_p, &irods_obj, &irods_config, bucket_brigade_p, pool_p, connection_p, req_p);
+																															apr_status = PrintItem (conf_p -> theme_p, &irods_obj, &irods_config, 0, bucket_brigade_p, pool_p, connection_p, req_p);
 
 																															if (apr_status != APR_SUCCESS)
 																																{
@@ -1213,69 +1213,85 @@ static int CompareIrodsMetadata (const void *v0_p, const void *v1_p)
 
 apr_status_t PrintMetadata (const apr_array_header_t *metadata_list_p, struct HtmlTheme *theme_p, apr_bucket_brigade *bb_p, const char *metadata_search_link_s, apr_pool_t *pool_p)
 {
-	apr_status_t status = apr_brigade_puts (bb_p, NULL, NULL, "<ul class=\"metadata\">");
+	apr_status_t status = apr_brigade_puts (bb_p, NULL, NULL, "<div class=\"metadata_container\">\n");
 
 	if (status == APR_SUCCESS)
 		{
 			const int size = metadata_list_p -> nelts;
-			int i;
 
-			for (i = 0; i < size; ++ i)
+			if (size > 0)
 				{
-					const IrodsMetadata *metadata_p = APR_ARRAY_IDX (metadata_list_p, i, IrodsMetadata *);
+					status = apr_brigade_puts (bb_p, NULL, NULL, "<ul class=\"metadata\">");
 
-					apr_brigade_puts (bb_p, NULL, NULL, "<li>");
-
-					if (theme_p -> ht_delete_metadata_icon_s)
+					if (status == APR_SUCCESS)
 						{
-							apr_brigade_printf (bb_p, NULL, NULL, "<img class=\"button delete_metadata\" src=\"%s\" alt=\"delete metadata attribute-value pair\" />", theme_p -> ht_delete_metadata_icon_s);
+							int i;
+
+							for (i = 0; i < size; ++ i)
+								{
+									const IrodsMetadata *metadata_p = APR_ARRAY_IDX (metadata_list_p, i, IrodsMetadata *);
+
+									apr_brigade_puts (bb_p, NULL, NULL, "<li>");
+
+									if (theme_p -> ht_delete_metadata_icon_s)
+										{
+											apr_brigade_printf (bb_p, NULL, NULL, "<img class=\"button delete_metadata\" src=\"%s\" title=\"Delete this key=value metadata pair\" alt=\"delete metadata attribute-value pair\" />", theme_p -> ht_delete_metadata_icon_s);
+										}
+
+									if (theme_p -> ht_edit_metadata_icon_s)
+										{
+											apr_brigade_printf (bb_p, NULL, NULL, "<img class=\"button edit_metadata\" src=\"%s\" title=\"Edit this key=value metadata pair\" alt=\"edit metadata attribute-value pair\" />", theme_p -> ht_edit_metadata_icon_s);
+										}
+
+
+									if (metadata_search_link_s)
+										{
+											char *escaped_key_s = ap_escape_urlencoded (pool_p, metadata_p -> im_key_s);
+											char *escaped_value_s = ap_escape_urlencoded (pool_p, metadata_p -> im_value_s);
+
+											apr_brigade_printf (bb_p, NULL, NULL, "<a href=\"%s?key=%s&amp;value=%s\">", metadata_search_link_s, escaped_key_s, escaped_value_s);
+										}
+
+									apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"key\">%s</span>: <span class=\"value\">%s</span>", metadata_p -> im_key_s, metadata_p -> im_value_s);
+
+									if ((metadata_p -> im_units_s) && (strlen (metadata_p -> im_units_s) > 0))
+										{
+											apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"units\">%s</span>", metadata_p -> im_units_s);
+										}
+
+
+									if (metadata_search_link_s)
+										{
+											apr_brigade_puts (bb_p, NULL, NULL, "</a>");
+										}
+
+
+									apr_brigade_puts (bb_p, NULL, NULL, "</li>");
+								}
+
+							apr_brigade_puts (bb_p, NULL, NULL, "</ul>\n\n");
 						}
 
-					if (theme_p -> ht_edit_metadata_icon_s)
-						{
-							apr_brigade_printf (bb_p, NULL, NULL, "<img class=\"button edit_metadata\" src=\"%s\" alt=\"edit metadata attribute-value pair\" />", theme_p -> ht_edit_metadata_icon_s);
-						}
+				}		/* if (size > 0) */
 
+		}
 
-					if (metadata_search_link_s)
-						{
-							char *escaped_key_s = ap_escape_urlencoded (pool_p, metadata_p -> im_key_s);
-							char *escaped_value_s = ap_escape_urlencoded (pool_p, metadata_p -> im_value_s);
-
-							apr_brigade_printf (bb_p, NULL, NULL, "<a href=\"%s?key=%s&amp;value=%s\">", metadata_search_link_s, escaped_key_s, escaped_value_s);
-						}
-
-					apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"key\">%s</span>: <span class=\"value\">%s</span>", metadata_p -> im_key_s, metadata_p -> im_value_s);
-
-					if ((metadata_p -> im_units_s) && (strlen (metadata_p -> im_units_s) > 0))
-						{
-							apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"units\">%s</span>", metadata_p -> im_units_s);
-						}
-
-
-					if (metadata_search_link_s)
-						{
-							apr_brigade_puts (bb_p, NULL, NULL, "</a>");
-						}
-
-
-					apr_brigade_puts (bb_p, NULL, NULL, "</li>");
+	if (status == APR_SUCCESS)
+		{
+			if (theme_p -> ht_add_metadata_icon_s)
+				{
+					status = apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"add_metadata\"><img class=\"button\" src=\"%s\" title=\"Add a new metadata attribute-value pair\" alt=\"add metadata attribute-value pair\" />Add Metadata</span>\n", theme_p -> ht_add_metadata_icon_s);
+				}
+			else
+				{
+					status = apr_brigade_puts (bb_p, NULL, NULL, "<span class=\"add_metadata\"><a href=\"#\">Add Metadata</a></span>\n");
 				}
 
-			apr_brigade_puts (bb_p, NULL, NULL, "</ul>");
-
+			if (status == APR_SUCCESS)
+				{
+					status = apr_brigade_puts (bb_p, NULL, NULL, "</div>\n");
+				}
 		}
-
-
-	if (theme_p -> ht_add_metadata_icon_s)
-		{
-			apr_brigade_printf (bb_p, NULL, NULL, "<p><img class=\"button add_metadata\" src=\"%s\" alt=\"add metadata attribute-value pair\" /></p>", theme_p -> ht_add_metadata_icon_s);
-		}
-	else
-		{
-			apr_brigade_printf (bb_p, NULL, NULL, "<p><a href=\"#\" class=\"add_metadata\">Add Metadata</a></p>");
-		}
-
 
 	return status;
 }

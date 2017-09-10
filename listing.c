@@ -379,7 +379,7 @@ apr_status_t GetAndPrintMetadataForIRodsObject (const IRodsObject *irods_obj_p, 
 	int status = -1;
 	apr_array_header_t *metadata_array_p = GetMetadata (connection_p, irods_obj_p -> io_obj_type, irods_obj_p -> io_id_s, irods_obj_p -> io_collection_s, zone_s, pool_p);
 
-	apr_brigade_puts (bb_p, NULL, NULL, "<td class=\"metatable\">");
+	apr_brigade_puts (bb_p, NULL, NULL, "<td class=\"metatable\">\n");
 
 	if (metadata_array_p)
 		{
@@ -427,7 +427,7 @@ apr_status_t GetAndPrintMetadataRestLinkForIRodsObject (const IRodsObject *irods
 }
 
 
-apr_status_t GetMetadataTableForId (char *combined_id_s, struct HtmlTheme *theme_p, rcComm_t *connection_p, apr_pool_t *pool_p, apr_bucket_brigade *bucket_brigade_p)
+apr_status_t GetMetadataTableForId (char *combined_id_s, davrods_dir_conf_t *config_p, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p, apr_bucket_brigade *bucket_brigade_p)
 {
 	apr_status_t status = APR_EGENERAL;
 	char *parent_id_s = NULL;
@@ -462,12 +462,9 @@ apr_status_t GetMetadataTableForId (char *combined_id_s, struct HtmlTheme *theme
 
 					if (metadata_array_p)
 						{
-							if (!apr_is_empty_array (metadata_array_p))
-								{
-									char *link_s = NULL;
+							char *metadata_link_s = GetLocationPath (req_p, config_p, pool_p, REST_METADATA_GET_S);
 
-									status = PrintMetadata (metadata_array_p, theme_p, bucket_brigade_p, link_s, pool_p);
-								}		/* if (!apr_is_empty_array (metadata_array_p)) */
+							status = PrintMetadata (metadata_array_p, config_p -> theme_p, bucket_brigade_p, metadata_link_s, pool_p);
 						}
 
 				}

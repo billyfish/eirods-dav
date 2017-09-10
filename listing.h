@@ -17,6 +17,8 @@ typedef unsigned int uint;
 #include "apr_pools.h"
 #include "apr_buckets.h"
 
+#include "config.h"
+
 /* Forward declaration */
 struct HtmlTheme;
 
@@ -129,8 +131,8 @@ apr_status_t GetAndPrintMetadataForIRodsObject (const IRodsObject *irods_obj_p, 
 apr_status_t GetAndPrintMetadataRestLinkForIRodsObject (const IRodsObject *irods_obj_p, const char * const link_s, const char *zone_s, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p);
 
 
+apr_status_t GetMetadataTableForId (char *combined_id_s, davrods_dir_conf_t *config_p, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p, apr_bucket_brigade *bucket_brigade_p);
 
-apr_status_t GetMetadataTableForId (char *combined_id_s, struct HtmlTheme *theme_p, rcComm_t *connection_p, apr_pool_t *pool_p, apr_bucket_brigade *bucket_brigade_p);
 
 #ifdef __cplusplus
 }
