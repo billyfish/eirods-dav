@@ -19,8 +19,10 @@ Notable features include:
 - Expose and navigate by metadata key-value pairs.
 - Search the metadata catalogue.
 - REST API for accessing and manipulating the iRODS metadata 
+- Client-side interface to add, edit and delete metadata entries.
 
-A working demo of this module showing the themeable listings along with metadata searching and linking is available at  https://wheatis.tgac.ac.uk/davrods/browse/reads/.
+A working demo of this module showing the themeable listings along with metadata 
+searching and linking is available at https://wheatis.tgac.ac.uk/davrods/browse/reads/.
 
 
 ## Installation ##
@@ -30,7 +32,7 @@ A working demo of this module showing the themeable listings along with metadata
 Davrods requires the following packages to be installed on your server:
 
 - Apache httpd 2.4+
-- iRODS 4.1.x client libraries (in package `irods-runtime`, available
+- iRODS 4.x client libraries (in package `irods-runtime`, available
   from [the iRODS website](http://irods.org/download/))
 
 Due to the way iRODS libraries are packaged, specifically, its network
@@ -276,12 +278,22 @@ HTML page for each request.
  * **on_demand**: None of the metadata is initially included with the 
 HTML pages sent by Davrods. Instead they can be accessed via AJAX requests
 from these pages.
-  * **none**: No metdata information will be made available.
+  * **none**: No metadata information will be made available.
  So to set the metadata to be available on demand, the directive would be:
 
      ```
   DavRodsHTMLMetadata on_demand
      ```
+
+* **DavRodsHTMLMetadataEditable**:
+This directive specifies whether the client-side functionality for editing
+the metadata by accessing REST API calls is active ot not. By default, it is
+off and can be turned on by setting this directive to true.
+
+ ```
+ DavRodsHTMLMetadataEditable true
+ ```
+
 
 * **DavRodsAPIPath**:
 This directive specifies the path used within Davrods to link to the
@@ -293,8 +305,61 @@ use the following directive:
  DavRodsAPIPath /api/
  ```
 
+* **HTMLAddMetadataImage**:
+If ```DavRodsHTMLMetadataEditable``` is set to true, then you can use this
+directive to specify the image used for the button to add metadata to a 
+particular data object or collection.
+
+ ```
+ DavRodsHTMLAddMetadataImage /davrods_files/images/list_add
+ ```
+
+* **HTMLDeleteMetadataImage**:
+If ```DavRodsHTMLMetadataEditable``` is set to true, then you can use this
+directive to specify the image used for the button to delete metadata from a 
+particular data object or collection.
+
+ ```
+ DavRodsHTMLDeleteMetadataImage /davrods_files/images/list_delete
+ ```
+
+* **HTMLEditMetadataImage**:
+If ```DavRodsHTMLMetadataEditable``` is set to true, then you can use this
+directive to specify the image used for the button to edit metadata for a 
+particular data object or collection.
+
+ ```
+ DavRodsHTMLEditMetadataImage /davrods_files/images/list_edit
+ ```
+
+* **DavRodsHTMLOkImage**:
+If ```DavRodsHTMLMetadataEditable``` is set to true, then you can use this
+directive to specify the image used for the "OK" button of the metadata 
+editor.
+
+ ```
+ DavRodsHTMLOkImage /davrods_files/images/list_ok
+ ```
+
+* **DavRodsHTMLCancelImage**:
+If ```DavRodsHTMLMetadataEditable``` is set to true, then you can use this
+directive to specify the image used for the "Cancel" button of the metadata 
+editor.
+
+ ```
+ DavRodsHTMLOkImage /davrods_files/images/list_cancel
+ ```
+
 #### REST API
 
+Davrods has a REST API for accessing and manipulating the iRODS metadata catalog. 
+Currently it has the following functions:
+
+ * **metadata/search**:
+ * **metadata/edit**:
+ * **metadata/get**:
+ * **metadata/add**:
+ * **metadata/delete**:
 
 
 ### The iRODS environment file ###

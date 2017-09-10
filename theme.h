@@ -47,6 +47,8 @@ struct HtmlTheme
 
 	enum MetadataDisplay ht_show_metadata_flag;
 
+	int ht_metadata_editable_flag;
+
 	const char *ht_add_metadata_icon_s;
 
 	const char *ht_edit_metadata_icon_s;

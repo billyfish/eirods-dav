@@ -1233,14 +1233,17 @@ apr_status_t PrintMetadata (const apr_array_header_t *metadata_list_p, struct Ht
 
 									apr_brigade_puts (bb_p, NULL, NULL, "<li>");
 
-									if (theme_p -> ht_delete_metadata_icon_s)
+									if (theme_p -> ht_metadata_editable_flag)
 										{
-											apr_brigade_printf (bb_p, NULL, NULL, "<img class=\"button delete_metadata\" src=\"%s\" title=\"Delete this key=value metadata pair\" alt=\"delete metadata attribute-value pair\" />", theme_p -> ht_delete_metadata_icon_s);
-										}
+											if (theme_p -> ht_delete_metadata_icon_s)
+												{
+													apr_brigade_printf (bb_p, NULL, NULL, "<img class=\"button delete_metadata\" src=\"%s\" title=\"Delete this key=value metadata pair\" alt=\"delete metadata attribute-value pair\" />", theme_p -> ht_delete_metadata_icon_s);
+												}
 
-									if (theme_p -> ht_edit_metadata_icon_s)
-										{
-											apr_brigade_printf (bb_p, NULL, NULL, "<img class=\"button edit_metadata\" src=\"%s\" title=\"Edit this key=value metadata pair\" alt=\"edit metadata attribute-value pair\" />", theme_p -> ht_edit_metadata_icon_s);
+											if (theme_p -> ht_edit_metadata_icon_s)
+												{
+													apr_brigade_printf (bb_p, NULL, NULL, "<img class=\"button edit_metadata\" src=\"%s\" title=\"Edit this key=value metadata pair\" alt=\"edit metadata attribute-value pair\" />", theme_p -> ht_edit_metadata_icon_s);
+												}
 										}
 
 
@@ -1278,13 +1281,16 @@ apr_status_t PrintMetadata (const apr_array_header_t *metadata_list_p, struct Ht
 
 	if (status == APR_SUCCESS)
 		{
-			if (theme_p -> ht_add_metadata_icon_s)
+			if (theme_p -> ht_metadata_editable_flag)
 				{
-					status = apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"add_metadata\"><img class=\"button\" src=\"%s\" title=\"Add a new metadata attribute-value pair\" alt=\"add metadata attribute-value pair\" />Add Metadata</span>\n", theme_p -> ht_add_metadata_icon_s);
-				}
-			else
-				{
-					status = apr_brigade_puts (bb_p, NULL, NULL, "<span class=\"add_metadata\"><a href=\"#\">Add Metadata</a></span>\n");
+					if (theme_p -> ht_add_metadata_icon_s)
+						{
+							status = apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"add_metadata\"><img class=\"button\" src=\"%s\" title=\"Add a new metadata attribute-value pair\" alt=\"add metadata attribute-value pair\" />Add Metadata</span>\n", theme_p -> ht_add_metadata_icon_s);
+						}
+					else
+						{
+							status = apr_brigade_puts (bb_p, NULL, NULL, "<span class=\"add_metadata\"><a href=\"#\">Add Metadata</a></span>\n");
+						}
 				}
 
 			if (status == APR_SUCCESS)

@@ -409,6 +409,20 @@ static const char *cmd_davrods_html_metadata (cmd_parms *cmd_p, void *config_p, 
 }
 
 
+static const char *cmd_davrods_html_metadata_editable (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    if (!strcasecmp (arg_p, "true"))
+    	{
+    		conf_p -> theme_p -> ht_metadata_editable_flag = 1;
+    	}
+
+    return NULL;
+}
+
+
+
 static const char *cmd_davrods_html_ids (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
     davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
@@ -602,6 +616,11 @@ const command_rec davrods_directives[] = {
     AP_INIT_TAKE1(
         DAVRODS_CONFIG_PREFIX "HTMLMetadata", cmd_davrods_html_metadata,
         NULL, ACCESS_CONF, "Options for displaying metadata"
+    ),
+
+    AP_INIT_TAKE1(
+        DAVRODS_CONFIG_PREFIX "HTMLMetadataEditable", cmd_davrods_html_metadata_editable,
+        NULL, ACCESS_CONF, "Options for editing metadata"
     ),
 
     AP_INIT_TAKE1(

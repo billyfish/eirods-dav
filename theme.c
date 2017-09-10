@@ -50,6 +50,7 @@ struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 		  theme_p -> ht_edit_metadata_icon_s = NULL;
 		  theme_p -> ht_delete_metadata_icon_s = NULL;
 		  theme_p -> ht_show_metadata_flag = MD_NONE;
+		  theme_p -> ht_metadata_editable_flag = 0;
 		  theme_p -> ht_rest_api_s = NULL;
 
 		  theme_p -> ht_ok_icon_s = NULL;
@@ -204,7 +205,15 @@ apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, request_rec *r
 
 	if (apr_status == APR_SUCCESS)
 		{
-			apr_status = PrintMetadataEditor (theme_p, req_p, bucket_brigade_p);
+			if (theme_p -> ht_metadata_editable_flag)
+				{
+					apr_status = PrintMetadataEditor (theme_p, req_p, bucket_brigade_p);
+
+					if (apr_status != APR_SUCCESS)
+						{
+							return apr_status;
+						} /* if (apr_status != APR_SUCCESS) */
+				}
 
 			if (theme_p -> ht_bottom_s)
 				{
@@ -233,22 +242,6 @@ apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, request_rec *r
 static apr_status_t PrintMetadataEditor (struct HtmlTheme *theme_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p)
 {
 	apr_status_t status;
-
-	/*
-	const char * const form_s = "<div id=\"edit_metadata_pop_up\">\n"
-		"<form method=\"get\" id=\"metadata_editor\" action=\"/davrods/api/metadata/add\">\n"
-		"<fieldset>\n"
-		"<legend id=\"metadata_editor_title\">Edit Metadata</legend>\n"
-		"<span class=\"add_group row\"><label for=\"attribute_editor\">Attribute:</label><input type=\"text\" name=\"key\" id=\"attribute_editor\" /></span>\n"
-		"<span class=\"add_group row\"><label for=\"value_editor\">Value:</label><input type=\"text\" name=\"value\" id=\"value_editor\" /></span>\n"
-		"<span class=\"add_group row\"><label for=\"units_editor\">Units:</label><input type=\"text\" name=\"units\"id=\"units_editor\" /></span>\n"
-		"<span class=\"edit_group row\"><label for=\"new_attribute_editor\">Attribute:</label><input type=\"text\" name=\"new_key\" id=\"new_attribute_editor\" /></span>\n"
-		"<span class=\"edit_group row\"><label for=\"new_value_editor\">Value:</label><input type=\"text\" name=\"new_value\" id=\"new_value_editor\" /></span>\n"
-		"<span class=\"edit_group row\"><label for=\"new_units_editor\">Units:</label><input type=\"text\" name=\"new_units\" id=\"new_units_editor\" /></span>\n"
-		"<input type=\"hidden\" name=\"id\" id=\"id_editor\" />\n"
-		"</fieldset>\n"
-		"<div class=\"toolbar\">";
-	*/
 
 	const char * const form_s = "<div id=\"edit_metadata_pop_up\">\n"
 		"<form method=\"get\" id=\"metadata_editor\" action=\"/davrods/api/metadata/add\">\n"
@@ -794,6 +787,7 @@ void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p
 	DAVRODS_PROP_MERGE(theme_p -> ht_cancel_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_listing_class_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_show_metadata_flag);
+	DAVRODS_PROP_MERGE(theme_p -> ht_metadata_editable_flag);
 	DAVRODS_PROP_MERGE(theme_p -> ht_show_ids_flag);
 
 	if (child_p -> theme_p -> ht_icons_map_p)
