@@ -1,0 +1,148 @@
+body {
+	font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+	font-size: 1rem;
+	line-height: 1.5;
+	color: #373a3c;
+	-webkit-text-size-adjust: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+h1 {
+	font-size: 1.1em;
+}
+
+footer { 
+	margin-top: 1.0em;
+	text-align: right; 
+	font-size: 0.9em;
+}
+
+span.key {
+	padding-left: 1.0em;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+th {
+	background-color: white;
+}
+
+td, th {
+  padding: .75em;
+  vertical-align: top;
+  border-top: 1px solid #eceeef;
+}
+
+
+tr.odd {
+	background-color: rgba(0,0,0,.05);
+}
+
+img.button {
+	padding-left: 0,5em;
+	padding-right: 0.5em;
+	vertical-align: middle;
+}
+
+.metadata_container {
+
+}
+
+ul.metadata  {
+	display: none;
+	margin-top:  0px;
+	list-style-type: none;
+}
+
+ul.metadata li:first-child {
+	border-top-right-radius: .25rem;
+  border-top-left-radius: .25rem;
+}
+
+ul.metadata li {
+	padding: 0.25em;
+	border-top: 1px solid rgba(0, 0, 0, 0.3);
+	border-left: 1px solid rgba(0, 0, 0, 0.3);
+	border-right: 1px solid rgba(0, 0, 0, 0.3)
+}
+
+ul.metadata li:last-child {
+	border-bottom-left-radius: 0.25em;
+	border-bottom-right-radius: 0.25em;
+	border-bottom: 1px solid rgba(0, 0, 0, 0.5);
+}
+
+
+
+#edit_metadata_pop_up {
+	background: #f7f7f7;
+	position: absolute;
+	display: none;
+	left: 50%;
+	top: 50%;
+	margin-left: -250px; /* half of width */
+	text-align: right;
+	z-index: 20;
+	padding: 2.0em;
+	width: 500px;
+	box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5); 
+	-webkit-box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);  
+	-moz-box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5); 
+}
+
+#edit_metadata_pop_up legend {
+  padding: 0.2em 0.5em;
+  color: rgba(0, 0, 0, 0.5); ;
+  font-size:90%;
+  text-align:right;
+  width: auto;
+}
+
+#edit_metadata_pop_up fieldset {
+	border: 1px ridge rgba(0, 0, 0, 0.5); 
+	border-radius: 5px;
+	margin-bottom: 1.0em;
+}
+
+#edit_metadata_pop_up  input {
+  width: 70%;
+}
+
+#edit_metadata_pop_up  label {: 
+  width: 30%;
+  text-align:right;
+  padding-right: 1.0em;
+}
+
+#edit_metadata_pop_up .edit_group {
+	display: none;
+}
+
+#save_metadata{
+  padding-left: 32px;
+	padding-right: 0px;
+}
+
+#cancel_metadata{
+  padding-left: 32px;
+	padding-right: 0px;
+}
+
+
+
+.search_form {
+	padding-top:  1.0em;
+	padding-bottom:  1.0em;
+}
+
+
+
+.add_metadata {
+	padding-left: 2.5em;
+}
+

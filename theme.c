@@ -15,6 +15,8 @@
 
 #include "listing.h"
 
+static const char *S_FILE_PREFIX_S = "file:";
+
 /************************************/
 
 static int AreIconsDisplayed (const struct HtmlTheme *theme_p);
@@ -24,6 +26,8 @@ static apr_status_t PrintParentLink (const char *icon_s, request_rec *req_p, apr
 static int PrintTableEntryToOption (void *data_p, const char *key_s, const char *value_s);
 
 static apr_status_t PrintMetadataEditor (struct HtmlTheme *theme_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p);
+
+static apr_status_t PrintSection (const char *value_s, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p);
 
 
 /*************************************/
@@ -204,7 +208,7 @@ apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, request_rec *r
 
 			if (theme_p -> ht_bottom_s)
 				{
-					apr_status = PrintBasicStringToBucketBrigade (theme_p -> ht_bottom_s, bucket_brigade_p, req_p, __FILE__, __LINE__);
+					apr_status = PrintSection (theme_p -> ht_bottom_s, req_p, bucket_brigade_p);
 
 					if (apr_status != APR_SUCCESS)
 						{
@@ -310,6 +314,28 @@ char *GetLocationPath (request_rec *req_p, davrods_dir_conf_t *conf_p, apr_pool_
 }
 
 
+static apr_status_t PrintSection (const char *value_s, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p)
+{
+	apr_status_t status = APR_SUCCESS;
+
+	if (value_s)
+		{
+			size_t l = strlen (S_FILE_PREFIX_S);
+
+			if (strncmp (S_FILE_PREFIX_S, value_s, l) == 0)
+				{
+					status = PrintFileToBucketBrigade (value_s + l, bucket_brigade_p, req_p, __FILE__, __LINE__);
+				}
+			else
+				{
+					status = PrintBasicStringToBucketBrigade (value_s, bucket_brigade_p, req_p, __FILE__, __LINE__);
+				}
+		}
+
+	return status;
+}
+
+
 apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_resource_p, const char * const page_title_s, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
 {
 	// Send start of HTML document.
@@ -343,7 +369,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 	 */
 	if (conf_p -> theme_p -> ht_head_s)
 		{
-			apr_status = PrintBasicStringToBucketBrigade (conf_p -> theme_p -> ht_head_s, bucket_brigade_p, req_p, __FILE__, __LINE__);
+			apr_status = PrintSection (conf_p -> theme_p -> ht_head_s, req_p, bucket_brigade_p);
 
 			if (apr_status != APR_SUCCESS)
 				{
@@ -374,7 +400,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 	 */
 	if (conf_p -> theme_p -> ht_top_s)
 		{
-			apr_status = PrintBasicStringToBucketBrigade (conf_p -> theme_p -> ht_top_s, bucket_brigade_p, req_p, __FILE__, __LINE__);
+			apr_status = PrintSection (conf_p -> theme_p -> ht_top_s, req_p, bucket_brigade_p);
 
 			if (apr_status != APR_SUCCESS)
 				{

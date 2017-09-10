@@ -303,11 +303,11 @@ static const char *cmd_davrodslockdb(
 
 static const char *cmd_davrods_html_header (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-    conf_p -> theme_p -> ht_head_s = arg_p;
+	conf_p -> theme_p -> ht_head_s = arg_p;
 
-    return NULL;
+	return NULL;
 }
 
 

@@ -139,7 +139,9 @@ apr_status_t PrintFileToBucketBrigade (const char *filename_s, apr_bucket_brigad
 
 	if (in_f)
 		{
-			while (! ((feof (in_f)) && (ferror (in_f))))
+			int loop = 1;
+
+			while (loop)
 				{
 					#define BUFFER_SIZE (1025)
 
@@ -153,12 +155,20 @@ apr_status_t PrintFileToBucketBrigade (const char *filename_s, apr_bucket_brigad
 							if (status != APR_SUCCESS)
 								{
 									ap_log_rerror (file_s, line, APLOG_MODULE_INDEX, APLOG_ERR, status, req_p, "Failed to store %s from file", buffer_s, filename_s);
+									loop = 0;
 								}
 						}
 					else
 						{
+							loop = 0;
 							ap_log_rerror (file_s, line, APLOG_MODULE_INDEX, APLOG_ERR, status, req_p, "Failed to get contents of %s", filename_s);
 						}
+
+					if (feof (in_f) != 0)
+						{
+							loop = 0;
+						}
+
 				}
 
 			fclose (in_f);
