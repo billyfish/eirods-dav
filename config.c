@@ -657,7 +657,7 @@ const command_rec davrods_directives[] = {
 
 		AP_INIT_TAKE1(
 				DAVRODS_CONFIG_PREFIX "APIPath", cmd_davrods_api_path,
-				NULL, ACCESS_CONF, "Set the location used for the Rest api. This is relative to the <Location> that davrods is hosted on."
+				NULL, ACCESS_CONF, "Set the location used for the Rest API. This is relative to the <Location> that davrods is hosted on."
 		),
 
 		AP_INIT_TAKE1(

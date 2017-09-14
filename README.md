@@ -1,4 +1,4 @@
-﻿Davrods - An Apache WebDAV interface to iROD
+﻿Davrods - An Apache WebDAV interface to iRODS
 =============================================
 
 Davrods provides access to iRODS servers using the WebDAV protocol.
@@ -347,7 +347,7 @@ directive to specify the image used for the "Cancel" button of the metadata
 editor.
 
  ```
- DavRodsHTMLOkImage /davrods_files/images/list_cancel
+ DavRodsHTMLCancelImage /davrods_files/images/list_cancel
  ```
 
 #### REST API

@@ -1281,17 +1281,7 @@ apr_status_t PrintMetadata (const apr_array_header_t *metadata_list_p, struct Ht
 
 	if (status == APR_SUCCESS)
 		{
-			if (theme_p -> ht_metadata_editable_flag)
-				{
-					if (theme_p -> ht_add_metadata_icon_s)
-						{
-							status = apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"add_metadata\"><img class=\"button\" src=\"%s\" title=\"Add a new metadata attribute-value pair\" alt=\"add metadata attribute-value pair\" />Add Metadata</span>\n", theme_p -> ht_add_metadata_icon_s);
-						}
-					else
-						{
-							status = apr_brigade_puts (bb_p, NULL, NULL, "<span class=\"add_metadata\"><a href=\"#\">Add Metadata</a></span>\n");
-						}
-				}
+			status = PrintAddMetadataObject (theme_p, bb_p);
 
 			if (status == APR_SUCCESS)
 				{
@@ -1302,6 +1292,25 @@ apr_status_t PrintMetadata (const apr_array_header_t *metadata_list_p, struct Ht
 	return status;
 }
 
+
+static apr_status_t PrintAddMetadataObject (const struct HtmlTheme *theme_p,  apr_bucket_brigade *bb_p)
+{
+	apr_status_t status;
+
+	if (theme_p -> ht_metadata_editable_flag)
+		{
+			if (theme_p -> ht_add_metadata_icon_s)
+				{
+					status = apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"add_metadata\"><img class=\"button\" src=\"%s\" title=\"Add a new metadata attribute-value pair\" alt=\"add metadata attribute-value pair\" />Add Metadata</span>\n", theme_p -> ht_add_metadata_icon_s);
+				}
+			else
+				{
+					status = apr_brigade_puts (bb_p, NULL, NULL, "<span class=\"add_metadata\"><a href=\"#\">Add Metadata</a></span>\n");
+				}
+		}
+
+	return status;
+}
 
 
 apr_array_header_t *GetAllDataObjectMetadataKeys (apr_pool_t *pool_p, rcComm_t *connection_p)
