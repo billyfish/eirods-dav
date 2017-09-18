@@ -100,7 +100,7 @@ function GetMetadataList (table_cell, irods_id, show_flag) {
 		  if (status === "success") {
 
 				/* if there is an old list, then remove it */
-        var metadata_containers = $(table_cell).find ("ul.metadata:first");
+        var metadata_containers = $(table_cell).find ("div.metadata_container:first");
 
 				if ($(metadata_containers).length > 0) {
 					$(metadata_containers).each (function () {
