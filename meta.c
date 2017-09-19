@@ -72,6 +72,7 @@ static int CopyTableKeysToArray (void *data_p, const char *key_s, const char *va
 
 static int AddKeysToTable (apr_pool_t *pool_p, rcComm_t *connection_p, const int *columns_p, apr_table_t *table_p);
 
+static apr_status_t PrintAddMetadataObject (const struct HtmlTheme *theme_p,  apr_bucket_brigade *bb_p);
 
 /*************************************/
 
