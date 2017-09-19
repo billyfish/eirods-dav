@@ -47,6 +47,7 @@ img.button {
 	padding-left: 0,5em;
 	padding-right: 0.5em;
 	vertical-align: middle;
+	cursor: pointer;
 }
 
 .metadata_container {
@@ -133,6 +134,11 @@ ul.metadata li:last-child {
 	padding-right: 0px;
 }
 
+
+nav {
+	margin-top: 1.0em;
+	margin-bottom: 1.0em;
+}
 
 
 .search_form {

@@ -21,13 +21,13 @@ static const char *S_FILE_PREFIX_S = "file:";
 
 static int AreIconsDisplayed (const struct HtmlTheme *theme_p);
 
-static apr_status_t PrintParentLink (const char *icon_s, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p);
-
 static int PrintTableEntryToOption (void *data_p, const char *key_s, const char *value_s);
 
 static apr_status_t PrintMetadataEditor (struct HtmlTheme *theme_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p);
 
 static apr_status_t PrintSection (const char *value_s, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p);
+
+static apr_status_t PrintBreadcrumbs (struct dav_resource_private *davrods_resource_p, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p);
 
 
 /*************************************/
@@ -44,7 +44,6 @@ struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 		  theme_p -> ht_bottom_s = NULL;
 		  theme_p -> ht_collection_icon_s = NULL;
 		  theme_p -> ht_object_icon_s = NULL;
-		  theme_p -> ht_parent_icon_s = NULL;
 		  theme_p -> ht_listing_class_s = NULL;
 		  theme_p -> ht_add_metadata_icon_s = NULL;
 		  theme_p -> ht_edit_metadata_icon_s = NULL;
@@ -514,18 +513,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 		} /* if (apr_ret != APR_SUCCESS) */
 
 
-	if ((davrods_resource_p != NULL) && (strcmp (davrods_resource_p -> relative_uri, "/")))
-		{
-			apr_status = PrintParentLink (conf_p -> theme_p -> ht_parent_icon_s, req_p, bucket_brigade_p, pool_p);
-
-			if (apr_status != APR_SUCCESS)
-				{
-					ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to print parent link");
-					return apr_status;
-				}
-
-		}		/* if (strcmp (davrods_resource_p->relative_uri, "/")) */
-
+	PrintBreadcrumbs (davrods_resource_p, user_s, conf_p, req_p, bucket_brigade_p, pool_p);
 
 	/*
 	 * Add the listing class
@@ -590,43 +578,62 @@ static int PrintTableEntryToOption (void *data_p, const char *key_s, const char 
 }
 
 
-static apr_status_t PrintParentLink (const char *icon_s, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
+
+static apr_status_t PrintBreadcrumbs (struct dav_resource_private *davrods_resource_p, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
 {
-	apr_status_t status = PrintBasicStringToBucketBrigade ("<p><a href=\"..\">", bucket_brigade_p, req_p, __FILE__, __LINE__);
+	apr_status_t status = APR_SUCCESS;
+	char *path_s = apr_pstrdup (pool_p, davrods_resource_p -> relative_uri);
+	char *slash_s = strchr (path_s, '/');
+	char *old_slash_s = path_s;
+	const char *sep_s = (*path_s == '/') ? "" : "/";
+	char breadcrumb_sep = '\0';
 
-	if (status != APR_SUCCESS)
+	if (davrods_resource_p -> root_dir)
 		{
-			return status;
-		}
+			const size_t root_length = strlen (davrods_resource_p -> root_dir);
 
-	if (icon_s)
-		{
-			const char *escaped_icon_s = ap_escape_html (pool_p, icon_s);
-
-			status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<img src=\"%s\" alt=\"Browse to parent Collection\"/>", escaped_icon_s);
-
-			if (status != APR_SUCCESS)
+			if (* ((davrods_resource_p -> root_dir) + root_length - 1) == '/')
 				{
-					ap_log_rerror (APLOG_MARK, APLOG_ERR, status, req_p, "Failed to print icon \"%s\"", escaped_icon_s);
-					return status;
-				}
-		}
-	else
-		{
-			/* Print a north-west arrow */
-			status = PrintBasicStringToBucketBrigade ("&#8598;", bucket_brigade_p, req_p, __FILE__, __LINE__);
-
-			if (status != APR_SUCCESS)
-				{
-					return status;
+					sep_s = "";
 				}
 		}
 
-	status = PrintBasicStringToBucketBrigade (" Parent collection</a></p>\n", bucket_brigade_p, req_p, __FILE__, __LINE__);
+
+	status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<nav><span class=\"breadcrumbs\">Location:</span> <a href=\"%s\">Home</a>", davrods_resource_p -> root_dir);
+
+	while (slash_s && (status == APR_SUCCESS))
+		{
+			char c;
+
+			*slash_s = '\0';
+			status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, " %c <a href=\"%s%s%s\">%s</a>", breadcrumb_sep, davrods_resource_p -> root_dir, sep_s, path_s, old_slash_s);
+			*slash_s = '/';
+
+			old_slash_s = ++ slash_s;
+
+			if (*old_slash_s != '\0')
+				{
+					slash_s = strchr (old_slash_s, '/');
+
+					if (breadcrumb_sep == '\0')
+						{
+							breadcrumb_sep = '>';
+						}
+				}
+			else
+				{
+					slash_s = NULL;
+				}
+		}
+
+
+	if (status == APR_SUCCESS)
+		{
+			status = PrintBasicStringToBucketBrigade ("</nav>", bucket_brigade_p, req_p, __FILE__, __LINE__);
+		}
 
 	return status;
 }
-
 
 apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_p, const IRodsConfig *config_p, unsigned int row_index, apr_bucket_brigade *bb_p, apr_pool_t *pool_p, rcComm_t *connection_p, request_rec *req_p)
 {
@@ -779,7 +786,6 @@ void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p
 	DAVRODS_PROP_MERGE(theme_p -> ht_bottom_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_collection_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_object_icon_s);
-	DAVRODS_PROP_MERGE(theme_p -> ht_parent_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_add_metadata_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_edit_metadata_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_delete_metadata_icon_s);

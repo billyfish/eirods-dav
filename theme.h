@@ -41,8 +41,6 @@ struct HtmlTheme
 
 	const char *ht_object_icon_s;
 
-	const char *ht_parent_icon_s;
-
 	const char *ht_listing_class_s;
 
 	enum MetadataDisplay ht_show_metadata_flag;

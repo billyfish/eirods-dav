@@ -239,15 +239,6 @@ this directive. This can be superseded by a matching call to the
  DavRodsHTMLObjectIcon /davrods_files/images/file
  ```
 
-* **DavRodsHTMLParentIcon**:
-This directive allows you to use a custom image to denote the link 
-to the parent collection. For instance, to use 
-*/davrods_files/images/parent*, the directive  would be:
-
- ```
- DavRodsHTMLParentIcon /davrods_files/images/parent
- ```
-
 * **DavRodsAddIcon**:
 This directive allows you to specify icons that will be displayed in the 
 listing for matching collections and data objects. This directive takes 

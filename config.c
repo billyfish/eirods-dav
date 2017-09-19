@@ -355,17 +355,6 @@ static const char *cmd_davrods_html_object_icon (cmd_parms *cmd_p, void *config_
 }
 
 
-
-static const char *cmd_davrods_html_parent_icon (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-    conf_p -> theme_p -> ht_parent_icon_s = arg_p;
-
-    return NULL;
-}
-
-
 static const char *cmd_davrods_html_listing_class (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
     davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
@@ -601,11 +590,6 @@ const command_rec davrods_directives[] = {
     AP_INIT_TAKE1(
         DAVRODS_CONFIG_PREFIX "HTMLObjectIcon", cmd_davrods_html_object_icon,
         NULL, ACCESS_CONF, "Icon to use for data objects"
-    ),
-
-    AP_INIT_TAKE1(
-        DAVRODS_CONFIG_PREFIX "HTMLParentIcon", cmd_davrods_html_parent_icon,
-        NULL, ACCESS_CONF, "Icon to use for parent link in the directory listings"
     ),
 
 		AP_INIT_RAW_ARGS(
