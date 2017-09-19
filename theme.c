@@ -499,11 +499,11 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 	 */
 	if ((conf_p -> davrods_public_username_s == NULL) || (strcmp (user_s, conf_p -> davrods_public_username_s) != 0))
 		{
-			apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<main>\n<h1>You are logged in as %s and browsing the index of %s on %s</h1>\n", user_s, escaped_page_title_s, escaped_zone_s);
+			apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<main>\n<h1>You are logged in as %s and on the %s zone</h1>\n", user_s, escaped_zone_s);
 		}
 	else
 		{
-			apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<main>\n<h1>You are browsing the index of %s on %s</h1>\n", escaped_page_title_s, escaped_zone_s);
+			apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<main>\n<h1>You are browsing the public view on the %s zone</h1>\n", escaped_zone_s);
 		}
 
 	if (apr_status != APR_SUCCESS)
@@ -615,7 +615,7 @@ static apr_status_t PrintBreadcrumbs (struct dav_resource_private *davrods_resou
 				{
 					slash_s = strchr (old_slash_s, '/');
 
-					if (breadcrumb_sep == '\0')
+					if (breadcrumb_sep == ' ')
 						{
 							breadcrumb_sep = '>';
 						}
