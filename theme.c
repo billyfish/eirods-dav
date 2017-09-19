@@ -586,7 +586,7 @@ static apr_status_t PrintBreadcrumbs (struct dav_resource_private *davrods_resou
 	char *slash_s = strchr (path_s, '/');
 	char *old_slash_s = path_s;
 	const char *sep_s = (*path_s == '/') ? "" : "/";
-	char breadcrumb_sep = '\0';
+	char breadcrumb_sep = ' ';
 
 	if (davrods_resource_p -> root_dir)
 		{
