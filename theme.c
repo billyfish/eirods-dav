@@ -498,7 +498,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 	/*
 	 * Print the user status
 	 */
-	if (strcmp (user_s, conf_p -> davrods_public_username_s) != 0)
+	if ((conf_p -> davrods_public_username_s == NULL) || (strcmp (user_s, conf_p -> davrods_public_username_s) != 0))
 		{
 			apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<main>\n<h1>You are logged in as %s and browsing the index of %s on %s</h1>\n", user_s, escaped_page_title_s, escaped_zone_s);
 		}
