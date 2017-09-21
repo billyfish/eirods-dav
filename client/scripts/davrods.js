@@ -129,7 +129,9 @@ function GetMetadataList (table_cell, irods_id, show_flag) {
           metadata_container = $(table_cell).find ("ul.metadata");
           $(metadata_container).show ('slideDown');
         }
-    	}
+    	} else {
+        alert ("Failed to get metadata");
+      }
 		}
 	});
 }
@@ -203,7 +205,10 @@ function SetUpDeleteMetadataButtons (parent_element) {
 //					          AddMetadataAJAXToggleButton ($ (table_cell))
 					          GetMetadataList ($(table_cell), metadata_id, true);
 									}
-								}
+								},
+                error: function (header, status, error_string) {
+                  alert ("failed to delete metadata");
+                }
 							});
 						}
 
@@ -375,7 +380,10 @@ function SetMetadataEditorSubmission () {
 				if (status === "success") {
 		      GetMetadataList ($(table_cell), object_id, true);
 				}
-			}
+			},
+      error: function (header, status, error_string) {
+        alert ("failed to delete metadata");
+      }
 		});
 
     /* stop the non-ajax submission */
@@ -457,5 +465,6 @@ function GetTextWidth (value) {
   $(value).html(html_org);
   return width;
  }
+
 
 
