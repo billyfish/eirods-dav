@@ -1,4 +1,19 @@
 /*
+** Copyright 2014-2016 The Earlham Institute
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+*/
+/*
  * listing.c
  *
  *  Created on: 7 Oct 2016
@@ -17,7 +32,6 @@
 #include "apr_time.h"
 
 
-static char *GetId (char *value_s, objType_t *type_p, apr_pool_t *pool_p);
 
 
 void InitIRodsObject (IRodsObject *obj_p)
@@ -427,55 +441,9 @@ apr_status_t GetAndPrintMetadataRestLinkForIRodsObject (const IRodsObject *irods
 }
 
 
-apr_status_t GetMetadataTableForId (char *combined_id_s, davrods_dir_conf_t *config_p, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p, apr_bucket_brigade *bucket_brigade_p)
-{
-	apr_status_t status = APR_EGENERAL;
-	char *parent_id_s = NULL;
-	char *child_id_s = NULL;
-	char *ids_sep_s = strchr (combined_id_s, '_');
-	objType_t obj_type = UNKNOWN_OBJ_T;
-
-	if (ids_sep_s)
-		{
-			*ids_sep_s = '\0';
-			parent_id_s = GetId (combined_id_s, NULL, pool_p);
-
-			if (parent_id_s)
-				{
-					child_id_s = GetId (ids_sep_s + 1, &obj_type, pool_p);
-				}
-		}
-	else
-		{
-			child_id_s = GetId (combined_id_s, &obj_type, pool_p);
-		}
 
 
-	if (child_id_s)
-		{
-			char *zone_s = NULL;
-			char *minor_id_s = (char *) GetMinorId (child_id_s);
-
-			if (minor_id_s)
-				{
-					apr_array_header_t *metadata_array_p = GetMetadata (connection_p, obj_type, minor_id_s, parent_id_s, zone_s, pool_p);
-
-					if (metadata_array_p)
-						{
-							char *metadata_link_s = GetLocationPath (req_p, config_p, pool_p, REST_METADATA_GET_S);
-
-							status = PrintMetadata (metadata_array_p, config_p -> theme_p, bucket_brigade_p, metadata_link_s, pool_p);
-						}
-
-				}
-
-		}
-
-	return status;
-}
-
-
-static char *GetId (char *value_s, objType_t *type_p, apr_pool_t *pool_p)
+char *GetId (char *value_s, objType_t *type_p, apr_pool_t *pool_p)
 {
 	char *id_s = NULL;
 	char *sep_s = strchr (value_s, '.');

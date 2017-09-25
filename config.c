@@ -435,6 +435,17 @@ static const char *cmd_davrods_add_metadata_image (cmd_parms *cmd_p, void *confi
     return NULL;
 }
 
+static const char *cmd_davrods_download_metadata_image (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> theme_p -> ht_download_metadata_icon_s = arg_p;
+
+    return NULL;
+}
+
+
+
 static const char *cmd_davrods_delete_metadata_image (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
     davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
@@ -621,6 +632,12 @@ const command_rec davrods_directives[] = {
         DAVRODS_CONFIG_PREFIX "HTMLAddMetadataImage", cmd_davrods_add_metadata_image,
         NULL, ACCESS_CONF, "Image for the add metadata button"
     ),
+
+    AP_INIT_TAKE1(
+        DAVRODS_CONFIG_PREFIX "HTMLDownloadMetadataImage", cmd_davrods_download_metadata_image,
+        NULL, ACCESS_CONF, "Image for the download metadata button"
+    ),
+
 
     AP_INIT_TAKE1(
         DAVRODS_CONFIG_PREFIX "HTMLOkImage", cmd_davrods_ok_image,

@@ -1,4 +1,19 @@
 /*
+** Copyright 2014-2016 The Earlham Institute
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+*/
+/*
  * rest.c
  *
  *  Created on: 2 Oct 2016
@@ -33,6 +48,10 @@ typedef struct APICall
 	const char *ac_action_s;
 	int (*ac_callback_fn) (const struct APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s);
 } APICall;
+
+
+
+
 
 
 /*
@@ -70,6 +89,10 @@ static char *GetModValue (apr_table_t *params_p, const char *param_key_s, const 
 
 
 static apr_status_t AddDecodedJSONResponse (const APICall *call_p, apr_status_t status, const char *id_s, request_rec *req_p);
+
+
+static OutputFormat GetRequestedOutputFormat (apr_table_t *params_p, apr_pool_t *pool_p);
+
 
 /*
  * STATIC VARIABLES
@@ -238,6 +261,31 @@ static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_
 }
 
 
+static OutputFormat GetRequestedOutputFormat (apr_table_t *params_p, apr_pool_t *pool_p)
+{
+	OutputFormat format = OF_HTML;
+	const char * const format_s = GetParameterValue (params_p, "output_format", pool_p);
+
+	if (format_s)
+		{
+			if (strcmp (format_s, "json") == 0)
+				{
+					format = OF_JSON;
+				}
+			else if (strcmp (format_s, "tsv") == 0)
+				{
+					format = OF_TSV;
+				}
+			else if (strcmp (format_s, "csv") == 0)
+				{
+					format = OF_CSV;
+				}
+		}
+
+	return format;
+}
+
+
 static int GetMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s)
 {
 	int res = DECLINED;
@@ -254,7 +302,10 @@ static int GetMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_t
 
 					if (rods_connection_p)
 						{
-							if (GetMetadataTableForId ((char *) id_s, config_p, rods_connection_p, req_p, pool_p, bucket_brigade_p) == APR_SUCCESS)
+							OutputFormat format = GetRequestedOutputFormat (params_p, pool_p);
+							apr_status_t status = GetMetadataTableForId ((char *) id_s, config_p, rods_connection_p, req_p, pool_p, bucket_brigade_p, format);
+
+							if (status == APR_SUCCESS)
 								{
 									apr_size_t len = 0;
 									char *result_s = NULL;

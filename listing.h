@@ -1,5 +1,19 @@
 /*
- * listing.h
+** Copyright 2014-2016 The Earlham Institute
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+*/
+/* listing.h
  *
  *  Created on: 7 Oct 2016
  *      Author: billy
@@ -131,7 +145,9 @@ apr_status_t GetAndPrintMetadataForIRodsObject (const IRodsObject *irods_obj_p, 
 apr_status_t GetAndPrintMetadataRestLinkForIRodsObject (const IRodsObject *irods_obj_p, const char * const link_s, const char *zone_s, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p);
 
 
-apr_status_t GetMetadataTableForId (char *combined_id_s, davrods_dir_conf_t *config_p, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p, apr_bucket_brigade *bucket_brigade_p);
+char *GetId (char *value_s, objType_t *type_p, apr_pool_t *pool_p);
+
+
 
 
 #ifdef __cplusplus

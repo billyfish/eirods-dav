@@ -1,4 +1,19 @@
 /*
+** Copyright 2014-2016 The Earlham Institute
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+*/
+/*
  * theme.h
  *
  *  Created on: 28 Sep 2016
@@ -53,6 +68,8 @@ struct HtmlTheme
 
 	const char *ht_delete_metadata_icon_s;
 
+	const char *ht_download_metadata_icon_s;
+
 	const char *ht_ok_icon_s;
 
 	const char *ht_cancel_icon_s;
@@ -95,6 +112,8 @@ void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p
 
 
 char *GetLocationPath (request_rec *req_p, davrods_dir_conf_t *conf_p, apr_pool_t *pool_p, const char *needle_s);
+
+const char *GetDavrodsAPIPath (struct dav_resource_private *davrods_resource_p, davrods_dir_conf_t *conf_p, request_rec *req_p);
 
 
 #ifdef __cplusplus

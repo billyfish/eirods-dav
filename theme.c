@@ -1,4 +1,19 @@
 /*
+** Copyright 2014-2016 The Earlham Institute
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+*/
+/*
  * theme.c
  *
  *  Created on: 28 Sep 2016
@@ -30,6 +45,8 @@ static apr_status_t PrintSection (const char *value_s, request_rec *req_p, apr_b
 static apr_status_t PrintBreadcrumbs (struct dav_resource_private *davrods_resource_p, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p);
 
 
+
+
 /*************************************/
 
 
@@ -48,6 +65,8 @@ struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 		  theme_p -> ht_add_metadata_icon_s = NULL;
 		  theme_p -> ht_edit_metadata_icon_s = NULL;
 		  theme_p -> ht_delete_metadata_icon_s = NULL;
+		  theme_p -> ht_delete_metadata_icon_s = NULL;
+
 		  theme_p -> ht_show_metadata_flag = MD_NONE;
 		  theme_p -> ht_metadata_editable_flag = 0;
 		  theme_p -> ht_rest_api_s = NULL;
@@ -328,6 +347,82 @@ static apr_status_t PrintSection (const char *value_s, request_rec *req_p, apr_b
 }
 
 
+const char *GetDavrodsAPIPath (struct dav_resource_private *davrods_resource_p, davrods_dir_conf_t *conf_p, request_rec *req_p)
+{
+	const char *full_path_s = NULL;
+	const char * const api_path_s = conf_p -> davrods_api_path_s;
+	apr_pool_t *pool_p = req_p -> pool;
+
+	/* Get the Location path where davrods is hosted */
+	const char *davrods_path_s = NULL;
+	const char *first_delimiter_s = "/";
+	const char *second_delimiter_s = "/";
+	int i = 0;
+
+	if (davrods_resource_p)
+		{
+			davrods_path_s = davrods_resource_p -> root_dir;
+		}		/* if (davrods_resource_p) */
+	else
+		{
+			davrods_path_s = GetLocationPath (req_p, conf_p, pool_p, REST_METADATA_SEARCH_S);
+		}
+
+	/*
+	 * make sure we don't have double forward-slash in the form action
+	 *
+	 * davrods_path_s/api_path_s
+	 */
+	if (davrods_path_s)
+		{
+			size_t davrods_path_length = strlen (davrods_path_s);
+
+			if (* (davrods_path_s + (davrods_path_length - 1)) == '/')
+				{
+					if ((api_path_s) && (*api_path_s == '/'))
+						{
+							first_delimiter_s = "\b";
+						}
+					else
+						{
+							first_delimiter_s = "";
+						}
+
+					i = 1;
+				}
+		}
+
+	if (api_path_s)
+		{
+			size_t api_path_length = strlen (api_path_s);
+
+			if (i == 0)
+				{
+					if (*api_path_s == '/')
+						{
+							first_delimiter_s = "";
+						}
+				}
+
+			if (* (api_path_s + (api_path_length - 1)) == '/')
+				{
+					second_delimiter_s = "";
+				}
+
+
+			full_path_s = apr_pstrcat (pool_p, davrods_path_s, first_delimiter_s, api_path_s, second_delimiter_s, NULL);
+
+			if (!full_path_s)
+				{
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_ENOMEM, req_p, "Failed to get absolute API path");
+				}
+		}
+
+	return full_path_s;
+}
+
+
+
 apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_resource_p, const char * const page_title_s, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
 {
 	// Send start of HTML document.
@@ -402,97 +497,53 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 		}		/* if (theme_p -> ht_top_s) */
 
 
-	if (conf_p -> theme_p -> ht_add_search_form_flag)
+	/* Get the Location path where davrods is hosted */
+	const char *davrods_path_s = GetDavrodsAPIPath (davrods_resource_p, conf_p, req_p);
+
+	if (davrods_path_s)
 		{
-			apr_pool_t *davrods_pool_p = GetDavrodsMemoryPool (req_p);
-
-			if (davrods_pool_p)
+			if (conf_p -> theme_p -> ht_add_search_form_flag)
 				{
-					rcComm_t *connection_p  = GetIRODSConnectionFromPool (davrods_pool_p);
+					apr_pool_t *davrods_pool_p = GetDavrodsMemoryPool (req_p);
 
-					if (connection_p)
+					if (davrods_pool_p)
 						{
-							apr_array_header_t *keys_p = GetAllDataObjectMetadataKeys (req_p -> pool, connection_p);
+							rcComm_t *connection_p  = GetIRODSConnectionFromPool (davrods_pool_p);
 
-							if (keys_p)
+							if (connection_p)
 								{
-									/* Get the Location path where davrods is hosted */
-									const char *davrods_path_s = NULL;
-									const char *first_delimiter_s = "/";
-									const char *second_delimiter_s = "/";
-									int i = 0;
+									apr_array_header_t *keys_p = GetAllDataObjectMetadataKeys (req_p -> pool, connection_p);
 
-									if (davrods_resource_p)
+									if (keys_p)
 										{
-											davrods_path_s = davrods_resource_p -> root_dir;
-										}		/* if (davrods_resource_p) */
-									else
-										{
-											davrods_path_s = GetLocationPath (req_p, conf_p, pool_p, REST_METADATA_SEARCH_S);
+											/* Get the Location path where davrods is hosted */
+
+													int i = 0;
+
+													apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<form action=\"%s%s\" class=\"search_form\">\nSearch: <select name=\"key\">\n", davrods_path_s, REST_METADATA_SEARCH_S);
+
+											    for (i = 0; i < keys_p -> nelts; ++ i)
+											    	{
+											    		char *value_s = ((char **) keys_p -> elts) [i];
+															apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<option>%s</option>\n", value_s);
+
+															if (apr_status != APR_SUCCESS)
+																{
+																	break;
+																}
+											    	}
+
+													apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "</select>\n<input type=\"text\" name=\"value\" /></form>");
+
+
 										}
-
-									/*
-									 * make sure we don't have double forward-slash in the form action
-									 *
-									 * davrods_path_s/api_path_s
-									 */
-									if (davrods_path_s)
-										{
-											size_t davrods_path_length = strlen (davrods_path_s);
-
-											if (* (davrods_path_s + (davrods_path_length - 1)) == '/')
-												{
-													if ((api_path_s) && (*api_path_s == '/'))
-														{
-															first_delimiter_s = "\b";
-														}
-													else
-														{
-															first_delimiter_s = "";
-														}
-
-													i = 1;
-												}
-										}
-
-									if (api_path_s)
-										{
-											size_t api_path_length = strlen (api_path_s);
-
-											if (i == 0)
-												{
-													if (*api_path_s == '/')
-														{
-															first_delimiter_s = "";
-														}
-												}
-
-											if (* (api_path_s + (api_path_length - 1)) == '/')
-												{
-													second_delimiter_s = "";
-												}
-										}
-
-									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<form action=\"%s%s%s%s%s\" class=\"search_form\">\nSearch: <select name=\"key\">\n", davrods_path_s, first_delimiter_s, api_path_s, second_delimiter_s, REST_METADATA_SEARCH_S);
-
-							    for (i = 0; i < keys_p -> nelts; ++ i)
-							    	{
-							    		char *value_s = ((char **) keys_p -> elts) [i];
-											apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<option>%s</option>\n", value_s);
-
-											if (apr_status != APR_SUCCESS)
-												{
-													break;
-												}
-							    	}
-
-									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "</select>\n<input type=\"text\" name=\"value\" /></form>");
-
 								}
 						}
-				}
 
-		}		/* if (theme_p -> ht_add_search_form_flag) */
+				}		/* if (theme_p -> ht_add_search_form_flag) */
+
+
+		}		/* if (davrods_path_s) */
 
 	/*
 	 * Print the user status
@@ -603,8 +654,6 @@ static apr_status_t PrintBreadcrumbs (struct dav_resource_private *davrods_resou
 
 	while (slash_s && (status == APR_SUCCESS))
 		{
-			char c;
-
 			*slash_s = '\0';
 			status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, " %c <a href=\"%s%s%s\">%s</a>", breadcrumb_sep, davrods_resource_p -> root_dir, sep_s, path_s, old_slash_s);
 			*slash_s = '/';
@@ -789,6 +838,7 @@ void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p
 	DAVRODS_PROP_MERGE(theme_p -> ht_add_metadata_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_edit_metadata_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_delete_metadata_icon_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_download_metadata_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_ok_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_cancel_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_listing_class_s);

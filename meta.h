@@ -1,4 +1,19 @@
 /*
+** Copyright 2014-2016 The Earlham Institute
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+*/
+/*
  * meta.h
  *
  *  Created on: 27 Sep 2016
@@ -19,6 +34,7 @@
 #include "irods/miscUtil.h"
 
 #include "config.h"
+#include "rest.h"
 
 typedef struct IrodsMetadata
 {
@@ -40,6 +56,8 @@ typedef enum SearchOperator
 extern "C"
 {
 #endif
+
+
 
 
 apr_array_header_t *GetMetadataForCollEntry (const dav_resource *resource_p, const collEnt_t *entry_p, const char *zone_s);
@@ -73,6 +91,7 @@ apr_table_t *GetAllDataObjectMetadataValuesForKey (apr_pool_t *pool_p, rcComm_t 
 
 char *GetParentCollectionId (const char *child_id_s, const objType_t object_type, const char *zone_s, rcComm_t *irods_connection_p, apr_pool_t *pool_p);
 
+apr_status_t GetMetadataTableForId (char *combined_id_s, davrods_dir_conf_t *config_p, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p, apr_bucket_brigade *bucket_brigade_p, OutputFormat format);
 
 #ifdef __cplusplus
 }

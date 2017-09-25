@@ -1,4 +1,19 @@
 /*
+** Copyright 2014-2016 The Earlham Institute
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+*/
+/*
  * meta.c
  *
  *  Created on: 26 Sep 2016
@@ -73,6 +88,13 @@ static int CopyTableKeysToArray (void *data_p, const char *key_s, const char *va
 static int AddKeysToTable (apr_pool_t *pool_p, rcComm_t *connection_p, const int *columns_p, apr_table_t *table_p);
 
 static apr_status_t PrintAddMetadataObject (const struct HtmlTheme *theme_p,  apr_bucket_brigade *bb_p);
+
+static apr_status_t PrintDownloadMetadataObject (const struct HtmlTheme *theme_p,  apr_bucket_brigade *bb_p);
+
+static apr_status_t GetMetadataArryaAsColumnData (apr_array_header_t *metadata_array_p, apr_bucket_brigade *bucket_brigade_p, const char sep);
+
+static apr_status_t GetMetadataArryaAsJSON (apr_array_header_t *metadata_array_p, apr_bucket_brigade *bucket_brigade_p);
+
 
 /*************************************/
 
@@ -815,6 +837,157 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 }
 
 
+apr_status_t GetMetadataTableForId (char *id_s, davrods_dir_conf_t *config_p, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p, apr_bucket_brigade *bucket_brigade_p, OutputFormat format)
+{
+	apr_status_t status = APR_EGENERAL;
+	objType_t obj_type = UNKNOWN_OBJ_T;
+
+	char *child_id_s = GetId (id_s, &obj_type, pool_p);
+
+	if (child_id_s)
+		{
+			char *zone_s = NULL;
+			char *minor_id_s = (char *) GetMinorId (child_id_s);
+
+			if (minor_id_s)
+				{
+					apr_array_header_t *metadata_array_p = GetMetadata (connection_p, obj_type, minor_id_s, NULL, zone_s, pool_p);
+
+					if (metadata_array_p)
+						{
+							switch (format)
+								{
+									case OF_JSON:
+										status = GetMetadataArryaAsJSON (metadata_array_p, bucket_brigade_p);
+										break;
+
+									case OF_TSV:
+										status = GetMetadataArryaAsColumnData (metadata_array_p, bucket_brigade_p, '\t');
+										break;
+
+									case OF_CSV:
+										status = GetMetadataArryaAsColumnData (metadata_array_p, bucket_brigade_p, ',');
+										break;
+
+									case OF_HTML:
+									default:
+										{
+											char *metadata_link_s = GetLocationPath (req_p, config_p, pool_p, REST_METADATA_GET_S);
+
+											status = PrintMetadata (metadata_array_p, config_p -> theme_p, bucket_brigade_p, metadata_link_s, pool_p);
+										}
+										break;
+								}
+						}
+
+				}
+
+		}
+
+	return status;
+}
+
+
+static apr_status_t GetMetadataArryaAsJSON (apr_array_header_t *metadata_array_p, apr_bucket_brigade *bucket_brigade_p)
+{
+	apr_status_t status = APR_SUCCESS;
+	const int last_index = metadata_array_p -> nelts;
+
+	if (last_index >= 0)
+		{
+			status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, "[\n");
+
+			if (status == APR_SUCCESS)
+				{
+					int i;
+
+					for (i = 0; i < last_index; ++ i)
+						{
+							const IrodsMetadata *metadata_p = APR_ARRAY_IDX (metadata_array_p, i, IrodsMetadata *);
+
+							status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "\t{\n\t\t\"attribute\": \"%s\",\n\t\t\"value\": \"%s\"", metadata_p -> im_key_s, metadata_p -> im_value_s);
+
+							if (status == APR_SUCCESS)
+								{
+									if ((metadata_p -> im_units_s) && (strlen (metadata_p -> im_units_s) > 0))
+										{
+											status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, ",\n\t\t\"units\": \"%s\"", metadata_p -> im_units_s);
+										}
+
+
+									if (status == APR_SUCCESS)
+										{
+											if (i == last_index)
+												{
+													status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, "\n\t}\n");
+												}
+											else
+												{
+													status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, "\n\t}, {\n");
+												}
+										}
+								}
+
+							if (status != APR_SUCCESS)
+								{
+									i = last_index;
+								}
+
+						}		/* for (i = 0; i < last_index; ++ i */
+
+					if (status == APR_SUCCESS)
+						{
+							apr_brigade_puts (bucket_brigade_p, NULL, NULL, "]\n");
+						}
+				}
+
+		}		/* if (size > 0) */
+
+	return status;
+}
+
+
+static apr_status_t GetMetadataArryaAsColumnData (apr_array_header_t *metadata_array_p, apr_bucket_brigade *bucket_brigade_p, const char sep)
+{
+	apr_status_t status = APR_SUCCESS;
+	const int last_index = metadata_array_p -> nelts;
+
+	if (last_index >= 0)
+		{
+			int i;
+
+			for (i = 0; i < last_index; ++ i)
+				{
+					const IrodsMetadata *metadata_p = APR_ARRAY_IDX (metadata_array_p, i, IrodsMetadata *);
+
+					status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "\"%s\"%c \"%s\"%c", metadata_p -> im_key_s, sep, metadata_p -> im_value_s, sep);
+
+					if (status == APR_SUCCESS)
+						{
+							if ((metadata_p -> im_units_s) && (strlen (metadata_p -> im_units_s) > 0))
+								{
+									status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "\"%s\"", metadata_p -> im_units_s);
+								}
+
+							if (status == APR_SUCCESS)
+								{
+									status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, "\n");
+								}
+						}
+
+					if (status != APR_SUCCESS)
+						{
+							i = last_index;
+						}
+
+				}		/* for (i = 0; i < last_index; ++ i */
+
+		}		/* if (size > 0) */
+
+	return status;
+}
+
+
 
 static rodsObjStat_t * GetObjectStat (const char * const path_s, rcComm_t *connection_p)
 {
@@ -829,7 +1002,7 @@ static rodsObjStat_t * GetObjectStat (const char * const path_s, rcComm_t *conne
 
 	if (status < 0)
 		{
-			/* .... handle the error */
+			WHISPER ("Failed to get object stat for %s, error status %d\n", path_s, status);
 		}
 
 	return stat_p;
@@ -1260,7 +1433,7 @@ apr_status_t PrintMetadata (const apr_array_header_t *metadata_list_p, struct Ht
 
 									if ((metadata_p -> im_units_s) && (strlen (metadata_p -> im_units_s) > 0))
 										{
-											apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"units\">%s</span>", metadata_p -> im_units_s);
+											apr_brigade_printf (bb_p, NULL, NULL, " <span class=\"units\">(%s)</span>", metadata_p -> im_units_s);
 										}
 
 
@@ -1282,11 +1455,12 @@ apr_status_t PrintMetadata (const apr_array_header_t *metadata_list_p, struct Ht
 
 	if (status == APR_SUCCESS)
 		{
-			status = PrintAddMetadataObject (theme_p, bb_p);
-
-			if (status == APR_SUCCESS)
+			if ((status = PrintAddMetadataObject (theme_p, bb_p)) == APR_SUCCESS)
 				{
-					status = apr_brigade_puts (bb_p, NULL, NULL, "</div>\n");
+					if ((status = PrintDownloadMetadataObject (theme_p, bb_p)) == APR_SUCCESS)
+						{
+							status = apr_brigade_puts (bb_p, NULL, NULL, "</div>\n");
+						}
 				}
 		}
 
@@ -1307,6 +1481,38 @@ static apr_status_t PrintAddMetadataObject (const struct HtmlTheme *theme_p,  ap
 			else
 				{
 					status = apr_brigade_puts (bb_p, NULL, NULL, "<span class=\"add_metadata\"><a href=\"#\">Add Metadata</a></span>\n");
+				}
+		}
+
+
+
+
+	return status;
+}
+
+
+static apr_status_t PrintDownloadMetadataObject (const struct HtmlTheme *theme_p,  apr_bucket_brigade *bb_p)
+{
+	apr_status_t status;
+
+
+	if ((status = apr_brigade_printf (bb_p, NULL, NULL, "<form class=\"download_metadata\" action=\"%s\"><fieldset><legend>Download metadata</legend>", REST_METADATA_GET_S)) == APR_SUCCESS)
+		{
+			if ((status = apr_brigade_puts (bb_p, NULL, NULL, "<label for=\"format\">File format: </label><select id=\"format\">\n<option value=\"json\">JSON</option>\n<option value=\"csv\">Comma-separated values</option>\n<option value=\"tsv\">Tab-separated values</option>\n</select>")) == APR_SUCCESS)
+				{
+					if (theme_p -> ht_download_metadata_icon_s)
+						{
+							status = apr_brigade_printf (bb_p, NULL, NULL, "<div><img class=\"button submit\" src=\"%s\" title=\"Download the metadata attribute-value pairs for this iRODS item\" alt=\"download metadata attribute-value pairs\" /> Download</div>\n", theme_p -> ht_download_metadata_icon_s);
+						}
+					else
+						{
+							status = apr_brigade_printf (bb_p, NULL, NULL, "<input type=\"submit\" value=\"Download\" />\n");
+						}
+
+					if (status == APR_SUCCESS)
+						{
+							status = apr_brigade_puts (bb_p, NULL, NULL, "</fieldset></form>");
+						}
 				}
 		}
 
