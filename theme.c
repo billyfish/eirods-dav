@@ -309,7 +309,16 @@ static apr_status_t PrintMetadataEditor (struct HtmlTheme *theme_p, request_rec 
 char *GetLocationPath (request_rec *req_p, davrods_dir_conf_t *conf_p, apr_pool_t *pool_p, const char *needle_s)
 {
 	char *davrods_path_s = NULL;
-	char *metadata_path_s = apr_pstrcat (pool_p, conf_p -> davrods_api_path_s, needle_s, NULL);
+	const char *metadata_path_s = NULL;
+
+	if (needle_s)
+		{
+			metadata_path_s = apr_pstrcat (pool_p, conf_p -> davrods_api_path_s, needle_s, NULL);
+		}
+	else
+		{
+			metadata_path_s = conf_p -> davrods_api_path_s;
+		}
 
 	if (metadata_path_s)
 		{
@@ -347,9 +356,9 @@ static apr_status_t PrintSection (const char *value_s, request_rec *req_p, apr_b
 }
 
 
-const char *GetDavrodsAPIPath (struct dav_resource_private *davrods_resource_p, davrods_dir_conf_t *conf_p, request_rec *req_p)
+char *GetDavrodsAPIPath (struct dav_resource_private *davrods_resource_p, davrods_dir_conf_t *conf_p, request_rec *req_p)
 {
-	const char *full_path_s = NULL;
+	char *full_path_s = NULL;
 	const char * const api_path_s = conf_p -> davrods_api_path_s;
 	apr_pool_t *pool_p = req_p -> pool;
 
@@ -365,7 +374,7 @@ const char *GetDavrodsAPIPath (struct dav_resource_private *davrods_resource_p, 
 		}		/* if (davrods_resource_p) */
 	else
 		{
-			davrods_path_s = GetLocationPath (req_p, conf_p, pool_p, REST_METADATA_SEARCH_S);
+			davrods_path_s = GetLocationPath (req_p, conf_p, pool_p, NULL);
 		}
 
 	/*

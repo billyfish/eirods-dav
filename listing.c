@@ -399,7 +399,7 @@ apr_status_t GetAndPrintMetadataForIRodsObject (const IRodsObject *irods_obj_p, 
 		{
 			if (!apr_is_empty_array (metadata_array_p))
 				{
-					status = PrintMetadata (metadata_array_p, theme_p, bb_p, link_s, pool_p);
+					status = PrintMetadata (irods_obj_p -> io_id_s, metadata_array_p, theme_p, bb_p, link_s, pool_p);
 				}		/* if (!apr_is_empty_array (metadata_array_p)) */
 
 		}		/* if (metadata_array_p) */

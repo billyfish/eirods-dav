@@ -183,18 +183,10 @@ footer {
 }
 
 
-form.download_metadata input {
-	display: block;
+form.download_metadata select.format {
+	margin-bottom: 1.0em;
 }
 
-
-form.download_metadata div {
-	margin-top: 1.0em;
+form.download_metadata div.buttons {
 	text-align: right;
-	padding-right: 0.5em;
-}
-
-form.download_metadata img.submit {
-	vertical-align: middle;
-	padding: 0;
 }

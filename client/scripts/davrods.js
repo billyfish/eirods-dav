@@ -21,7 +21,7 @@ $(document).ready (function () {
   var metadata_cells = $(listings_table).find ("td.metatable")
 
   $(metadata_cells).each (function () {
-    SetUpAddMetadataButtons ($(this));
+    SetUpGeneralMetadataButtons ($(this));
   });
 
   if ($(listings_table).hasClass ("ajax")) {
@@ -126,7 +126,7 @@ function GetMetadataList (table_cell, irods_id, show_flag) {
 					$(table_cell).append (data);
 				}
 
-				SetUpAddMetadataButtons (table_cell);
+				SetUpGeneralMetadataButtons (table_cell);
 				SetUpEditMetadataButtons (table_cell);
 				SetUpDeleteMetadataButtons (table_cell);
 
@@ -152,6 +152,11 @@ function GetMetadataList (table_cell, irods_id, show_flag) {
 	});
 }
 
+
+function SetUpGeneralMetadataButtons (table_cell) {
+	SetUpAddMetadataButtons (table_cell);
+	SetUpDownloadMetadataButtons (table_cell);
+}
 
 
 function CallGetMetadata (table_cell, show_flag) {
@@ -378,6 +383,28 @@ function SetUpAddMetadataButtons (parent_element) {
   });
 
 }
+
+
+function SetUpDownloadMetadataButtons (table_cell) {
+	$(table_cell).find ("form.download_metadata").each (function () {
+		var f = $(this);
+
+		$(this).find ("img.submit").each (function () {
+				$(this).on ('click', function () {
+					f.submit ();
+				});
+		});
+
+		$(this).find ("a.submit").each (function () {
+				$(this).on ('click', function () {
+					f.submit ();
+				});
+		});
+
+	});
+
+}
+
 
 
 function SetMetadataEditorSubmission () {

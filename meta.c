@@ -87,9 +87,9 @@ static int CopyTableKeysToArray (void *data_p, const char *key_s, const char *va
 
 static int AddKeysToTable (apr_pool_t *pool_p, rcComm_t *connection_p, const int *columns_p, apr_table_t *table_p);
 
-static apr_status_t PrintAddMetadataObject (const struct HtmlTheme *theme_p,  apr_bucket_brigade *bb_p);
+static apr_status_t PrintAddMetadataObject (const struct HtmlTheme *theme_p, apr_bucket_brigade *bb_p, const char *api_root_url_s);
 
-static apr_status_t PrintDownloadMetadataObject (const struct HtmlTheme *theme_p,  apr_bucket_brigade *bb_p);
+static apr_status_t PrintDownloadMetadataObject (const struct HtmlTheme *theme_p, apr_bucket_brigade *bb_p, const char *api_root_url_s, const char *id_s);
 
 static apr_status_t GetMetadataArryaAsColumnData (apr_array_header_t *metadata_array_p, apr_bucket_brigade *bucket_brigade_p, const char sep);
 
@@ -872,9 +872,9 @@ apr_status_t GetMetadataTableForId (char *id_s, davrods_dir_conf_t *config_p, rc
 									case OF_HTML:
 									default:
 										{
-											char *metadata_link_s = GetLocationPath (req_p, config_p, pool_p, REST_METADATA_GET_S);
+											char *metadata_link_s = GetDavrodsAPIPath (NULL, config_p, req_p);
 
-											status = PrintMetadata (metadata_array_p, config_p -> theme_p, bucket_brigade_p, metadata_link_s, pool_p);
+											status = PrintMetadata (id_s, metadata_array_p, config_p -> theme_p, bucket_brigade_p, metadata_link_s, pool_p);
 										}
 										break;
 								}
@@ -891,7 +891,7 @@ apr_status_t GetMetadataTableForId (char *id_s, davrods_dir_conf_t *config_p, rc
 static apr_status_t GetMetadataArryaAsJSON (apr_array_header_t *metadata_array_p, apr_bucket_brigade *bucket_brigade_p)
 {
 	apr_status_t status = APR_SUCCESS;
-	const int last_index = metadata_array_p -> nelts;
+	const int last_index = metadata_array_p -> nelts - 1;
 
 	if (last_index >= 0)
 		{
@@ -901,7 +901,7 @@ static apr_status_t GetMetadataArryaAsJSON (apr_array_header_t *metadata_array_p
 				{
 					int i;
 
-					for (i = 0; i < last_index; ++ i)
+					for (i = 0; i <= last_index; ++ i)
 						{
 							const IrodsMetadata *metadata_p = APR_ARRAY_IDX (metadata_array_p, i, IrodsMetadata *);
 
@@ -966,7 +966,7 @@ static apr_status_t GetMetadataArryaAsColumnData (apr_array_header_t *metadata_a
 						{
 							if ((metadata_p -> im_units_s) && (strlen (metadata_p -> im_units_s) > 0))
 								{
-									status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "\"%s\"", metadata_p -> im_units_s);
+									status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, " \"%s\"", metadata_p -> im_units_s);
 								}
 
 							if (status == APR_SUCCESS)
@@ -1265,8 +1265,18 @@ static genQueryOut_t *ExecuteGenQuery (rcComm_t *connection_p, genQueryInp_t * c
 
 
 
-/* this is a debug routine; it just prints the genQueryInp
-   structure */
+/* This routine is from taken from the iRODS source code file lib/api/src/rcGenQuery.cpp at
+ * https://github.com/irods/irods/blob/master/lib/api/src/rcGenQuery.cpp
+ *
+ * Copyright (c) 2005-2016, Regents of the University of California, the University of North Carolina at Chapel Hill,
+ * and the Data Intensive Cyberinfrastructure Foundation
+ *
+ * Since it is not declared publicly, we copy in the routine directly.
+ *
+ * Original notes:
+ * this is a debug routine; it just prints the genQueryInp
+ *  structure
+ */
 int printGenQI( genQueryInp_t *genQueryInp ) {
 	int i, len;
 	int *ip1, *ip2;
@@ -1385,7 +1395,7 @@ static int CompareIrodsMetadata (const void *v0_p, const void *v1_p)
 
 
 
-apr_status_t PrintMetadata (const apr_array_header_t *metadata_list_p, struct HtmlTheme *theme_p, apr_bucket_brigade *bb_p, const char *metadata_search_link_s, apr_pool_t *pool_p)
+apr_status_t PrintMetadata (const char *id_s, const apr_array_header_t *metadata_list_p, struct HtmlTheme *theme_p, apr_bucket_brigade *bb_p, const char *api_root_url_s, apr_pool_t *pool_p)
 {
 	apr_status_t status = apr_brigade_puts (bb_p, NULL, NULL, "<div class=\"metadata_container\">\n");
 
@@ -1421,12 +1431,12 @@ apr_status_t PrintMetadata (const apr_array_header_t *metadata_list_p, struct Ht
 										}
 
 
-									if (metadata_search_link_s)
+									if (api_root_url_s)
 										{
 											char *escaped_key_s = ap_escape_urlencoded (pool_p, metadata_p -> im_key_s);
 											char *escaped_value_s = ap_escape_urlencoded (pool_p, metadata_p -> im_value_s);
 
-											apr_brigade_printf (bb_p, NULL, NULL, "<a href=\"%s?key=%s&amp;value=%s\">", metadata_search_link_s, escaped_key_s, escaped_value_s);
+											apr_brigade_printf (bb_p, NULL, NULL, "<a href=\"%s/%s?key=%s&amp;value=%s\">", api_root_url_s, REST_METADATA_SEARCH_S, escaped_key_s, escaped_value_s);
 										}
 
 									apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"key\">%s</span>: <span class=\"value\">%s</span>", metadata_p -> im_key_s, metadata_p -> im_value_s);
@@ -1437,7 +1447,7 @@ apr_status_t PrintMetadata (const apr_array_header_t *metadata_list_p, struct Ht
 										}
 
 
-									if (metadata_search_link_s)
+									if (api_root_url_s)
 										{
 											apr_brigade_puts (bb_p, NULL, NULL, "</a>");
 										}
@@ -1455,9 +1465,9 @@ apr_status_t PrintMetadata (const apr_array_header_t *metadata_list_p, struct Ht
 
 	if (status == APR_SUCCESS)
 		{
-			if ((status = PrintAddMetadataObject (theme_p, bb_p)) == APR_SUCCESS)
+			if ((status = PrintAddMetadataObject (theme_p, bb_p, api_root_url_s)) == APR_SUCCESS)
 				{
-					if ((status = PrintDownloadMetadataObject (theme_p, bb_p)) == APR_SUCCESS)
+					if ((status = PrintDownloadMetadataObject (theme_p, bb_p, api_root_url_s, id_s)) == APR_SUCCESS)
 						{
 							status = apr_brigade_puts (bb_p, NULL, NULL, "</div>\n");
 						}
@@ -1468,7 +1478,7 @@ apr_status_t PrintMetadata (const apr_array_header_t *metadata_list_p, struct Ht
 }
 
 
-static apr_status_t PrintAddMetadataObject (const struct HtmlTheme *theme_p,  apr_bucket_brigade *bb_p)
+static apr_status_t PrintAddMetadataObject (const struct HtmlTheme *theme_p, apr_bucket_brigade *bb_p, const char *api_root_url_s)
 {
 	apr_status_t status;
 
@@ -1491,27 +1501,29 @@ static apr_status_t PrintAddMetadataObject (const struct HtmlTheme *theme_p,  ap
 }
 
 
-static apr_status_t PrintDownloadMetadataObject (const struct HtmlTheme *theme_p,  apr_bucket_brigade *bb_p)
+static apr_status_t PrintDownloadMetadataObject (const struct HtmlTheme *theme_p, apr_bucket_brigade *bb_p, const char *api_root_url_s, const char *id_s)
 {
 	apr_status_t status;
 
-
-	if ((status = apr_brigade_printf (bb_p, NULL, NULL, "<form class=\"download_metadata\" action=\"%s\"><fieldset><legend>Download metadata</legend>", REST_METADATA_GET_S)) == APR_SUCCESS)
+	if ((status = apr_brigade_printf (bb_p, NULL, NULL, "<form class=\"download_metadata\" action=\"%s/%s\"><fieldset><legend>Download metadata</legend>", api_root_url_s, REST_METADATA_GET_S)) == APR_SUCCESS)
 		{
-			if ((status = apr_brigade_puts (bb_p, NULL, NULL, "<label for=\"format\">File format: </label><select id=\"format\">\n<option value=\"json\">JSON</option>\n<option value=\"csv\">Comma-separated values</option>\n<option value=\"tsv\">Tab-separated values</option>\n</select>")) == APR_SUCCESS)
+			if ((status = apr_brigade_puts (bb_p, NULL, NULL, "<label for=\"format\">File format: </label><select name=\"output_format\" class=\"format\">\n<option value=\"json\">JSON</option>\n<option value=\"csv\">Comma-separated values</option>\n<option value=\"tsv\">Tab-separated values</option>\n</select>")) == APR_SUCCESS)
 				{
-					if (theme_p -> ht_download_metadata_icon_s)
+					if ((status = apr_brigade_printf (bb_p, NULL, NULL, "<input name=\"id\" type=\"hidden\" value=\"%s\" />\n", id_s)) == APR_SUCCESS)
 						{
-							status = apr_brigade_printf (bb_p, NULL, NULL, "<div><img class=\"button submit\" src=\"%s\" title=\"Download the metadata attribute-value pairs for this iRODS item\" alt=\"download metadata attribute-value pairs\" /> Download</div>\n", theme_p -> ht_download_metadata_icon_s);
-						}
-					else
-						{
-							status = apr_brigade_printf (bb_p, NULL, NULL, "<input type=\"submit\" value=\"Download\" />\n");
-						}
+							if (theme_p -> ht_download_metadata_icon_s)
+								{
+									status = apr_brigade_printf (bb_p, NULL, NULL, "<div class=\"buttons\"><a class=\"submit\" href=\"#\"><img class=\"button submit\" src=\"%s\" title=\"Download the metadata attribute-value pairs for this iRODS item\" alt=\"download metadata attribute-value pairs\" />Download</a></div>\n", theme_p -> ht_download_metadata_icon_s);
+								}
+							else
+								{
+									status = apr_brigade_printf (bb_p, NULL, NULL, "<input type=\"submit\" value=\"Download\" />\n");
+								}
 
-					if (status == APR_SUCCESS)
-						{
-							status = apr_brigade_puts (bb_p, NULL, NULL, "</fieldset></form>");
+							if (status == APR_SUCCESS)
+								{
+									status = apr_brigade_puts (bb_p, NULL, NULL, "</fieldset></form>");
+								}
 						}
 				}
 		}
