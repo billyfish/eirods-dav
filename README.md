@@ -20,6 +20,8 @@ Notable features include:
 - Search the metadata catalogue.
 - REST API for accessing and manipulating the iRODS metadata 
 - Client-side interface to add, edit and delete metadata entries.
+- Download all of the metadata for an iRODS entry in various formats.
+- Full location breadcrumbs.
 
 A working demo of this module showing the themeable listings along with metadata 
 searching and linking is available at https://wheatis.tgac.ac.uk/davrods/browse/reads/.
