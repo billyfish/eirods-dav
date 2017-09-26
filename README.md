@@ -278,7 +278,7 @@ from these pages.
 
 * **DavRodsHTMLMetadataEditable**:
 This directive specifies whether the client-side functionality for editing
-the metadata by accessing REST API calls is active ot not. By default, it is
+the metadata by accessing REST API calls is active or not. By default, it is
 off and can be turned on by setting this directive to true.
 
  ```
@@ -296,7 +296,7 @@ use the following directive:
  DavRodsAPIPath /api/
  ```
 
-* **HTMLAddMetadataImage**:
+* **DavRodsHTMLAddMetadataImage**:
 If ```DavRodsHTMLMetadataEditable``` is set to true, then you can use this
 directive to specify the image used for the button to add metadata to a 
 particular data object or collection.
@@ -305,7 +305,7 @@ particular data object or collection.
  DavRodsHTMLAddMetadataImage /davrods_files/images/list_add
  ```
 
-* **HTMLDeleteMetadataImage**:
+* **DavRodsHTMLDeleteMetadataImage**:
 If ```DavRodsHTMLMetadataEditable``` is set to true, then you can use this
 directive to specify the image used for the button to delete metadata from a 
 particular data object or collection.
@@ -314,7 +314,7 @@ particular data object or collection.
  DavRodsHTMLDeleteMetadataImage /davrods_files/images/list_delete
  ```
 
-* **HTMLEditMetadataImage**:
+* **DavRodsHTMLEditMetadataImage**:
 If ```DavRodsHTMLMetadataEditable``` is set to true, then you can use this
 directive to specify the image used for the button to edit metadata for a 
 particular data object or collection.
@@ -322,6 +322,15 @@ particular data object or collection.
  ```
  DavRodsHTMLEditMetadataImage /davrods_files/images/list_edit
  ```
+
+* **DavRodsHTMLDownloadMetadataImage**:
+You can use this directive to specify the image used for the button to 
+download all of the metadata for a particular data object or collection.
+
+ ```
+DavRodsHTMLDownloadMetadataImage /davrods_files/images/list_download
+ ```
+
 
 * **DavRodsHTMLOkImage**:
 If ```DavRodsHTMLMetadataEditable``` is set to true, then you can use this
@@ -346,11 +355,32 @@ editor.
 Davrods has a REST API for accessing and manipulating the iRODS metadata catalog. 
 Currently it has the following functions:
 
- * **metadata/search**:
- * **metadata/edit**:
- * **metadata/get**:
- * **metadata/add**:
- * **metadata/delete**:
+ * **metadata/get**: This is for getting all of the associated metadata for an iRODS item. It takes two parameter, the first is *id*, which is the iRODS id of the data object or collection that you wish to get the metadata pairs for. The second parameter is *output_format* which specifies the format that the metadata will be returned in. It currently can take one of the following values:
+
+	- **json**: This will return the metadata as a [JSON (JavaScript Object Notation)](http://www.json.org/) array with each entry in the array having *attribute*, *value*, and where appropriate, *units* keys for its key-value pairs.
+	- **csv**: This will return the metadata as a table of comma-separated values with the order of the columns being attribute, value, units. Each of these entries will be contained within double quotes to allow for commas within their values without causing errors. 
+	- **tsv**: This will return the metadata as a table of tab-separated values with the order of the columns being attribute, value, units. Each of these entries will be contained within double quotes to allow for commas within their values without causing errors. 
+ 
+ For example to get the metadata for a data object with the id of 1.10021 in a JSON output format, the URL to call would be  
+
+ `/davrods/api/metadata/get?id=1.10021&output_format=json`
+ 
+ * **metadata/search**:  This API call is for getting a list of all data objects and collections that have a given metadata attribute-value pair. It takes two parameters: *key*, which is the attribute to search for and, *value*, which specifies the metadata value. There is a third optional parameter, *units* for specifying the units that the metadata attribute-value pair must also have. So to search for all of the data objects and collections that have an attribute called *volume* with a value of *11*,  the URL to call would be  
+
+ `/davrods/api/metadata/search?key=volume&value=11`
+ 
+ * **metadata/edit**: This API call is for editing a metadata attribute-value pair for a data object of collection and replacing one or more of its attribute, value or units. It takes the following required parameters: *id*, which is the iRODS id of the data object or collection to delete the metadata from, *key*, which is the attribute to edit, *value*, which specifies the metadata value to edit. Again, there is an optional parameter, *units* for specifying the units that the metadata attribute-value pair must also have to match. There must also be one or more of the following parameters to specify how the metadata will be altered: *new_key*, which is for specifying the new name for the attribute, *new_value*, for specifying the new metadata value and *new_units* for specifying the units that the metadata attribute-value pair will now have. So to edit an attribute called *volume* with a value of *11* and units of *decibels* for a data object with the id of 1.10021 and give it a new value of 8 and units of litres, the URL to call would be  
+
+ `/davrods/api/metadata/edit?id=1.10021&key=volume&value=11&units=decibels&new_value=8&new_units=litres`
+ 
+ * **metadata/add**: This API call is for adding a metadata attribute-value pair to a data object of collection. It takes three parameters: *id*, which is the iRODS id of the data object or collection to add the metadata to, *key*, which is the attribute to add  and, *value*, which specifies the metadata value to be added. As with the *search* call listed above, there is a fourth optional parameter, *units* for specifying the units that the metadata attribute-value pair will have. So to add an attribute called *volume* with a value of *11* to a data object with the id of 1.10021,  the URL to call would be  
+
+ `/davrods/api/metadata/add?id=1.10021&key=volume&value=11`
+ 
+ * **metadata/delete**: This API call is for deleting a metadata attribute-value pair from a data object of collection. It takes three parameters: *id*, which is the iRODS id of the data object or collection to delete the metadata from, *key*, which is the attribute to delete for and, *value*, which specifies the metadata value to delete. As before, there is a third optional parameter, *units* for specifying the units that the metadata attribute-value pair must also have to match. So to delete an attribute called *volume* with a value of *11* and units of *decibels* from a data object with the id of 1.10021,  the URL to call would be 
+
+  `/davrods/api/metadata/delete?id=1.10021&key=volume&value=11&units=decibels`
+
 
 
 ### The iRODS environment file ###
