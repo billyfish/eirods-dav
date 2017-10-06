@@ -41,6 +41,8 @@ REST_PREFIX const char REST_METADATA_EDIT_S [] REST_VAL ("metadata/edit");
 REST_PREFIX const char REST_METADATA_GET_S [] REST_VAL ("metadata/get");
 REST_PREFIX const char REST_METADATA_ADD_S [] REST_VAL ("metadata/add");
 REST_PREFIX const char REST_METADATA_DELETE_S [] REST_VAL ("metadata/delete");
+REST_PREFIX const char REST_METADATA_MATCHING_KEYS_S [] REST_VAL ("metadata/keys");
+REST_PREFIX const char REST_METADATA_MATCHING_VALUES_S [] REST_VAL ("metadata/values");
 
 
 typedef enum OutputFormat

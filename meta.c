@@ -1675,16 +1675,19 @@ static int CopyTableKeysToArray (void *data_p, const char *key_s, const char *va
 {
 	int res = 1;
 	apr_array_header_t *metadata_keys_p = (apr_array_header_t *) data_p;
-	char *copied_key_s = apr_pstrdup (metadata_keys_p -> pool, key_s);
 
-	if (copied_key_s)
-		{
-			* (char **) apr_array_push (metadata_keys_p) = copied_key_s;
-		}		/* if (copied_key_s) */
-	else
-		{
-			res = 0;
-		}
+	* (char **) apr_array_push (metadata_keys_p) = key_s;
+
+//	char *copied_key_s = apr_pstrdup (metadata_keys_p -> pool, key_s);
+//
+//	if (copied_key_s)
+//		{
+//			* (char **) apr_array_push (metadata_keys_p) = copied_key_s;
+//		}		/* if (copied_key_s) */
+//	else
+//		{
+//			res = 0;
+//		}
 
 	return res;
 }

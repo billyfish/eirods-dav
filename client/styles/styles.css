@@ -190,3 +190,23 @@ form.download_metadata select.format {
 form.download_metadata div.buttons {
 	text-align: right;
 }
+
+ul.autocomplete {
+	display: none;
+	border: 1px solid grey;
+	position: absolute;
+	background-color: #eceeef;
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+
+
+ul.autocomplete li {
+	padding-left: 0;
+}
+
+ul.autocomplete li:hover {
+	font-weight: bold;
+	cursor: pointer;
+}

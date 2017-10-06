@@ -44,6 +44,8 @@ $(document).ready (function () {
 
   }
 
+	SetUpMetadataKeysAutoCompleteList ();
+	SetUpMetadataValuesAutoCompleteList ();
 
  // SetUpMouseOvers ();
 });
@@ -510,4 +512,97 @@ function GetTextWidth (value) {
  }
 
 
+function SetUpMetadataKeysAutoCompleteList () {
+	$("#search_key").keyup (function () {
+		var key = $(this).val ();	
+		var rest_url = "/davrods/api/metadata/keys?key=" + key;
 
+		$.ajax (rest_url, {
+			dataType: "json",
+			success: function (data, status) {
+				if (status === "success") {
+					var i;
+
+					$("#search_keys_autocomplete_list").html ();
+
+					for (i = 0; i < data.keys.length; ++ i) {
+						var list_item = $ ("<li>" + data.keys [i] + "</li>");
+						$("#search_keys_autocomplete_list").append ($(list_item));
+
+						$(list_item).css ({
+							"padding-left": $("#search_key").css ("padding-left")
+						});
+
+						$(list_item).click (function () {
+							$("#search_key").val ($(this).text ());
+							$("#search_keys_autocomplete_list").hide ();
+						});
+					}
+
+					$("#search_keys_autocomplete_list").css ({
+            "left": $("#search_key").offset ().left,
+            "top": $("#search_key").offset ().top + $("#search_key").height () + 10,
+            "width": $("#search_key").width (),
+						"padding-left": $("#search_key").css ("padding-left"),
+						"font-size": $("#search_key").css ("font-size")
+    			});
+
+					$("#search_keys_autocomplete_list").show ();
+
+				}
+			},
+		  error: function (header, status, error_string) {
+		    alert ("failed to get AutoCompleteList");
+		  }
+		});
+	});
+}
+
+
+
+function SetUpMetadataValuesAutoCompleteList () {
+	$("#search_value").keyup (function () {
+		var key = $("#search_key").val ();	
+		var value = $("#search_value").val ();	
+		var rest_url = "/davrods/api/metadata/values?key=" + key + "&value=" + value;
+
+		$.ajax (rest_url, {
+			dataType: "json",
+			success: function (data, status) {
+				if (status === "success") {
+					var i;
+
+					$("#search_values_autocomplete_list").html ();
+
+					for (i = 0; i < data.keys.length; ++ i) {
+						var list_item = $ ("<li>" + data.keys [i] + "</li>");
+						$("#search_values_autocomplete_list").append ($(list_item));
+
+						$(list_item).css ({
+							"padding-left": $("#search_value").css ("padding-left")
+						});
+
+						$(list_item).click (function () {
+							$("#search_value").val ($(this).text ());
+							$("#search_values_autocomplete_list").hide ();
+						});
+					}
+
+					$("#search_values_autocomplete_list").css ({
+            "left": $("#search_value").offset ().left,
+            "top": $("#search_value").offset ().top + $("#search_value").height () + 10,
+            "width": $("#search_value").width (),
+						"padding-left": $("#search_value").css ("padding-left"),
+						"font-size": $("#search_value").css ("font-size")
+    			});
+
+					$("#search_values_autocomplete_list").show ();
+
+				}
+			},
+		  error: function (header, status, error_string) {
+		    alert ("failed to get AutoCompleteList");
+		  }
+		});
+	});
+}
