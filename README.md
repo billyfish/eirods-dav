@@ -278,9 +278,9 @@ from these pages.
   * **none**: No metadata information will be made available.
  So to set the metadata to be available on demand, the directive would be:
 
-     ```
-  DavRodsHTMLMetadata on_demand
-     ```
+ ```
+ DavRodsHTMLMetadata on_demand
+ ```
 
 * **DavRodsHTMLMetadataEditable**:
 This directive specifies whether the client-side functionality for editing
