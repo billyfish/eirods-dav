@@ -210,3 +210,19 @@ ul.autocomplete li:hover {
 	font-weight: bold;
 	cursor: pointer;
 }
+
+form.search_form {
+	display: inline-block;
+}
+
+form.search_form label{
+  font-size: 0.9em;
+	padding-right: 0.5em;
+}
+
+
+form.search_form input {
+  margin-right:  1.0em;
+	display: inline-block;
+}
+

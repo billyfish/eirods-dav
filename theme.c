@@ -529,7 +529,8 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 
 											int i = 0;
 
-											apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<form action=\"%s%s\" class=\"search_form\">\nSearch: <input name=\"key\" type=\"text\" id=\"search_key\">\n", davrods_path_s, REST_METADATA_SEARCH_S);
+											apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL,
+												"<form action=\"%s%s\" class=\"search_form\">\n<fieldset><legend>Search:</legend>\n<label for=\"search_key\">Attribute:</label><input name=\"key\" type=\"text\" id=\"search_key\">\n", davrods_path_s, REST_METADATA_SEARCH_S);
 											apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<ul id=\"search_keys_autocomplete_list\" class=\"autocomplete\"></ul>\n");
 
 											/*
@@ -545,9 +546,9 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 												}
 											*/
 
-											apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "\n<input type=\"text\" id=\"search_value\" name=\"value\" />");
+											apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "\n<label for=\"search_value\">Value:</label><input type=\"text\" id=\"search_value\" name=\"value\" />");
 											apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<ul id=\"search_values_autocomplete_list\" class=\"autocomplete\"></ul>\n");
-											apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "\n<input type=\"submit\" name=\"Search\" /></form>");
+											apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "\n<input type=\"submit\" name=\"Search\" /></fieldset></form>");
 
 
 										}

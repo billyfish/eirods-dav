@@ -71,7 +71,7 @@ static int AddWhereClausesToQuery (genQueryInp_t *query_p, const int *where_colu
 
 static void ClearPooledMemoryFromGenQuery (genQueryInp_t *query_p);
 
-static rodsObjStat_t *GetObjectStat (const char * const path_s, rcComm_t *connection_p);
+rodsObjStat_t *GetObjectStat (const char * const path_s, rcComm_t *connection_p);
 
 void PrintBasicGenQueryOut( genQueryOut_t *genQueryOut);
 
@@ -986,28 +986,6 @@ static apr_status_t GetMetadataArryaAsColumnData (apr_array_header_t *metadata_a
 
 	return status;
 }
-
-
-
-static rodsObjStat_t * GetObjectStat (const char * const path_s, rcComm_t *connection_p)
-{
-	dataObjInp_t inp;
-	rodsObjStat_t *stat_p = NULL;
-	int status;
-
-	memset (&inp, 0, sizeof (dataObjInp_t));
-	rstrcpy (inp.objPath, path_s, MAX_NAME_LEN);
-
-	status = rcObjStat (connection_p, &inp, &stat_p);
-
-	if (status < 0)
-		{
-			WHISPER ("Failed to get object stat for %s, error status %d\n", path_s, status);
-		}
-
-	return stat_p;
-}
-
 
 
 static int CheckQueryResults (const genQueryOut_t * const results_p, const int min_rows, const int max_rows, const int num_attrs)

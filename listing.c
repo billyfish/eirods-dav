@@ -496,3 +496,24 @@ char *GetId (char *value_s, objType_t *type_p, apr_pool_t *pool_p)
 
 	return id_s;
 }
+
+
+rodsObjStat_t * GetObjectStat (const char * const path_s, rcComm_t *connection_p)
+{
+	dataObjInp_t inp;
+	rodsObjStat_t *stat_p = NULL;
+	int status;
+
+	memset (&inp, 0, sizeof (dataObjInp_t));
+	rstrcpy (inp.objPath, path_s, MAX_NAME_LEN);
+
+	status = rcObjStat (connection_p, &inp, &stat_p);
+
+	if (status < 0)
+		{
+			WHISPER ("Failed to get object stat for %s, error status %d\n", path_s, status);
+		}
+
+	return stat_p;
+}
+
