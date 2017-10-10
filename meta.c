@@ -648,7 +648,9 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 																						{
 																							IRodsObject irods_obj;
 
-																							SetIRodsObject (&irods_obj, COLL_OBJ_T, id_s, NULL, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize);
+																							InitIRodsObject (&irods_obj);
+
+																							SetIRodsObject (&irods_obj, COLL_OBJ_T, id_s, NULL, collection_s, stat_p -> ownerName, NULL, stat_p -> modifyTime, stat_p -> objSize);
 
 																							apr_status = PrintItem (conf_p -> theme_p, &irods_obj, &irods_config, j, bucket_brigade_p, pool_p, connection_p, req_p);
 
@@ -763,7 +765,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 																														{
 																															IRodsObject irods_obj;
 
-																															SetIRodsObject (&irods_obj, DATA_OBJ_T, id_s, data_name_s, collection_s, stat_p -> ownerName, stat_p -> modifyTime, stat_p -> objSize);
+																															SetIRodsObject (&irods_obj, DATA_OBJ_T, id_s, data_name_s, collection_s, stat_p -> ownerName, stat_p -> rescHier, stat_p -> modifyTime, stat_p -> objSize);
 
 																															apr_status = PrintItem (conf_p -> theme_p, &irods_obj, &irods_config, 0, bucket_brigade_p, pool_p, connection_p, req_p);
 

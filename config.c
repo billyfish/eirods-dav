@@ -377,6 +377,41 @@ static const char *cmd_davrods_html_themed_listings (cmd_parms *cmd_p, void *con
     return NULL;
 }
 
+
+static const char *cmd_davrods_html_resource (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    if (!strcasecmp (arg_p, "true"))
+    	{
+    		conf_p -> theme_p -> ht_show_resource_flag = 1;
+    	}
+
+    return NULL;
+}
+
+
+static const char *cmd_davrods_html_show_selected_resources_only (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	const char *res_s = NULL;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	char **args_ss = NULL;
+	apr_status_t status = apr_tokenize_to_argv 	(arg_p, &args_ss, cmd_p -> pool);
+
+	if (status == APR_SUCCESS)
+		{
+			conf_p -> theme_p -> ht_resources_ss = args_ss;
+		}
+	else
+		{
+			res_s = apr_psprintf (cmd_p -> pool, "Failed to tokenize \"%s\" error %d", arg_p, status);
+		}
+
+	return res_s;
+}
+
+
+
 static const char *cmd_davrods_html_metadata (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
     davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
@@ -577,6 +612,17 @@ const command_rec davrods_directives[] = {
         DAVRODS_CONFIG_PREFIX "ThemedListings", cmd_davrods_html_themed_listings,
         NULL, ACCESS_CONF, "Set to true for themed listings, default is false"
     ),
+
+    AP_INIT_TAKE1(
+        DAVRODS_CONFIG_PREFIX "ShowResource", cmd_davrods_html_resource,
+        NULL, ACCESS_CONF, "Show the resource, default is false"
+    ),
+
+
+		AP_INIT_RAW_ARGS(
+	        DAVRODS_CONFIG_PREFIX "SelectedResources", cmd_davrods_html_show_selected_resources_only,
+	        NULL, ACCESS_CONF, "List of resources to show with each entry separated by spaces"
+	    ),
 
 	AP_INIT_RAW_ARGS(
         DAVRODS_CONFIG_PREFIX "HTMLHead", cmd_davrods_html_header,

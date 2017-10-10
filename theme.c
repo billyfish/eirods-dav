@@ -74,6 +74,7 @@ struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 		  theme_p -> ht_ok_icon_s = NULL;
 		  theme_p -> ht_cancel_icon_s = NULL;
 
+		  theme_p -> ht_show_resource_flag = 0;
 		  theme_p -> ht_show_ids_flag = 0;
 		  theme_p -> ht_add_search_form_flag = 1;
 		  theme_p -> ht_icons_map_p = NULL;
@@ -140,8 +141,40 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 									if (apr_status == APR_SUCCESS)
 										{
-											apr_status = PrintItem (conf_p -> theme_p, &irods_obj, &irods_config, row_index, bucket_brigade_p, pool_p, resource_p -> info -> rods_conn, req_p);
-											++ row_index;
+											struct HtmlTheme *theme_p = conf_p -> theme_p;
+											int show_item_flag = 1;
+
+											if (irods_obj.io_obj_type == DATA_OBJ_T)
+												{
+													if (theme_p -> ht_resources_ss)
+														{
+															char **resources_ss = theme_p -> ht_resources_ss;
+															int loop_flag = 1;
+
+															show_item_flag = 0;
+
+															while (loop_flag)
+																{
+																	if (strcmp (irods_obj.io_resource_s, *resources_ss) == 0)
+																		{
+																			show_item_flag = 1;
+																			loop_flag = 0;
+																		}
+																	else
+																		{
+																			++ resources_ss;
+																			loop_flag = (*resources_ss != NULL) ? 1 : 0;
+																		}
+																}
+														}
+
+												}
+
+											if (show_item_flag)
+												{
+													apr_status = PrintItem (conf_p -> theme_p, &irods_obj, &irods_config, row_index, bucket_brigade_p, pool_p, resource_p -> info -> rods_conn, req_p);
+													++ row_index;
+												}
 
 											if (apr_status != APR_SUCCESS)
 												{
@@ -603,11 +636,30 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 		}		/* if (AreIconsDisplayed (theme_p)) */
 
 
-	apr_status = PrintBasicStringToBucketBrigade ("<th class=\"name\">Name</th><th class=\"size\">Size</th><th class=\"owner\">Owner</th><th class=\"datestamp\">Last modified</th>", bucket_brigade_p, req_p, __FILE__, __LINE__);
+	apr_status = PrintBasicStringToBucketBrigade ("<th class=\"name\">Name</th><th class=\"size\">Size</th>", bucket_brigade_p, req_p, __FILE__, __LINE__);
 	if (apr_status != APR_SUCCESS)
 		{
 			return apr_status;
 		} /* if (apr_ret != APR_SUCCESS) */
+
+
+	if (conf_p -> theme_p -> ht_show_resource_flag)
+		{
+			apr_status = PrintBasicStringToBucketBrigade ("<th class=\"resource\">Resource</th>", bucket_brigade_p, req_p, __FILE__, __LINE__);;
+		}
+
+	if (apr_status != APR_SUCCESS)
+		{
+			return apr_status;
+		} /* if (apr_ret != APR_SUCCESS) */
+
+
+	apr_status = PrintBasicStringToBucketBrigade ("<th class=\"owner\">Owner</th><th class=\"datestamp\">Last modified</th>", bucket_brigade_p, req_p, __FILE__, __LINE__);
+	if (apr_status != APR_SUCCESS)
+		{
+			return apr_status;
+		} /* if (apr_ret != APR_SUCCESS) */
+
 
 
 	if (conf_p -> theme_p -> ht_show_metadata_flag)
@@ -774,6 +826,11 @@ apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_
 		}
 
 
+	if (theme_p -> ht_show_resource_flag)
+		{
+			apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"resource\">%s</td>", (irods_obj_p -> io_resource_s) ? ap_escape_html (pool_p, irods_obj_p -> io_resource_s) : "");
+		}
+
 	// Print owner
 	apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"owner\">%s</td>", ap_escape_html (pool_p, irods_obj_p -> io_owner_name_s));
 
@@ -851,9 +908,11 @@ void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p
 	DAVRODS_PROP_MERGE(theme_p -> ht_ok_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_cancel_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_listing_class_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_show_resource_flag);
 	DAVRODS_PROP_MERGE(theme_p -> ht_show_metadata_flag);
 	DAVRODS_PROP_MERGE(theme_p -> ht_metadata_editable_flag);
 	DAVRODS_PROP_MERGE(theme_p -> ht_show_ids_flag);
+
 
 	if (child_p -> theme_p -> ht_icons_map_p)
 		{
@@ -875,6 +934,81 @@ void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p
 			else
 				{
 					conf_p -> theme_p -> ht_icons_map_p = NULL;
+				}
+		}
+
+
+	if (child_p -> theme_p -> ht_resources_ss)
+		{
+			if (parent_p -> theme_p -> ht_resources_ss)
+				{
+					/* merge all of the entries */
+					char **merged_resources_ss = NULL;
+					size_t num_entries = 1; /* add the space for the terminating NULL */
+					char **resource_ss = parent_p -> theme_p -> ht_resources_ss;
+
+					while (*resource_ss)
+						{
+							++ num_entries;
+							++ resource_ss;
+						}
+
+
+					resource_ss = child_p -> theme_p -> ht_resources_ss;
+					while (*resource_ss)
+						{
+							++ num_entries;
+							++ resource_ss;
+						}
+
+
+					merged_resources_ss = apr_palloc (pool_p, num_entries * sizeof (char *));
+
+					if (merged_resources_ss)
+						{
+							char **merged_resource_ss = merged_resources_ss;
+
+							resource_ss = parent_p -> theme_p -> ht_resources_ss;
+							while (*resource_ss)
+								{
+									*merged_resource_ss = *resource_ss;
+
+									++ merged_resource_ss;
+									++ resource_ss;
+								}
+
+
+							resource_ss = child_p -> theme_p -> ht_resources_ss;
+							while (*resource_ss)
+								{
+									++ num_entries;
+									++ resource_ss;
+								}
+
+							++ merged_resource_ss;
+							*merged_resource_ss = NULL;
+						}
+					else
+						{
+							conf_p -> theme_p -> ht_resources_ss = child_p -> theme_p -> ht_resources_ss;
+							ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_ENOMEM, pool_p, "Failed to merge resources list, using child values only");
+						}
+
+				}
+			else
+				{
+					conf_p -> theme_p -> ht_resources_ss = child_p -> theme_p -> ht_resources_ss;
+				}
+		}
+	else
+		{
+			if (parent_p -> theme_p -> ht_resources_ss)
+				{
+					conf_p -> theme_p -> ht_resources_ss = parent_p -> theme_p -> ht_resources_ss;
+				}
+			else
+				{
+					conf_p -> theme_p -> ht_resources_ss = NULL;
 				}
 		}
 }

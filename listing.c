@@ -32,6 +32,10 @@
 #include "apr_time.h"
 
 
+#define S_LISTING_DEBUG (0)
+
+static void PrintCollEntry (const collEnt_t *coll_entry_p, apr_pool_t *pool_p);
+
 
 
 void InitIRodsObject (IRodsObject *obj_p)
@@ -56,7 +60,7 @@ apr_status_t SetIRodsConfig (IRodsConfig *config_p, const char *exposed_root_s, 
 apr_status_t SetIRodsObjectFromIdString (IRodsObject *obj_p, const char *id_s, rcComm_t *connection_p, apr_pool_t *pool_p)
 {
 	apr_status_t status = APR_EGENERAL;
-	int select_columns_p [6] = { COL_DATA_NAME, COL_D_OWNER_NAME, COL_COLL_NAME, COL_D_MODIFY_TIME, COL_DATA_SIZE, -1 };
+	int select_columns_p [7] = { COL_DATA_NAME, COL_D_OWNER_NAME, COL_COLL_NAME, COL_D_MODIFY_TIME, COL_DATA_SIZE, COL_D_RESC_NAME, -1 };
 	int where_columns_p [1] = { COL_D_DATA_ID };
 	const char *where_values_ss [1];
 	genQueryOut_t *results_p = NULL;
@@ -80,10 +84,11 @@ apr_status_t SetIRodsObjectFromIdString (IRodsObject *obj_p, const char *id_s, r
 					const char *coll_s = results_p -> sqlResult [2].value;
 					const char *modify_s = results_p -> sqlResult [3].value;
 					const char *size_s = results_p -> sqlResult [4].value;
+					const char *resource_s = results_p -> sqlResult [5].value;
 
 					rodsLong_t size = atoi (size_s);
 
-					status = SetIRodsObject (obj_p, DATA_OBJ_T, id_s, name_s, coll_s, owner_s, modify_s, size);
+					status = SetIRodsObject (obj_p, DATA_OBJ_T, id_s, name_s, coll_s, owner_s, resource_s, modify_s, size);
 				}
 			else
 				{
@@ -107,7 +112,7 @@ apr_status_t SetIRodsObjectFromIdString (IRodsObject *obj_p, const char *id_s, r
 							const char *coll_s = results_p -> sqlResult [2].value;
 							const char *modify_s = results_p -> sqlResult [3].value;
 
-							status = SetIRodsObject (obj_p, COLL_OBJ_T, id_s, name_s, coll_s, owner_s, modify_s, 0);
+							status = SetIRodsObject (obj_p, COLL_OBJ_T, id_s, name_s, coll_s, owner_s, NULL, modify_s, 0);
 
 							freeGenQueryOut (&results_p);
 						}
@@ -118,7 +123,7 @@ apr_status_t SetIRodsObjectFromIdString (IRodsObject *obj_p, const char *id_s, r
 }
 
 
-apr_status_t SetIRodsObject (IRodsObject *obj_p, const objType_t obj_type, const char *id_s, const char *data_s, const char *collection_s, const char *owner_name_s, const char *last_modified_time_s, const rodsLong_t size)
+apr_status_t SetIRodsObject (IRodsObject *obj_p, const objType_t obj_type, const char *id_s, const char *data_s, const char *collection_s, const char *owner_name_s, const char *resource_s, const char *last_modified_time_s, const rodsLong_t size)
 {
 	apr_status_t status = APR_SUCCESS;
 
@@ -127,6 +132,7 @@ apr_status_t SetIRodsObject (IRodsObject *obj_p, const objType_t obj_type, const
 	obj_p -> io_data_s = data_s;
 	obj_p -> io_collection_s = collection_s;
 	obj_p -> io_owner_name_s = owner_name_s;
+	obj_p -> io_resource_s = resource_s;
 	obj_p -> io_last_modified_time_s = last_modified_time_s;
 	obj_p -> io_size = size;
 
@@ -134,9 +140,16 @@ apr_status_t SetIRodsObject (IRodsObject *obj_p, const objType_t obj_type, const
 }
 
 
+
+
 apr_status_t SetIRodsObjectFromCollEntry (IRodsObject *obj_p, const collEnt_t *coll_entry_p, rcComm_t *connection_p, apr_pool_t *pool_p)
 {
 	apr_status_t status;
+
+	if (S_LISTING_DEBUG)
+		{
+			PrintCollEntry (coll_entry_p, pool_p);
+		}
 
 	if (coll_entry_p -> objType == COLL_OBJ_T)
 		{
@@ -162,12 +175,11 @@ apr_status_t SetIRodsObjectFromCollEntry (IRodsObject *obj_p, const collEnt_t *c
 					freeGenQueryOut (&results_p);
 				}
 
-			status = SetIRodsObject (obj_p, coll_entry_p -> objType, id_s, coll_entry_p -> dataName, coll_entry_p -> collName, coll_entry_p -> ownerName, coll_entry_p -> modifyTime, coll_entry_p -> dataSize);
-
+			status = SetIRodsObject (obj_p, coll_entry_p -> objType, id_s, coll_entry_p -> dataName, coll_entry_p -> collName, coll_entry_p -> ownerName, coll_entry_p -> resource, coll_entry_p -> modifyTime, coll_entry_p -> dataSize);
 		}
 	else
 		{
-			status = SetIRodsObject (obj_p, coll_entry_p -> objType, coll_entry_p -> dataId, coll_entry_p -> dataName, coll_entry_p -> collName, coll_entry_p -> ownerName, coll_entry_p -> modifyTime, coll_entry_p -> dataSize);
+			status = SetIRodsObject (obj_p, coll_entry_p -> objType, coll_entry_p -> dataId, coll_entry_p -> dataName, coll_entry_p -> collName, coll_entry_p -> ownerName, coll_entry_p -> resource, coll_entry_p -> modifyTime, coll_entry_p -> dataSize);
 		}
 
 	return status;
@@ -495,4 +507,27 @@ char *GetId (char *value_s, objType_t *type_p, apr_pool_t *pool_p)
 		}
 
 	return id_s;
+}
+
+
+static void PrintCollEntry (const collEnt_t *coll_entry_p, apr_pool_t *pool_p)
+{
+	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "\n=====================\n");
+	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "objType %d\n", coll_entry_p -> objType);
+	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "replNum %d\n", coll_entry_p -> replNum);
+	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "replStatus %d\n", coll_entry_p -> replStatus);
+	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "dataMode %d\n", coll_entry_p -> dataMode);
+	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "dataSize %d\n", coll_entry_p -> dataSize);
+	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "collName %s\n", coll_entry_p -> collName);
+	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "dataName %s\n", coll_entry_p -> dataName);
+	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "dataId %s\n", coll_entry_p -> dataId);
+	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "createTime %s\n", coll_entry_p -> createTime);
+	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "modifyTime %s\n", coll_entry_p -> modifyTime);
+	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "chksum", coll_entry_p -> chksum);
+	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "resource %s\n", coll_entry_p -> resource);
+	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "resc_hier %s\n", coll_entry_p -> resc_hier);
+	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "phyPath %s\n", coll_entry_p -> phyPath);
+	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "ownerName %s\n", coll_entry_p -> ownerName);
+	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "dataType %s\n", coll_entry_p -> dataType);
+	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "=====================\n");
 }

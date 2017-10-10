@@ -74,8 +74,11 @@ struct HtmlTheme
 
 	const char *ht_cancel_icon_s;
 
-
 	const char *ht_rest_api_s;
+
+	char **ht_resources_ss;
+
+	int ht_show_resource_flag;
 
 	int ht_show_ids_flag;
 
