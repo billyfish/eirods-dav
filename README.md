@@ -1,20 +1,15 @@
-﻿Davrods - An Apache WebDAV interface to iRODS
-=============================================
+﻿Eirods-dav - An Apache WebDAV and metadata REST API interface to iRODS
+======================================================================
 
-Davrods provides access to iRODS servers using the WebDAV protocol.
-It is a bridge between the WebDAV protocol and the iRODS API,
-implemented as an Apache HTTPD module.
 
-Davrods leverages the Apache server implementation of the WebDAV
-protocol, `mod_dav`, for compliance with the WebDAV Class 2 standard.
+Eirods-dav provides access to iRODS servers using the WebDAV protocol and exposes a REST API for accessing and manipulating metadata from within a web browser. It takes the original [Davrods](https://github.com/UtrechtUniversity/davrods "") module written by Ton Smeele and Chris Smeele, which is a bridge between the WebDAV protocol and the iRODS API. Davrods leverages the Apache server implementation of the WebDAV
+protocol, `mod_dav`, for compliance with the WebDAV Class 2 standard. For fuirther informtaion please check out their site or the original readme file included in this repo. 
 
-Notable features include:
+Eirods-dav adds extra featues such as themeable listings and anonymous access for public-facing websites. As well as these features, it also incorporates a REST API for interacting with the metadate stored within an iRODS system. All of these featuresare implemented as an Apache HTTPD module.
 
-- Supports WebDAV Class 2. Locks are local to the Apache server.
-- Supports PAM and Native (a.k.a. STANDARD) iRODS authentication.
-- Supports SSL encryption for the entire iRODS connection.
-- Easy to configure using Apache configuration directives.
-- Supports iRODS server versions 4+ and is backwards compatible with 3.3.1.
+
+The features that have been added within eirods-dav are:
+ 
 - Themeable listings similar to using mod_autoindex.
 - Expose and navigate by metadata key-value pairs.
 - Search the metadata catalogue.
@@ -23,8 +18,17 @@ Notable features include:
 - Download all of the metadata for an iRODS entry in various formats.
 - Full location breadcrumbs.
 
-A working demo of this module showing the themeable listings along with metadata 
-searching and linking is available at https://wheatis.tgac.ac.uk/davrods/browse/reads/.
+As well as features from the original Davrods such as:
+
+- Supports WebDAV Class 2. Locks are local to the Apache server.
+- Supports PAM and Native (a.k.a. STANDARD) iRODS authentication.
+- Supports SSL encryption for the entire iRODS connection.
+- Easy to configure using Apache configuration directives.
+- Supports iRODS server versions 4+ and is backwards compatible with 3.3.1.
+
+
+Working demos of this module showing the themeable listings along with metadata 
+searching and linking is available at [https://wheatis.tgac.ac.uk/davrods/browse/reads/](https://wheatis.tgac.ac.uk/davrods/browse/reads/) and with metadata editing features at [https://grassroots.tools/davrods/](https://grassroots.tools/davrods/).
 
 
 ## Installation ##
@@ -34,7 +38,7 @@ searching and linking is available at https://wheatis.tgac.ac.uk/davrods/browse/
 Davrods requires the following packages to be installed on your server:
 
 - Apache httpd 2.4+
-- iRODS 4.x client libraries (in package `irods-runtime`, available
+- iRODS 4.x client libraries and headers (in package `irods-runtime` and `irods-dev`, available
   from [the iRODS website](http://irods.org/download/))
 
 Due to the way iRODS libraries are packaged, specifically, its network
@@ -48,19 +52,19 @@ These three packages all provide the necessary libraries in
 ### Using the binary distribution ###
 
 For binary installation, download the package for your platform at
-https://github.com/billyfish/davrods/releases and copy the module to the 
+https://github.com/billyfish/eirods-dav/releases and copy the module to the 
 `modules` directory of your Apache httpd installation. If the binary version 
 is not available, then you can compile the module from source.
 
 
 ### Compiling 
 
-To compile Davrods from source, copy `example-user.prefs` to `user.prefs` and edit 
+To compile eirods-dav from source, copy `example-user.prefs` to `user.prefs` and edit 
 it to contain values valid for your system. The file is commented and should be able to 
 to be set up with a minimum of effort.
 
 Once this is complete, then ```make``` followed by ```make install``` will create 
-and install `mod_davrods.so` to your Apache httpd installation.
+and install `mod_eirods-dav.so` to your Apache httpd installation.
 
 
 See the __Configuration__ section for instructions on how to configure
@@ -274,9 +278,9 @@ from these pages.
   * **none**: No metadata information will be made available.
  So to set the metadata to be available on demand, the directive would be:
 
-     ```
-  DavRodsHTMLMetadata on_demand
-     ```
+ ```
+ DavRodsHTMLMetadata on_demand
+ ```
 
 * **DavRodsHTMLMetadataEditable**:
 This directive specifies whether the client-side functionality for editing

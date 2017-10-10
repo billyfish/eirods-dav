@@ -71,7 +71,7 @@ static int AddWhereClausesToQuery (genQueryInp_t *query_p, const int *where_colu
 
 static void ClearPooledMemoryFromGenQuery (genQueryInp_t *query_p);
 
-static rodsObjStat_t *GetObjectStat (const char * const path_s, rcComm_t *connection_p);
+rodsObjStat_t *GetObjectStat (const char * const path_s, rcComm_t *connection_p);
 
 void PrintBasicGenQueryOut( genQueryOut_t *genQueryOut);
 
@@ -990,28 +990,6 @@ static apr_status_t GetMetadataArryaAsColumnData (apr_array_header_t *metadata_a
 }
 
 
-
-static rodsObjStat_t * GetObjectStat (const char * const path_s, rcComm_t *connection_p)
-{
-	dataObjInp_t inp;
-	rodsObjStat_t *stat_p = NULL;
-	int status;
-
-	memset (&inp, 0, sizeof (dataObjInp_t));
-	rstrcpy (inp.objPath, path_s, MAX_NAME_LEN);
-
-	status = rcObjStat (connection_p, &inp, &stat_p);
-
-	if (status < 0)
-		{
-			WHISPER ("Failed to get object stat for %s, error status %d\n", path_s, status);
-		}
-
-	return stat_p;
-}
-
-
-
 static int CheckQueryResults (const genQueryOut_t * const results_p, const int min_rows, const int max_rows, const int num_attrs)
 {
 	int ret = 1;
@@ -1677,16 +1655,19 @@ static int CopyTableKeysToArray (void *data_p, const char *key_s, const char *va
 {
 	int res = 1;
 	apr_array_header_t *metadata_keys_p = (apr_array_header_t *) data_p;
-	char *copied_key_s = apr_pstrdup (metadata_keys_p -> pool, key_s);
 
-	if (copied_key_s)
-		{
-			* (char **) apr_array_push (metadata_keys_p) = copied_key_s;
-		}		/* if (copied_key_s) */
-	else
-		{
-			res = 0;
-		}
+	* (char **) apr_array_push (metadata_keys_p) = key_s;
+
+//	char *copied_key_s = apr_pstrdup (metadata_keys_p -> pool, key_s);
+//
+//	if (copied_key_s)
+//		{
+//			* (char **) apr_array_push (metadata_keys_p) = copied_key_s;
+//		}		/* if (copied_key_s) */
+//	else
+//		{
+//			res = 0;
+//		}
 
 	return res;
 }

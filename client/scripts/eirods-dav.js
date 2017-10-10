@@ -44,6 +44,8 @@ $(document).ready (function () {
 
   }
 
+	SetUpMetadataKeysAutoCompleteList ();
+	SetUpMetadataValuesAutoCompleteList ();
 
  // SetUpMouseOvers ();
 });
@@ -510,4 +512,79 @@ function GetTextWidth (value) {
  }
 
 
+function SetUpMetadataKeysAutoCompleteList () {
+	$("#search_key").keyup (function () {
+		var key = $(this).val ();	
+		var rest_url = "/davrods/api/metadata/keys?key=" + key;
+
+		$.ajax (rest_url, {
+			dataType: "json",
+			success: function (data, status) {
+				if (status === "success") {
+					PopulateAutoCompleteList ($ ("#search_keys_autocomplete_list"), $("#search_key"), data.keys);
+				}
+			},
+		  error: function (header, status, error_string) {
+		    alert ("failed to get AutoCompleteList");
+		  }
+		});
+	});
+}
+
+
+
+function SetUpMetadataValuesAutoCompleteList () {
+	$("#search_value").keyup (function () {
+		var key = $("#search_key").val ();	
+		var value = $("#search_value").val ();	
+		var rest_url = "/davrods/api/metadata/values?key=" + key + "&value=" + value;
+
+		$.ajax (rest_url, {
+			dataType: "json",
+			success: function (data, status) {
+				if (status === "success") {
+					PopulateAutoCompleteList ($ ("#search_values_autocomplete_list"), $("#search_value"), data.values);
+				}
+			},
+		  error: function (header, status, error_string) {
+		    alert ("failed to get AutoCompleteList");
+		  }
+		});
+	});
+}
+
+
+
+function PopulateAutoCompleteList (list_id, input_box_id, values_array) {
+	var i;
+
+	$(list_id).empty ();
+
+	if (values_array.length > 0) {
+		for (i = 0; i < values_array.length; ++ i) {
+			var list_item = $ ("<li>" + values_array [i] + "</li>");
+			$(list_id).append ($(list_item));
+
+			$(list_item).css ({
+				"padding-left": $(input_box_id).css ("padding-left")
+			});
+
+			$(list_item).click (function () {
+				$(input_box_id).val ($(this).text ());
+				$(list_id).hide ();
+			});
+		}
+
+		$(list_id).css ({
+			"left": $(input_box_id).offset ().left,
+			"top": $(input_box_id).offset ().top + $(input_box_id).height () + 10,
+			"width": $(input_box_id).width (),
+			"padding-left": $(input_box_id).css ("padding-left"),
+			"font-size": $(input_box_id).css ("font-size")
+		});
+
+		$(list_id).show ();
+	}
+
+} 
 

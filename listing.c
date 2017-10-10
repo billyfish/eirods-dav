@@ -510,6 +510,29 @@ char *GetId (char *value_s, objType_t *type_p, apr_pool_t *pool_p)
 }
 
 
+
+rodsObjStat_t * GetObjectStat (const char * const path_s, rcComm_t *connection_p)
+{
+	dataObjInp_t inp;
+	rodsObjStat_t *stat_p = NULL;
+	int status;
+
+	memset (&inp, 0, sizeof (dataObjInp_t));
+	rstrcpy (inp.objPath, path_s, MAX_NAME_LEN);
+
+	status = rcObjStat (connection_p, &inp, &stat_p);
+
+	if (status < 0)
+		{
+			WHISPER ("Failed to get object stat for %s, error status %d\n", path_s, status);
+		}
+
+	return stat_p;
+}
+
+
+
+
 static void PrintCollEntry (const collEnt_t *coll_entry_p, apr_pool_t *pool_p)
 {
 	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "\n=====================\n");
@@ -531,3 +554,4 @@ static void PrintCollEntry (const collEnt_t *coll_entry_p, apr_pool_t *pool_p)
 	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "dataType %s\n", coll_entry_p -> dataType);
 	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "=====================\n");
 }
+

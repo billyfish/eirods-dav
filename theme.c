@@ -560,22 +560,28 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 										{
 											/* Get the Location path where davrods is hosted */
 
-													int i = 0;
+											int i = 0;
 
-													apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<form action=\"%s%s\" class=\"search_form\">\nSearch: <select name=\"key\">\n", davrods_path_s, REST_METADATA_SEARCH_S);
+											apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL,
+												"<form action=\"%s%s\" class=\"search_form\">\n<fieldset><legend>Search:</legend>\n<label for=\"search_key\">Attribute:</label><input name=\"key\" type=\"text\" id=\"search_key\">\n", davrods_path_s, REST_METADATA_SEARCH_S);
+											apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<ul id=\"search_keys_autocomplete_list\" class=\"autocomplete\"></ul>\n");
 
-											    for (i = 0; i < keys_p -> nelts; ++ i)
-											    	{
-											    		char *value_s = ((char **) keys_p -> elts) [i];
-															apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<option>%s</option>\n", value_s);
+											/*
+											for (i = 0; i < keys_p -> nelts; ++ i)
+												{
+													char *value_s = ((char **) keys_p -> elts) [i];
+													apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<option>%s</option>\n", value_s);
 
-															if (apr_status != APR_SUCCESS)
-																{
-																	break;
-																}
-											    	}
+													if (apr_status != APR_SUCCESS)
+														{
+															break;
+														}
+												}
+											*/
 
-													apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "</select>\n<input type=\"text\" name=\"value\" /></form>");
+											apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "\n<label for=\"search_value\">Value:</label><input type=\"text\" id=\"search_value\" name=\"value\" />");
+											apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<ul id=\"search_values_autocomplete_list\" class=\"autocomplete\"></ul>\n");
+											apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "\n<input type=\"submit\" name=\"Search\" /></fieldset></form>");
 
 
 										}

@@ -38,6 +38,7 @@
 #include "auth.h"
 #include "common.h"
 #include "listing.h"
+#include "repo.h"
 
 #include "irods/mvUtil.h"
 
@@ -73,6 +74,15 @@ static int EditMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_
 static int DeleteMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s);
 
 
+static int GetMatchingMetadataKeys (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s);
+
+
+static int GetMatchingMetadataValues (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s);
+
+
+static const char *GetIdParameter (apr_table_t *params_p, request_rec *req_p, rcComm_t *rods_connection_p, apr_pool_t *pool_p);
+
+
 static const char *GetParameterValue (apr_table_t *params_p, const char * const param_s, apr_pool_t *pool_p);
 
 
@@ -105,6 +115,8 @@ static APICall S_API_ACTIONS_P [] =
 	{ REST_METADATA_ADD_S, AddMetadataForEntry },
 	{ REST_METADATA_DELETE_S, DeleteMetadataForEntry },
 	{ REST_METADATA_EDIT_S, EditMetadataForEntry },
+	{ REST_METADATA_MATCHING_KEYS_S, GetMatchingMetadataKeys },
+	{ REST_METADATA_MATCHING_VALUES_S, GetMatchingMetadataValues },
 
 	{ NULL, NULL }
 };
@@ -290,17 +302,17 @@ static int GetMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_t
 {
 	int res = DECLINED;
 	apr_pool_t *pool_p = req_p -> pool;
-	const char * const id_s = GetParameterValue (params_p, "id", pool_p);
+	apr_bucket_brigade *bucket_brigade_p = apr_brigade_create (pool_p, req_p -> connection -> bucket_alloc);
 
-	if (id_s)
+	if (bucket_brigade_p)
 		{
-			apr_bucket_brigade *bucket_brigade_p = apr_brigade_create (pool_p, req_p -> connection -> bucket_alloc);
+			rcComm_t *rods_connection_p = GetIRODSConnectionForAPI (req_p, config_p);
 
-			if (bucket_brigade_p)
+			if (rods_connection_p)
 				{
-					rcComm_t *rods_connection_p = GetIRODSConnectionForAPI (req_p, config_p);
+					const char * const id_s = GetIdParameter (params_p, req_p, rods_connection_p, pool_p);
 
-					if (rods_connection_p)
+					if (id_s)
 						{
 							OutputFormat format = GetRequestedOutputFormat (params_p, pool_p);
 							apr_status_t status = GetMetadataTableForId ((char *) id_s, config_p, rods_connection_p, req_p, pool_p, bucket_brigade_p, format);
@@ -333,11 +345,10 @@ static int GetMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_t
 											res = OK;
 
 										}
-
-									apr_brigade_destroy (bucket_brigade_p);
-
 								}
 						}
+
+					apr_brigade_destroy (bucket_brigade_p);
 				}
 
 		}
@@ -466,17 +477,17 @@ static apr_status_t ModifyMetadataForEntry (const APICall *call_p, request_rec *
 {
 	apr_status_t res = APR_EGENERAL;
 	apr_pool_t *pool_p = req_p -> pool;
-	const char * const id_s = GetParameterValue (params_p, "id", pool_p);
+	apr_bucket_brigade *bucket_brigade_p = apr_brigade_create (pool_p, req_p -> connection -> bucket_alloc);
 
-	if (id_s)
+	if (bucket_brigade_p)
 		{
-			apr_bucket_brigade *bucket_brigade_p = apr_brigade_create (pool_p, req_p -> connection -> bucket_alloc);
+			rcComm_t *rods_connection_p = GetIRODSConnectionForAPI (req_p, config_p);
 
-			if (bucket_brigade_p)
+			if (rods_connection_p)
 				{
-					rcComm_t *rods_connection_p = GetIRODSConnectionForAPI (req_p, config_p);
+					const char * const id_s = GetIdParameter (params_p, req_p, rods_connection_p, pool_p);
 
-					if (rods_connection_p)
+					if (id_s)
 						{
 							const char * const key_s = GetParameterValue (params_p, "key", pool_p);
 
@@ -581,26 +592,207 @@ static apr_status_t ModifyMetadataForEntry (const APICall *call_p, request_rec *
 								{
 									ap_log_rerror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_BADARG, req_p, "Failed to get key parameter from \"%s\"", req_p -> uri);
 								}
-
 						}
 					else
 						{
-							ap_log_rerror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_BADARG, req_p, "Failed to get iRODS connection");
+							ap_log_rerror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_BADARG, req_p, "Failed to get id parameter from \"%s\"", req_p -> uri);
 						}
+
 				}
 			else
 				{
-					ap_log_rerror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_BADARG, req_p, "Failed to allocate bucket brigade");
+					ap_log_rerror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_BADARG, req_p, "Failed to get iRODS connection");
 				}
-
 		}
 	else
 		{
-			ap_log_rerror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_BADARG, req_p, "Failed to get id parameter from \"%s\"", req_p -> uri);
+			ap_log_rerror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_BADARG, req_p, "Failed to allocate bucket brigade");
+		}
+
+
+	return res;
+}
+
+
+static int GetMatchingMetadataKeys (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s)
+{
+	int res = DECLINED;
+	apr_pool_t *pool_p = req_p -> pool;
+	const char * const key_s = GetParameterValue (params_p, "key", pool_p);
+
+	if (key_s)
+		{
+			char *where_value_s = apr_pstrcat (pool_p, "%", key_s, "%", NULL);
+
+			if (where_value_s)
+				{
+					rcComm_t *rods_connection_p = GetIRODSConnectionForAPI (req_p, config_p);
+
+					if (rods_connection_p)
+						{
+							apr_bucket_brigade *bucket_brigade_p = apr_brigade_create (pool_p, req_p -> connection -> bucket_alloc);
+
+							if (bucket_brigade_p)
+								{
+									const int num_where_columns = 1;
+									int where_columns = COL_META_DATA_ATTR_NAME;
+									const char *where_values_ss [1] = { where_value_s };
+									SearchOperator op = SO_LIKE;
+									int select_columns_p [] =  { COL_META_DATA_ATTR_NAME, -1};
+									genQueryOut_t *meta_results_p = RunQuery (rods_connection_p, select_columns_p, &where_columns, where_values_ss, &op, num_where_columns, 0, pool_p);
+
+									if (meta_results_p)
+										{
+											apr_status_t status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, "{\n\t\"keys\": [\n");
+
+											res = OK;
+
+											if (meta_results_p -> rowCnt > 0)
+												{
+													sqlResult_t *sql_p = & (meta_results_p -> sqlResult [0]);
+													char *value_s = sql_p -> value;
+													int result_length = sql_p -> len;
+													int i;
+
+													for (i = meta_results_p -> rowCnt - 1; i >= 0; -- i, value_s += result_length)
+														{
+															status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "\t\t\"%s\"%s\n", value_s, (i != 0) ? "," : "");
+														}
+												}
+
+											status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, "\t]\n}\n");
+
+											if (status == APR_SUCCESS)
+												{
+													apr_size_t len = 0;
+													char *result_s = NULL;
+
+													CloseBucketsStream (bucket_brigade_p);
+
+													apr_status_t apr_status = apr_brigade_pflatten (bucket_brigade_p, &result_s, &len, pool_p);
+
+													if (result_s)
+														{
+															if (* (result_s + len) != '\0')
+																{
+																	* (result_s + len) = '\0';
+																}
+
+
+															ap_rputs (result_s, req_p);
+															ap_set_content_type (req_p, "application/json");
+
+														}
+
+												}
+
+											freeGenQueryOut (&meta_results_p);
+										}
+
+									apr_brigade_destroy (bucket_brigade_p);
+								}
+
+						}
+
+				}
+
+		}
+
+
+	return res;
+}
+
+
+
+static int GetMatchingMetadataValues (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s)
+{
+	int res = DECLINED;
+	apr_pool_t *pool_p = req_p -> pool;
+	const char * const key_s = GetParameterValue (params_p, "key", pool_p);
+
+	if (key_s)
+		{
+			const char * const value_s = GetParameterValue (params_p, "value", pool_p);
+
+			char *where_value_s = apr_pstrcat (pool_p, "%", value_s, "%", NULL);
+
+			if (where_value_s)
+				{
+					rcComm_t *rods_connection_p = GetIRODSConnectionForAPI (req_p, config_p);
+
+					if (rods_connection_p)
+						{
+							apr_bucket_brigade *bucket_brigade_p = apr_brigade_create (pool_p, req_p -> connection -> bucket_alloc);
+
+							if (bucket_brigade_p)
+								{
+									const int num_where_columns = 2;
+									int where_columns_p [] =  { COL_META_DATA_ATTR_NAME, COL_META_DATA_ATTR_VALUE };
+									const char *where_values_ss [] = { key_s, where_value_s };
+									SearchOperator ops_p [] =  {SO_EQUALS, SO_LIKE };
+									int select_columns_p [] =  { COL_META_DATA_ATTR_VALUE, -1};
+									genQueryOut_t *meta_results_p = RunQuery (rods_connection_p, select_columns_p, where_columns_p, where_values_ss, ops_p, num_where_columns, 0, pool_p);
+
+									if (meta_results_p)
+										{
+											apr_status_t status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "{\n\t\"key\": \"%s\",\n\t\"values\": [\n", key_s);
+
+											res = OK;
+
+											if (meta_results_p -> rowCnt > 0)
+												{
+													sqlResult_t *sql_p = & (meta_results_p -> sqlResult [0]);
+													char *sql_value_s = sql_p -> value;
+													int result_length = sql_p -> len;
+													int i;
+
+													for (i = meta_results_p -> rowCnt - 1; i >= 0; -- i, sql_value_s += result_length)
+														{
+															status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "\t\t\"%s\"%s\n", sql_value_s, (i != 0) ? "," : "");
+														}
+												}
+
+											status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, "\t]\n}\n");
+
+											if (status == APR_SUCCESS)
+												{
+													apr_size_t len = 0;
+													char *result_s = NULL;
+
+													CloseBucketsStream (bucket_brigade_p);
+
+													apr_status_t apr_status = apr_brigade_pflatten (bucket_brigade_p, &result_s, &len, pool_p);
+
+													if (result_s)
+														{
+															if (* (result_s + len) != '\0')
+																{
+																	* (result_s + len) = '\0';
+																}
+
+
+															ap_rputs (result_s, req_p);
+															ap_set_content_type (req_p, "application/json");
+
+														}
+
+												}
+
+											freeGenQueryOut (&meta_results_p);
+										}
+
+									apr_brigade_destroy (bucket_brigade_p);
+								}
+
+						}
+
+				}
+
 		}
 
 	return res;
 }
+
 
 
 static const char *GetParameterValue (apr_table_t *params_p, const char * const param_s, apr_pool_t *pool_p)
@@ -617,6 +809,68 @@ static const char *GetParameterValue (apr_table_t *params_p, const char * const 
 
 	return value_s;
 }
+
+
+static const char *GetIdParameter (apr_table_t *params_p, request_rec *req_p, rcComm_t *rods_connection_p, apr_pool_t *pool_p)
+{
+	const char *id_s = GetParameterValue (params_p, "id", pool_p);
+
+	if (!id_s)
+		{
+			const char *path_s = GetParameterValue (params_p, "path", pool_p);
+
+			if (path_s)
+				{
+					const char *full_path_s = NULL;
+					const char *root_path_s = GetRodsExposedPath (req_p);
+
+					if (root_path_s)
+						{
+							full_path_s = apr_pstrcat (pool_p, root_path_s, path_s, NULL);
+						}
+					else
+						{
+							full_path_s = path_s;
+						}
+
+					if (full_path_s)
+						{
+							rodsObjStat_t *stat_p = GetObjectStat (full_path_s, rods_connection_p);
+
+							if (stat_p)
+								{
+									char *prefix_s = apr_itoa (pool_p, stat_p -> objType);
+
+									if (prefix_s)
+										{
+											id_s = apr_pstrcat (pool_p, prefix_s, ".", stat_p -> dataId, NULL);
+
+											if (!id_s)
+												{
+													ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_ENOMEM, pool_p, "Failed to copy id \"%s\" for path \"%s\"", stat_p -> dataId, full_path_s);
+												}
+										}
+									else
+										{
+											ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_ENOMEM, pool_p, "Failed to get prefix string for %d", stat_p -> objType);
+										}
+
+									freeRodsObjStat (stat_p);
+								}
+							else
+								{
+									ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to get status for path \"%s\"", full_path_s);
+								}
+
+						}
+
+
+				}
+		}
+
+	return id_s;
+}
+
 
 
 static rcComm_t *GetIRODSConnectionForAPI (request_rec *req_p, davrods_dir_conf_t *config_p)

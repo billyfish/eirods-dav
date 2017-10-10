@@ -149,6 +149,7 @@ apr_status_t GetAndPrintMetadataRestLinkForIRodsObject (const IRodsObject *irods
 char *GetId (char *value_s, objType_t *type_p, apr_pool_t *pool_p);
 
 
+rodsObjStat_t *GetObjectStat (const char * const path_s, rcComm_t *connection_p);
 
 
 #ifdef __cplusplus
