@@ -560,6 +560,23 @@ static const char *cmd_davrods_html_add_icon (cmd_parms *cmd_p, void *config_p, 
   return NULL;
 }
 
+
+static const char *cmd_davrods_show_metadata_search_form (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    if (strcasecmp (arg_p, "true"))
+        {
+          conf_p -> theme_p -> ht_add_search_form_flag = 1;
+        }
+    else if (strcasecmp (arg_p, "false"))
+	{
+	conf_p -> theme_p -> ht_add_search_form_flag = 0;
+	}
+
+    return NULL;
+}
+
 // }}}
 
 const command_rec davrods_directives[] = {
@@ -693,6 +710,11 @@ const command_rec davrods_directives[] = {
     AP_INIT_TAKE1(
         DAVRODS_CONFIG_PREFIX "HTMLCancelImage", cmd_davrods_cancel_image,
         NULL, ACCESS_CONF, "Image for the Cancel button"
+    ),
+
+    AP_INIT_TAKE1(
+        DAVRODS_CONFIG_PREFIX "HTMLShowMetadataSearch", cmd_davrods_show_metadata_search_form,
+        NULL, ACCESS_CONF, "Show the metadata search form"
     ),
 
     AP_INIT_ITERATE2 (DAVRODS_CONFIG_PREFIX "AddIcon", cmd_davrods_html_add_icon, NULL, ACCESS_CONF, "an icon URL followed by one or more filenames"),

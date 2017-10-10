@@ -94,6 +94,10 @@ char *GetParentCollectionId (const char *child_id_s, const objType_t object_type
 apr_status_t GetMetadataTableForId (char *combined_id_s, davrods_dir_conf_t *config_p, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p, apr_bucket_brigade *bucket_brigade_p, OutputFormat format);
 
 
+rodsObjStat_t *GetObjectStat (const char * const path_s, rcComm_t *connection_p);
+
+
+
 #ifdef __cplusplus
 }
 #endif

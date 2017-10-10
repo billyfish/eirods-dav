@@ -99,7 +99,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 	strcpy(coll_inp.collName, davrods_resource_p->rods_path);
 
 	// Open the collection
-	status = rclOpenCollection (davrods_resource_p->rods_conn, davrods_resource_p->rods_path, LONG_METADATA_FG, &coll_handle);
+	status = rclOpenCollection (davrods_resource_p->rods_conn, davrods_resource_p->rods_path, DATA_QUERY_FIRST_FG | LONG_METADATA_FG | NO_TRIM_REPL_FG, &coll_handle);
 
 	if (status < 0)
 		{

@@ -60,7 +60,6 @@ static genQueryOut_t *ExecuteSpecificQuery (rcComm_t *connection_p, specificQuer
 
 static char *GetQuotedValue (const char * const input_s, const SearchOperator op, apr_pool_t *pool_p);
 
-
 static int AddClausesToQuery (genQueryInp_t *query_p, const int *select_columns_p, const int *where_columns_p, const char **where_values_ss, const SearchOperator *where_ops_p, size_t num_where_columns, apr_pool_t *pool_p);
 
 
@@ -70,8 +69,6 @@ static int AddSelectClausesToQuery (genQueryInp_t *query_p, const int *select_co
 static int AddWhereClausesToQuery (genQueryInp_t *query_p, const int *where_columns_p, const char **where_values_ss, const SearchOperator *where_ops_p, size_t num_columns, apr_pool_t *pool_p);
 
 static void ClearPooledMemoryFromGenQuery (genQueryInp_t *query_p);
-
-rodsObjStat_t *GetObjectStat (const char * const path_s, rcComm_t *connection_p);
 
 void PrintBasicGenQueryOut( genQueryOut_t *genQueryOut);
 
