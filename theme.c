@@ -45,6 +45,7 @@ static apr_status_t PrintSection (const char *value_s, request_rec *req_p, apr_b
 static apr_status_t PrintBreadcrumbs (struct dav_resource_private *davrods_resource_p, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p);
 
 
+static apr_status_t PrintUserSection (const char *user_s, const char *escaped_zone_s, request_rec *req_p, const davrods_dir_conf_t *conf_p, apr_bucket_brigade *bb_p);
 
 
 /*************************************/
@@ -76,6 +77,10 @@ struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 
 		  theme_p -> ht_show_resource_flag = 0;
 		  theme_p -> ht_show_ids_flag = 0;
+		  theme_p -> ht_login_url_s = NULL;
+		  theme_p -> ht_logout_url_s = NULL;
+		  theme_p -> ht_user_icon_s = NULL;
+
 		  theme_p -> ht_add_search_form_flag = 1;
 		  theme_p -> ht_icons_map_p = NULL;
 
@@ -464,7 +469,6 @@ char *GetDavrodsAPIPath (struct dav_resource_private *davrods_resource_p, davrod
 }
 
 
-
 apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_resource_p, const char * const page_title_s, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
 {
 	// Send start of HTML document.
@@ -539,6 +543,8 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 		}		/* if (theme_p -> ht_top_s) */
 
 
+	apr_status = PrintBasicStringToBucketBrigade ("<main>", bucket_brigade_p, req_p, __FILE__, __LINE__);
+
 	/* Get the Location path where davrods is hosted */
 	const char *davrods_path_s = GetDavrodsAPIPath (davrods_resource_p, conf_p, req_p);
 
@@ -560,7 +566,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 										{
 											/* Get the Location path where davrods is hosted */
 
-											int i = 0;
+											/* int i = 0; */
 
 											apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL,
 												"<form action=\"%s%s\" class=\"search_form\">\n<fieldset><legend>Search:</legend>\n<label for=\"search_key\">Attribute:</label><input name=\"key\" type=\"text\" id=\"search_key\">\n", davrods_path_s, REST_METADATA_SEARCH_S);
@@ -593,17 +599,8 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 
 		}		/* if (davrods_path_s) */
 
-	/*
-	 * Print the user status
-	 */
-	if ((conf_p -> davrods_public_username_s == NULL) || (strcmp (user_s, conf_p -> davrods_public_username_s) != 0))
-		{
-			apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<main>\n<h1>You are logged in as %s and on the %s zone</h1>\n", user_s, escaped_zone_s);
-		}
-	else
-		{
-			apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<main>\n<h1>You are browsing the public view on the %s zone</h1>\n", escaped_zone_s);
-		}
+
+	apr_status = PrintUserSection (user_s, escaped_zone_s, req_p, conf_p, bucket_brigade_p);
 
 	if (apr_status != APR_SUCCESS)
 		{
@@ -918,6 +915,9 @@ void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p
 	DAVRODS_PROP_MERGE(theme_p -> ht_show_metadata_flag);
 	DAVRODS_PROP_MERGE(theme_p -> ht_metadata_editable_flag);
 	DAVRODS_PROP_MERGE(theme_p -> ht_show_ids_flag);
+	DAVRODS_PROP_MERGE(theme_p -> ht_login_url_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_logout_url_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_user_icon_s);
 
 
 	if (child_p -> theme_p -> ht_icons_map_p)
@@ -1020,6 +1020,76 @@ void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p
 }
 
 
+static apr_status_t PrintUserSection (const char *user_s, const char *escaped_zone_s, request_rec *req_p, const davrods_dir_conf_t *conf_p, apr_bucket_brigade *bb_p)
+{
+	apr_status_t status = PrintBasicStringToBucketBrigade ("<section class=\"user\"><h2>User details</h2>\n", bb_p, req_p, __FILE__, __LINE__);
+	const struct HtmlTheme * const theme_p = conf_p -> theme_p;
+
+	if (status == APR_SUCCESS)
+		{
+			const int public_user_flag = ((conf_p -> davrods_public_username_s != NULL) && (strcmp (user_s, conf_p -> davrods_public_username_s) == 0)) ? 1 : 0;
+
+			/*
+			 * Print the user status
+			 */
+			if (public_user_flag)
+				{
+					status = apr_brigade_printf (bb_p, NULL, NULL, "<strong>You are browsing the public view on the %s zone</strong>\n", escaped_zone_s);
+				}
+			else
+				{
+					status = apr_brigade_printf (bb_p, NULL, NULL, "<strong>You are logged in as %s and on the %s zone</strong>\n", user_s, escaped_zone_s);
+				}
+
+			if (status == APR_SUCCESS)
+				{
+					if ((theme_p -> ht_login_url_s) && (theme_p -> ht_logout_url_s))
+						{
+							/* Is the user logged in or is public access? */
+							if (public_user_flag)
+								{
+									if ((status = apr_brigade_printf (bb_p, NULL, NULL, "<br /><a href=\"%s\">", conf_p -> theme_p -> ht_login_url_s)) == APR_SUCCESS)
+										{
+											if (theme_p -> ht_user_icon_s)
+												{
+													status = apr_brigade_printf (bb_p, NULL, NULL, "<img src=\"%s\" alt=\"Login\" />", theme_p -> ht_user_icon_s);
+												}
+
+											if (status == APR_SUCCESS)
+												{
+													status = PrintBasicStringToBucketBrigade ("Login</a> to view your own files and directories.\n", bb_p, req_p, __FILE__, __LINE__);
+												}
+										}
+								}
+							else
+								{
+									if ((status = apr_brigade_printf (bb_p, NULL, NULL, "<br /><a href=\"%s\">", conf_p -> theme_p -> ht_logout_url_s)) == APR_SUCCESS)
+										{
+											if (theme_p -> ht_user_icon_s)
+												{
+													status = apr_brigade_printf (bb_p, NULL, NULL, "<img src=\"%s\" alt=\"Logout\" />", theme_p -> ht_user_icon_s);
+												}
+
+											if (status == APR_SUCCESS)
+												{
+													status = apr_brigade_printf (bb_p, NULL, NULL, "Logout</a>%s\n", (conf_p -> davrods_public_username_s != NULL) ? " to see the default publicly-accessible files and directories." : "");
+												}
+										}
+								}
+						}
+
+					if (status == APR_SUCCESS)
+						{
+							status = PrintBasicStringToBucketBrigade ("\n</section>\n", bb_p, req_p, __FILE__, __LINE__);
+						}
+				}
+
+		}
+
+
+
+	return status;
+}
 
 
 static int AreIconsDisplayed (const struct HtmlTheme *theme_p)

@@ -86,6 +86,12 @@ struct HtmlTheme
 
 	int ht_active_flag;
 
+	const char *ht_login_url_s;
+
+	const char *ht_logout_url_s;
+
+	const char *ht_user_icon_s;
+
 	apr_table_t *ht_icons_map_p;
 };
 

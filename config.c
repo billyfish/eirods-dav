@@ -460,6 +460,34 @@ static const char *cmd_davrods_html_ids (cmd_parms *cmd_p, void *config_p, const
 }
 
 
+static const char *cmd_davrods_login_address (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> theme_p -> ht_login_url_s = arg_p;
+
+    return NULL;
+}
+
+
+static const char *cmd_davrods_logout_address (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> theme_p -> ht_logout_url_s = arg_p;
+
+    return NULL;
+}
+
+
+static const char *cmd_davrods_user_image (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> theme_p -> ht_user_icon_s = arg_p;
+
+    return NULL;
+}
 
 static const char *cmd_davrods_add_metadata_image (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
@@ -722,6 +750,21 @@ const command_rec davrods_directives[] = {
     AP_INIT_TAKE1(
         DAVRODS_CONFIG_PREFIX "HTMLShowIds", cmd_davrods_html_ids,
         NULL, ACCESS_CONF, "Options for displaying irods ids"
+    ),
+
+    AP_INIT_TAKE1(
+        DAVRODS_CONFIG_PREFIX "Login", cmd_davrods_login_address,
+        NULL, ACCESS_CONF, "Address to use for login procedure"
+    ),
+
+    AP_INIT_TAKE1(
+        DAVRODS_CONFIG_PREFIX "Logout", cmd_davrods_logout_address,
+        NULL, ACCESS_CONF, "Address to use for logout procedure"
+    ),
+
+    AP_INIT_TAKE1(
+        DAVRODS_CONFIG_PREFIX "HTMLUserImage", cmd_davrods_user_image,
+        NULL, ACCESS_CONF, "Image for the user icon"
     ),
 
 		AP_INIT_TAKE1(
