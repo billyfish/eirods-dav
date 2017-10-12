@@ -608,8 +608,10 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 			return apr_status;
 		} /* if (apr_ret != APR_SUCCESS) */
 
-
-	PrintBreadcrumbs (davrods_resource_p, user_s, conf_p, req_p, bucket_brigade_p, pool_p);
+	if (davrods_resource_p)
+		{
+			PrintBreadcrumbs (davrods_resource_p, user_s, conf_p, req_p, bucket_brigade_p, pool_p);
+		}
 
 	/*
 	 * Add the listing class
@@ -697,53 +699,58 @@ static int PrintTableEntryToOption (void *data_p, const char *key_s, const char 
 static apr_status_t PrintBreadcrumbs (struct dav_resource_private *davrods_resource_p, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
 {
 	apr_status_t status = APR_SUCCESS;
-	char *path_s = apr_pstrdup (pool_p, davrods_resource_p -> relative_uri);
-	char *slash_s = strchr (path_s, '/');
-	char *old_slash_s = path_s;
-	const char *sep_s = (*path_s == '/') ? "" : "/";
-	char breadcrumb_sep = ' ';
 
-	if (davrods_resource_p -> root_dir)
+	if (davrods_resource_p)
 		{
-			const size_t root_length = strlen (davrods_resource_p -> root_dir);
+			char *path_s = apr_pstrdup (pool_p, davrods_resource_p -> relative_uri);
+			char *slash_s = strchr (path_s, '/');
+			char *old_slash_s = path_s;
+			const char *sep_s = (*path_s == '/') ? "" : "/";
+			char breadcrumb_sep = ' ';
 
-			if (* ((davrods_resource_p -> root_dir) + root_length - 1) == '/')
+			if (davrods_resource_p -> root_dir)
 				{
-					sep_s = "";
-				}
-		}
+					const size_t root_length = strlen (davrods_resource_p -> root_dir);
 
-
-	status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<nav><span class=\"breadcrumbs\">Location:</span> <a href=\"%s\">Home</a>", davrods_resource_p -> root_dir);
-
-	while (slash_s && (status == APR_SUCCESS))
-		{
-			*slash_s = '\0';
-			status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, " %c <a href=\"%s%s%s\">%s</a>", breadcrumb_sep, davrods_resource_p -> root_dir, sep_s, path_s, old_slash_s);
-			*slash_s = '/';
-
-			old_slash_s = ++ slash_s;
-
-			if (*old_slash_s != '\0')
-				{
-					slash_s = strchr (old_slash_s, '/');
-
-					if (breadcrumb_sep == ' ')
+					if (* ((davrods_resource_p -> root_dir) + root_length - 1) == '/')
 						{
-							breadcrumb_sep = '>';
+							sep_s = "";
 						}
 				}
-			else
+
+
+			status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<nav><span class=\"breadcrumbs\">Location:</span> <a href=\"%s\">Home</a>", davrods_resource_p -> root_dir);
+
+			while (slash_s && (status == APR_SUCCESS))
 				{
-					slash_s = NULL;
+					*slash_s = '\0';
+					status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, " %c <a href=\"%s%s%s\">%s</a>", breadcrumb_sep, davrods_resource_p -> root_dir, sep_s, path_s, old_slash_s);
+					*slash_s = '/';
+
+					old_slash_s = ++ slash_s;
+
+					if (*old_slash_s != '\0')
+						{
+							slash_s = strchr (old_slash_s, '/');
+
+							if (breadcrumb_sep == ' ')
+								{
+									breadcrumb_sep = '>';
+								}
+						}
+					else
+						{
+							slash_s = NULL;
+						}
 				}
-		}
 
 
-	if (status == APR_SUCCESS)
-		{
-			status = PrintBasicStringToBucketBrigade ("</nav>", bucket_brigade_p, req_p, __FILE__, __LINE__);
-		}
+			if (status == APR_SUCCESS)
+				{
+					status = PrintBasicStringToBucketBrigade ("</nav>", bucket_brigade_p, req_p, __FILE__, __LINE__);
+				}
+
+		}		/* if (davrods_resource_p) */
 
 	return status;
 }
