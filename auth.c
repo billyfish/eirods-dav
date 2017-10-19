@@ -28,6 +28,10 @@
 #include <irods/rodsClient.h>
 #include <irods/sslSockComm.h>
 
+#include "http_core.h"
+#include "mod_session.h"
+
+
 #ifdef APLOG_USE_MODULE 
 APLOG_USE_MODULE(davrods);
 #endif
@@ -38,6 +42,9 @@ static authn_status GetIRodsConnection2 (request_rec *req_p, apr_pool_t *pool_p,
 
 static int do_rods_login_pam (request_rec *r, rcComm_t *rods_conn,
 		const char *password, int ttl, char **tmp_password);
+
+
+
 
 const char *GetDavrodsMemoryPoolKey (void)
 {
@@ -412,6 +419,64 @@ apr_status_t RodsLogout (request_rec *req_p)
 
 }
 
+
+/**
+ * Get the auth username and password from the main request
+ * notes table, if present. This is based upon get_session_auth taken
+ * from mod_auth_form.c from the main httpd archive.
+ */
+apr_status_t GetSessionAuth (request_rec *req_p, const char **user_ss, const char **password_ss, const char **hash_ss)
+{
+	const char *authname_s = ap_auth_name (req_p);
+	session_rec *session_p = NULL;
+	const char * const MOD_AUTH_FORM_HASH_S = "site";
+
+	int (*ap_session_load_fn) (request_rec * r, session_rec ** z) = NULL;
+	apr_status_t (*ap_session_get_fn)(request_rec * r, session_rec * z, const char *key, const char **value) = NULL;
+
+	ap_session_load_fn = APR_RETRIEVE_OPTIONAL_FN (ap_session_load);
+	ap_session_get_fn = APR_RETRIEVE_OPTIONAL_FN (ap_session_get);
+
+	apr_status_t status = ap_session_load_fn (req_p, &session_p);
+
+	if (status == APR_SUCCESS)
+		{
+			apr_pool_t *pool_p = req_p -> pool;
+
+			if (user_ss)
+				{
+					ap_session_get_fn (req_p, session_p, apr_pstrcat (pool_p, authname_s, "-" MOD_SESSION_USER, NULL), user_ss);
+				}
+
+			if (password_ss)
+				{
+					ap_session_get_fn (req_p, session_p, apr_pstrcat (pool_p, authname_s, "-" MOD_SESSION_PW, NULL), password_ss);
+				}
+
+			if (hash_ss)
+				{
+					ap_session_get_fn (req_p, session_p, apr_pstrcat (pool_p, authname_s, "-", MOD_AUTH_FORM_HASH_S, NULL), hash_ss);
+				}
+
+			/* set the user, even though the user is unauthenticated at this point */
+			if (user_ss && *user_ss)
+				{
+					req_p -> user = (char *) *user_ss;
+				}
+
+			ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, req_p,
+										"from session: " MOD_SESSION_USER ": %s, " MOD_SESSION_PW
+										": %s, %s: %s",
+										user_ss ? *user_ss : "<null>", password_ss ? *password_ss : "<null>",
+												 MOD_AUTH_FORM_HASH_S,
+												hash_ss ? *hash_ss : "<null>");
+
+		}
+
+	return status;
+}
+
+
 authn_status GetIRodsConnection (request_rec *req_p, rcComm_t **connection_pp,
 		const char *username_s, const char *password_s)
 {
@@ -434,6 +499,7 @@ static authn_status GetIRodsConnection2 (request_rec *req_p, apr_pool_t *pool_p,
 	authn_status result = AUTH_USER_NOT_FOUND;
 
 	rcComm_t *connection_p = GetIRODSConnectionFromPool (pool_p);
+
 
 	if (connection_p)
 		{

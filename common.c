@@ -219,6 +219,15 @@ rcComm_t *GetIRODSConnectionFromPool (apr_pool_t *pool_p)
 				{
 					connection_p = (rcComm_t *) ptr;
 				}
+			else
+				{
+					status = apr_pool_userdata_get (&ptr, GetUsernameKey (), pool_p);
+					ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "username \"%s\"", (char *) ptr);
+
+					status = apr_pool_userdata_get (&ptr, GetDavrodsMemoryPoolKey (), pool_p);
+					ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "mem pool \"%X\"", ptr);
+
+				}
 		}
 
 	return connection_p;
@@ -259,3 +268,4 @@ const char *GetUsernameFromPool (apr_pool_t *pool_p)
 
 	return username_s;
 }
+

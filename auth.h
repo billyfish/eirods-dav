@@ -52,4 +52,7 @@ authn_status GetIRodsConnection (request_rec *req_p, rcComm_t **connection_pp, c
 apr_status_t RodsLogout (request_rec *req_p);
 
 
+apr_status_t GetSessionAuth (request_rec *req_p, const char **user_ss, const char **password_ss, const char **hash_ss);
+
+
 #endif /* _RODS_AUTH_H */

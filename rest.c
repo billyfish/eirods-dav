@@ -40,6 +40,8 @@
 #include "listing.h"
 #include "repo.h"
 
+#include "debug.h"
+
 #include "irods/mvUtil.h"
 
 struct APICall;
@@ -49,10 +51,6 @@ typedef struct APICall
 	const char *ac_action_s;
 	int (*ac_callback_fn) (const struct APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s);
 } APICall;
-
-
-
-
 
 
 /*
@@ -130,6 +128,8 @@ static APICall S_API_ACTIONS_P [] =
 int DavrodsRestHandler (request_rec *req_p)
 {
 	int res = DECLINED;
+
+	DebugRequest (req_p);
 
   /* Normally we would check if this is a call for the davrods rest handler,
    * but dav-handler will have gotten there first. So check it against our path
@@ -890,3 +890,8 @@ static rcComm_t *GetIRODSConnectionForAPI (request_rec *req_p, davrods_dir_conf_
 
 	return rods_connection_p;
 }
+
+
+
+
+

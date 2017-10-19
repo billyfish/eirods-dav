@@ -26,6 +26,7 @@
 
 #include "theme.h"
 #include "auth.h"
+#include "debug.h"
 
 /************************************/
 
@@ -320,6 +321,8 @@ struct dav_error *FillInPrivateResourceData (request_rec *req_p, dav_resource **
 {
 	dav_error *err_p = NULL;
 
+	DebugRequest (req_p);
+
 	// Create private resource context {{{
 	struct dav_resource_private *res_private_p = apr_pcalloc (req_p -> pool, sizeof (struct dav_resource_private));
 
@@ -346,7 +349,31 @@ struct dav_error *FillInPrivateResourceData (request_rec *req_p, dav_resource **
 
 							if (! (res_private_p -> rods_conn))
 								{
-									res_private_p -> rods_conn = GetIRODSConnectionForPublicUser (req_p, res_private_p -> davrods_pool, res_private_p -> conf);
+									/*
+									 * If we are running behind a proxy, the iRODS connection in the pool
+									 * can sometimes get lost. So we check to see whether there are any
+									 * valid authentication authentication details in the request's session.
+									 */
+									const char *username_s = NULL;
+									const char *password_s = NULL;
+									const char *hash_s = NULL;
+
+									apr_status_t status = GetSessionAuth (req_p, &username_s, &password_s, &hash_s);
+
+									if ((status == APR_SUCCESS) && (username_s != NULL) && (password_s != NULL))
+										{
+											status = GetIRodsConnection (req_p, & (res_private_p -> rods_conn), username_s, password_s);
+
+											if (status != APR_SUCCESS)
+												{
+
+												}
+										}
+
+									if (! (res_private_p -> rods_conn))
+										{
+											res_private_p -> rods_conn = GetIRODSConnectionForPublicUser (req_p, res_private_p -> davrods_pool, res_private_p -> conf);
+										}
 								}
 
 							if (res_private_p -> rods_conn)
