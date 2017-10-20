@@ -441,12 +441,19 @@ apr_status_t GetAndPrintMetadataRestLinkForIRodsObject (const IRodsObject *irods
 
 	if (obj_type != UNKNOWN_OBJ_T)
 		{
+/*
 			char *parent_id_s = GetParentCollectionId (irods_obj_p -> io_id_s, obj_type, zone_s, connection_p, pool_p);
 
 			if (apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"metatable\"><a class=\"get_metadata\" id=\"2.%s_%d.%s\"></a></td>", parent_id_s, obj_type, irods_obj_p -> io_id_s) == APR_SUCCESS)
 				{
 					status = APR_SUCCESS;
 				}
+*/
+
+		if (apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"metatable\"><a class=\"get_metadata\" id=\"%d.%s\"></a></td>", obj_type, irods_obj_p -> io_id_s) == APR_SUCCESS)
+			{
+				status = APR_SUCCESS;
+			}
 		}
 
 	return status;
