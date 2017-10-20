@@ -81,7 +81,7 @@ struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 		  theme_p -> ht_logout_url_s = NULL;
 		  theme_p -> ht_user_icon_s = NULL;
 
-		  theme_p -> ht_add_search_form_flag = 1;
+		  theme_p -> ht_add_search_form_flag = 0;
 		  theme_p -> ht_icons_map_p = NULL;
 
 		}
