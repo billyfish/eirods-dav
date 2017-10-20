@@ -560,37 +560,30 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 
 							if (connection_p)
 								{
-									apr_array_header_t *keys_p = GetAllDataObjectMetadataKeys (req_p -> pool, connection_p);
+									/* Get the Location path where davrods is hosted */
 
-									if (keys_p)
+									/* int i = 0; */
+
+									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL,
+										"<form action=\"%s%s\" class=\"search_form\">\n<fieldset><legend>Search:</legend>\n<label for=\"search_key\">Attribute:</label><input name=\"key\" type=\"text\" id=\"search_key\">\n", davrods_path_s, REST_METADATA_SEARCH_S);
+									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<ul id=\"search_keys_autocomplete_list\" class=\"autocomplete\"></ul>\n");
+
+									/*
+									for (i = 0; i < keys_p -> nelts; ++ i)
 										{
-											/* Get the Location path where davrods is hosted */
+											char *value_s = ((char **) keys_p -> elts) [i];
+											apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<option>%s</option>\n", value_s);
 
-											/* int i = 0; */
-
-											apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL,
-												"<form action=\"%s%s\" class=\"search_form\">\n<fieldset><legend>Search:</legend>\n<label for=\"search_key\">Attribute:</label><input name=\"key\" type=\"text\" id=\"search_key\">\n", davrods_path_s, REST_METADATA_SEARCH_S);
-											apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<ul id=\"search_keys_autocomplete_list\" class=\"autocomplete\"></ul>\n");
-
-											/*
-											for (i = 0; i < keys_p -> nelts; ++ i)
+											if (apr_status != APR_SUCCESS)
 												{
-													char *value_s = ((char **) keys_p -> elts) [i];
-													apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<option>%s</option>\n", value_s);
-
-													if (apr_status != APR_SUCCESS)
-														{
-															break;
-														}
+													break;
 												}
-											*/
-
-											apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "\n<label for=\"search_value\">Value:</label><input type=\"text\" id=\"search_value\" name=\"value\" />");
-											apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<ul id=\"search_values_autocomplete_list\" class=\"autocomplete\"></ul>\n");
-											apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "\n<input type=\"submit\" name=\"Search\" /></fieldset></form>");
-
-
 										}
+									*/
+
+									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "\n<label for=\"search_value\">Value:</label><input type=\"text\" id=\"search_value\" name=\"value\" />");
+									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<ul id=\"search_values_autocomplete_list\" class=\"autocomplete\"></ul>\n");
+									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "\n<input type=\"submit\" name=\"Search\" /></fieldset></form>");
 								}
 						}
 
@@ -911,21 +904,23 @@ void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p
 	DAVRODS_PROP_MERGE(theme_p -> ht_bottom_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_collection_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_object_icon_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_listing_class_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_show_metadata_flag);
+	DAVRODS_PROP_MERGE(theme_p -> ht_metadata_editable_flag);
 	DAVRODS_PROP_MERGE(theme_p -> ht_add_metadata_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_edit_metadata_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_delete_metadata_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_download_metadata_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_ok_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_cancel_icon_s);
-	DAVRODS_PROP_MERGE(theme_p -> ht_listing_class_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_rest_api_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_show_resource_flag);
-	DAVRODS_PROP_MERGE(theme_p -> ht_show_metadata_flag);
-	DAVRODS_PROP_MERGE(theme_p -> ht_metadata_editable_flag);
 	DAVRODS_PROP_MERGE(theme_p -> ht_show_ids_flag);
+	DAVRODS_PROP_MERGE(theme_p -> ht_add_search_form_flag);
+	DAVRODS_PROP_MERGE(theme_p -> ht_active_flag);
 	DAVRODS_PROP_MERGE(theme_p -> ht_login_url_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_logout_url_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_user_icon_s);
-
 
 	if (child_p -> theme_p -> ht_icons_map_p)
 		{
