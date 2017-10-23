@@ -1479,9 +1479,21 @@ apr_status_t PrintMetadata (const char *id_s, const apr_array_header_t *metadata
 
 							apr_brigade_puts (bb_p, NULL, NULL, "</ul>\n\n");
 						}
+					else
+						{
+							ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_EGENERAL, pool_p, "Failed to print start of containing <ul>");
+						}
 
 				}		/* if (size > 0) */
+			else
+				{
+					ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_SUCCESS, pool_p, "No metadata results");
+				}
 
+		}
+	else
+		{
+			ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to print start of containing div");
 		}
 
 	if (status == APR_SUCCESS)
@@ -1491,7 +1503,20 @@ apr_status_t PrintMetadata (const char *id_s, const apr_array_header_t *metadata
 					if ((status = PrintDownloadMetadataObject (theme_p, bb_p, api_root_url_s, id_s)) == APR_SUCCESS)
 						{
 							status = apr_brigade_puts (bb_p, NULL, NULL, "</div>\n");
+
+							if (status != APR_SUCCESS)
+								{
+									ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to print end of containing div");
+								}
 						}
+					else
+						{
+							ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to print \"download metadata\" link");
+						}
+				}
+			else
+				{
+					ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to print \"add metadata\" link");
 				}
 		}
 
@@ -1501,7 +1526,7 @@ apr_status_t PrintMetadata (const char *id_s, const apr_array_header_t *metadata
 
 static apr_status_t PrintAddMetadataObject (const struct HtmlTheme *theme_p, apr_bucket_brigade *bb_p, const char *api_root_url_s)
 {
-	apr_status_t status;
+	apr_status_t status = APR_SUCCESS;
 
 	if (theme_p -> ht_metadata_editable_flag)
 		{
@@ -1515,16 +1540,13 @@ static apr_status_t PrintAddMetadataObject (const struct HtmlTheme *theme_p, apr
 				}
 		}
 
-
-
-
 	return status;
 }
 
 
 static apr_status_t PrintDownloadMetadataObject (const struct HtmlTheme *theme_p, apr_bucket_brigade *bb_p, const char *api_root_url_s, const char *id_s)
 {
-	apr_status_t status;
+	apr_status_t status = APR_SUCCESS;
 
 	if ((status = apr_brigade_printf (bb_p, NULL, NULL, "<form class=\"download_metadata\" action=\"%s/%s\"><fieldset><legend>Download metadata</legend>", api_root_url_s, REST_METADATA_GET_S)) == APR_SUCCESS)
 		{
