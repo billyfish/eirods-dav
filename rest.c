@@ -863,8 +863,16 @@ static const char *GetIdParameter (apr_table_t *params_p, request_rec *req_p, rc
 								}
 
 						}
+					else
+						{
+							ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to get full path for \"%s\"", req_p -> unparsed_uri);
+						}
 
 
+				}
+			else
+				{
+					ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to get path or id parameter from \"%s\"", req_p -> unparsed_uri);
 				}
 		}
 

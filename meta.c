@@ -356,38 +356,70 @@ apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t o
 																								}
 
 																						}
+																					else
+																						{
+																							ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_EGENERAL, pool_p, "metadata_query_results_p has wrong number of attributes, %d", metadata_query_results_p -> attriCnt);
+																						}
 
 																					freeGenQueryOut (&metadata_query_results_p);
 																				}		/* metadata_query_results_p */
+																			else
+																				{
+																					ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_EGENERAL, pool_p, "%d \"%s\" produced no results", COL_META_DATA_ATTR_ID, sql_s);
+																				}
 
 																		}		/* if (success_code == 0) */
+																	else
+																		{
+																			ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to add metadata sql clause, \"%s\"", sql_s);
+																		}
 
 																}		/* if (sql_s) */
+															else
+																{
+																	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to get metadata sql clause");
+																}
 
 														}		/* if (meta_id_results_p -> attriCnt == 1) */
 													else
 														{
-
+															ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_EGENERAL, pool_p, "meta_id_results_p has too many attributes, %d", meta_id_results_p -> attriCnt);
 														}
 
 												}		/* if (success_code == 0) */
 
 											freeGenQueryOut (&meta_id_results_p);
 										}		/* if (meta_id_results_p) */
+									else
+										{
+											ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_EGENERAL, pool_p, "%d \"%s\" produced no results", where_col, where_value_s);
+										}
+
 
 								}		/* if (success_code == 0) */
+							else
+								{
+									ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to add where column %d with value \"%s\" to query", where_col, where_value_s);
+								}
 
 						}		/* if (success_code == 0) */
+					else
+						{
+							ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to add select column %d to query");
+						}
 
 				}		/* if ((select_col != -1) && (where_col != -1) && (where_value_s != NULL)) */
-
+			else
+				{
+					ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to get query arguments");
+				}
 
 			SortIRodsMetadataArray (metadata_array_p, CompareIrodsMetadata);
 
 		}		/* if (metadata_array_p) */
 	else
 		{
-
+			ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_ENOMEM, pool_p, "Failed to create metadata array");
 		}
 
 	return metadata_array_p;
@@ -878,9 +910,21 @@ apr_status_t GetMetadataTableForId (char *id_s, davrods_dir_conf_t *config_p, rc
 										break;
 								}
 						}
+					else
+						{
+							ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_ENOMEM, pool_p, "Failed to get metadata array for minor id \"%s\"", child_id_s);
+						}
 
 				}
+			else
+				{
+					ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_BADARG, pool_p, "Failed to get minor id value from \"%s\"", child_id_s);
+				}
 
+		}
+	else
+		{
+			ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_BADARG, pool_p, "Failed to create id value for \"%s\"", req_p -> unparsed_uri);
 		}
 
 	return status;
