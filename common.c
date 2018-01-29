@@ -195,7 +195,7 @@ rcComm_t *GetIRODSConnectionForPublicUser (request_rec *req_p, apr_pool_t *davro
 		{
 			authn_status status = GetIRodsConnection (req_p, &connection_p, conf_p -> davrods_public_username_s, conf_p -> davrods_public_password_s ? conf_p -> davrods_public_password_s : "");
 
-			if (status != 0)
+			if (status != AUTH_GRANTED)
 				{
 					ap_log_rerror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_ECONNREFUSED, req_p, "error %d: Failed to connect to iRODS as public user \"%s\"", status, conf_p -> davrods_public_username_s);
 

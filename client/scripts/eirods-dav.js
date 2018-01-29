@@ -14,6 +14,8 @@
 ** limitations under the License.
 */
 
+var G_METADATA_API_URL_S = "/ei-rods-dav/api/metadata/";
+
 $(document).ready (function () {
 
   var listings_table = $("#listings_table");
@@ -65,8 +67,8 @@ function AddMetadataToggleButton (table_cell, callback_fn, closed_flag) {
   var i = $(table_row).attr ("id");
   var container = $(table_cell).find ("ul.metadata:first");
 
-  var collapse_src = "/davrods_files/images/list_node_collapse";
-  var expand_src = "/davrods_files/images/list_node_expand";
+  var collapse_src = "/ei-rods-dav-files/images/list_node_collapse";
+  var expand_src = "/ei-rods-dav-files/images/list_node_expand";
 
 	/* 
 	** If no button exists, then add it 
@@ -110,7 +112,7 @@ function AddMetadataToggleButton (table_cell, callback_fn, closed_flag) {
 
 
 function GetMetadataList (table_cell, irods_id, show_flag) {
-	var rest_url = "/davrods/api/metadata/get?id=" + irods_id;
+	var rest_url = G_METADATA_API_URL_S + "get?id=" + irods_id;
 
 	$.ajax (rest_url, {
 		dataType: "html",
@@ -210,7 +212,7 @@ function SetUpDeleteMetadataButtons (parent_element) {
           var metadata_id = $(table_row).attr ('id');
 
           if (metadata_id) {
-            var rest_url = "/davrods/api/metadata/delete?id=" + metadata_id + "&key=" + encodeURIComponent (key) + "&value=" + encodeURIComponent (value);
+            var rest_url = G_METADATA_API_URL_S + "delete?id=" + metadata_id + "&key=" + encodeURIComponent (key) + "&value=" + encodeURIComponent (value);
 						var obj_name = null;
 
 			      $(table_row).find ("td.name:first a").each (function () {
@@ -290,7 +292,7 @@ function SetUpEditMetadataButtons (parent_element) {
               $("#metadata_editor_title").html ("Edit metadata for " + obj_name);
             
               $("#id_editor").val (metadata_id);
-              $("#metadata_editor").attr ("action", "/davrods/api/metadata/edit");
+              $("#metadata_editor").attr ("action", G_METADATA_API_URL_S + "edit");
 
               $("#attribute_editor").val (key);
               $("#value_editor").val (value);
@@ -515,7 +517,7 @@ function GetTextWidth (value) {
 function SetUpMetadataKeysAutoCompleteList () {
 	$("#search_key").keyup (function () {
 		var key = $(this).val ();	
-		var rest_url = "/davrods/api/metadata/keys?key=" + key;
+		var rest_url = G_METADATA_API_URL_S + "keys?key=" + key;
 
 		$.ajax (rest_url, {
 			dataType: "json",
@@ -537,7 +539,7 @@ function SetUpMetadataValuesAutoCompleteList () {
 	$("#search_value").keyup (function () {
 		var key = $("#search_key").val ();	
 		var value = $("#search_value").val ();	
-		var rest_url = "/davrods/api/metadata/values?key=" + key + "&value=" + value;
+		var rest_url = G_METADATA_API_URL_S + "values?key=" + key + "&value=" + value;
 
 		$.ajax (rest_url, {
 			dataType: "json",
