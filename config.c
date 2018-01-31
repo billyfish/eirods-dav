@@ -21,6 +21,7 @@
  */
 #include "config.h"
 #include "theme.h"
+#include "common.h"
 
 #include <apr_strings.h>
 
@@ -86,6 +87,9 @@ void *davrods_create_dir_config(apr_pool_t *p, char *dir) {
         conf -> davrods_public_password_s = NULL;
         conf -> theme_p = AllocateHtmlTheme (p);
         conf -> themed_listings = 0;
+
+    		conf -> exposed_roots_per_user_p = apr_table_make (p, 16);
+
     }
     return conf;
 }
@@ -121,6 +125,9 @@ void *davrods_merge_dir_config(apr_pool_t *p, void *_parent, void *_child) {
     DAVRODS_PROP_MERGE(themed_listings);
 
     MergeThemeConfigs (conf_p, parent_p, child_p, p);
+
+
+  	conf_p -> exposed_roots_per_user_p = MergeAPRTables (parent_p -> exposed_roots_per_user_p, child_p -> exposed_roots_per_user_p, p);
 
 
     if (set_exposed_root (conf_p, exposed_root) < 0)
@@ -588,6 +595,15 @@ static const char *cmd_davrods_html_add_icon (cmd_parms *cmd_p, void *config_p, 
   return NULL;
 }
 
+static const char *cmd_davrods_add_exposed_root (cmd_parms *cmd_p, void *config_p, const char *username_s, const char *exposed_root_s)
+{
+  davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+  apr_table_set (conf_p -> exposed_roots_per_user_p, username_s, exposed_root_s);
+
+  return NULL;
+}
+
 
 static const char *cmd_davrods_show_metadata_search_form (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
@@ -746,6 +762,8 @@ const command_rec davrods_directives[] = {
     ),
 
     AP_INIT_ITERATE2 (DAVRODS_CONFIG_PREFIX "AddIcon", cmd_davrods_html_add_icon, NULL, ACCESS_CONF, "an icon URL followed by one or more filenames"),
+
+    AP_INIT_TAKE2 (DAVRODS_CONFIG_PREFIX "AddExposedRoot", cmd_davrods_add_exposed_root, NULL, ACCESS_CONF, "a username followed by their default root path"),
 
     AP_INIT_TAKE1(
         DAVRODS_CONFIG_PREFIX "HTMLShowIds", cmd_davrods_html_ids,

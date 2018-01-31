@@ -17,6 +17,8 @@ The features that have been added within eirods-dav are:
 - Client-side interface to add, edit and delete metadata entries.
 - Download all of the metadata for an iRODS entry in various formats.
 - Full location breadcrumbs.
+- Each user able to have their own custom default root path exposed.
+- Users able to log in as well as having a default public user.
 
 As well as features from the original Davrods such as:
 
@@ -258,6 +260,17 @@ directives would be:
  DavRodsAddIcon /davrods_files/images/archive .zip .tgz 
  DavRodsAddIcon /davrods_files/images/image .jpeg .jpg .png
  ```
+
+* **DavRodsAddExposedRoot**:
+This directive allows you to specify the default exposed roots on a per-user
+basis. When a logged-in user hasn't been added using this directive, the 
+**DavRodsExposedRoot** will be used instead.
+
+ ```
+ DavRodsAddExposedRoot lars /tempZone/home/lars/private
+ DavRodsAddExposedRoot james /tempZone/home/admin
+ ```
+ 
  
 #### Metadata
 

@@ -28,6 +28,7 @@
 #include "config.h"
 
 #include "irods/rcConnect.h"
+#include "apr_tables.h"
 
 
 // I'm not sure why, but the format string apr.h generates on my machine (%lu)
@@ -66,5 +67,8 @@ rodsEnv *GetRodsEnvFromPool (apr_pool_t *pool_p);
 
 
 const char *GetUsernameFromPool (apr_pool_t *pool_p);
+
+apr_table_t *MergeAPRTables (apr_table_t *table1_p, apr_table_t *table2_p, apr_pool_t *pool_p);
+
 
 #endif /* _DAVRODS_COMMON_H_ */

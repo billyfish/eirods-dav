@@ -922,28 +922,8 @@ void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p
 	DAVRODS_PROP_MERGE(theme_p -> ht_logout_url_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_user_icon_s);
 
-	if (child_p -> theme_p -> ht_icons_map_p)
-		{
-			if (parent_p -> theme_p -> ht_icons_map_p)
-				{
-					conf_p -> theme_p -> ht_icons_map_p = apr_table_overlay (pool_p, parent_p -> theme_p -> ht_icons_map_p, child_p -> theme_p -> ht_icons_map_p);
-				}
-			else
-				{
-					conf_p -> theme_p -> ht_icons_map_p = child_p -> theme_p -> ht_icons_map_p;
-				}
-		}
-	else
-		{
-			if (parent_p -> theme_p -> ht_icons_map_p)
-				{
-					conf_p -> theme_p -> ht_icons_map_p = parent_p -> theme_p -> ht_icons_map_p;
-				}
-			else
-				{
-					conf_p -> theme_p -> ht_icons_map_p = NULL;
-				}
-		}
+
+	conf_p -> theme_p -> ht_icons_map_p = MergeAPRTables (parent_p -> theme_p -> ht_icons_map_p, child_p -> theme_p -> ht_icons_map_p, pool_p);
 
 
 	if (child_p -> theme_p -> ht_resources_ss)

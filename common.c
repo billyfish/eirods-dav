@@ -269,3 +269,35 @@ const char *GetUsernameFromPool (apr_pool_t *pool_p)
 	return username_s;
 }
 
+
+
+apr_table_t *MergeAPRTables (apr_table_t *table1_p, apr_table_t *table2_p, apr_pool_t *pool_p)
+{
+	apr_table_t *merged_table_p = NULL;
+
+	if (table2_p)
+		{
+			if (table1_p)
+				{
+					merged_table_p = apr_table_overlay (pool_p, table1_p, table2_p);
+				}
+			else
+				{
+					merged_table_p = table2_p;
+				}
+		}
+	else
+		{
+			if (table1_p)
+				{
+					merged_table_p = table1_p;
+				}
+			else
+				{
+					merged_table_p = NULL;
+				}
+		}
+
+	return merged_table_p;
+}
+

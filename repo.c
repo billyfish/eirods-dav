@@ -188,6 +188,7 @@ static void copy_resource_context (dav_resource_private *dest,
 }
 
 
+
 const char *get_rods_root (apr_pool_t *davrods_pool, request_rec *r)
 {
 	const char *root = NULL;
@@ -411,6 +412,7 @@ struct dav_error *FillInPrivateResourceData (request_rec *req_p, dav_resource **
 							if (! (res_private_p -> rods_conn))
 								{
 									res_private_p -> rods_conn = GetIRODSConnectionForPublicUser (req_p, res_private_p -> davrods_pool, res_private_p -> conf);
+									username_s = res_private_p -> conf -> davrods_public_username_s;
 								}
 
 
@@ -421,8 +423,18 @@ struct dav_error *FillInPrivateResourceData (request_rec *req_p, dav_resource **
 										{
 											struct dav_resource *resource_p = NULL;
 
-											// Get iRODS exposed root dir.
-											res_private_p -> rods_root = get_rods_root (res_private_p -> davrods_pool, req_p);
+											const char *root_s = apr_table_get (res_private_p -> conf -> exposed_roots_per_user_p, username_s);
+
+											if (root_s)
+												{
+													res_private_p -> rods_root = root_s;
+												}
+											else
+												{
+													// Get iRODS exposed root dir.
+													res_private_p -> rods_root = GetRodsExposedPath (req_p);
+												}
+
 											res_private_p -> root_dir = root_dir_s;
 
 											// }}}

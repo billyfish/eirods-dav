@@ -70,6 +70,7 @@ typedef struct davrods_dir_conf {
     const char *davrods_api_path_s;
     const char *davrods_public_username_s;
     const char *davrods_public_password_s;
+    apr_table_t *exposed_roots_per_user_p;
 
 } davrods_dir_conf_t;
 
