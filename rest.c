@@ -666,10 +666,11 @@ static int GetMatchingMetadataKeys (const APICall *call_p, request_rec *req_p, a
 												{
 													apr_size_t len = 0;
 													char *result_s = NULL;
+													apr_status_t apr_status;
 
 													CloseBucketsStream (bucket_brigade_p);
 
-													apr_status_t apr_status = apr_brigade_pflatten (bucket_brigade_p, &result_s, &len, pool_p);
+													apr_status = apr_brigade_pflatten (bucket_brigade_p, &result_s, &len, pool_p);
 
 													if (result_s)
 														{
