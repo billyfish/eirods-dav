@@ -55,8 +55,37 @@ const char *GetRodsExposedPath (request_rec *req_p)
 
 	if (pool_p)
 		{
-			exposed_path_s = get_rods_root (pool_p, req_p);
+			davrods_dir_conf_t *conf_p = ap_get_module_config (req_p -> per_dir_config, &davrods_module);
+
+			if (conf_p)
+				{
+					const char *username_s = GetUsernameFromPool (pool_p);
+
+					if (username_s)
+						{
+							exposed_path_s = apr_table_get (conf_p -> exposed_roots_per_user_p, username_s);
+
+							if (!exposed_path_s)
+								{
+									exposed_path_s = get_rods_root (pool_p, req_p);
+								}
+						}
+					else
+						{
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, req_p, "Failed to get username from pool");
+						}
+
+				}		/* if (conf_p) */
+			else
+				{
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, req_p, "Failed to get module config");
+				}
+
 		} /* if (pool_p) */
+	else
+		{
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, req_p, "Failed to get memory pool from request");
+		}
 
 	return exposed_path_s;
 }
@@ -317,7 +346,6 @@ static dav_error *get_dav_resource_rods_info (dav_resource *resource)
 }
 
 
-
 struct dav_error *FillInPrivateResourceData (request_rec *req_p, dav_resource **resource_pp, const char *root_dir_s)
 {
 	dav_error *err_p = NULL;
@@ -336,7 +364,6 @@ struct dav_error *FillInPrivateResourceData (request_rec *req_p, dav_resource **
 
 			// Get module config.
 			res_private_p -> conf = ap_get_module_config (req_p -> per_dir_config, &davrods_module);
-
 
 			if (res_private_p -> conf)
 				{
@@ -396,7 +423,7 @@ struct dav_error *FillInPrivateResourceData (request_rec *req_p, dav_resource **
 
 													if (status != APR_SUCCESS)
 														{
-
+															ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_EGENERAL, req_p, "Failed to get irods connection for \"%s\"", username_s);
 														}
 												}
 										}
@@ -423,18 +450,7 @@ struct dav_error *FillInPrivateResourceData (request_rec *req_p, dav_resource **
 										{
 											struct dav_resource *resource_p = NULL;
 
-											const char *root_s = apr_table_get (res_private_p -> conf -> exposed_roots_per_user_p, username_s);
-
-											if (root_s)
-												{
-													res_private_p -> rods_root = root_s;
-												}
-											else
-												{
-													// Get iRODS exposed root dir.
-													res_private_p -> rods_root = GetRodsExposedPath (req_p);
-												}
-
+											res_private_p -> rods_root = GetRodsExposedPath (req_p);
 											res_private_p -> root_dir = root_dir_s;
 
 											// }}}

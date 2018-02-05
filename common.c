@@ -182,6 +182,95 @@ apr_status_t PrintFileToBucketBrigade (const char *filename_s, apr_bucket_brigad
 }
 
 
+rcComm_t *GetIRODSConnectionFull (request_rec *req_p)
+{
+	rcComm_t *connection_p = NULL;
+	davrods_dir_conf_t *conf_p = ap_get_module_config (req_p -> per_dir_config, &davrods_module);
+
+	if (conf_p)
+		{
+			// Obtain iRODS connection.
+			apr_pool_t *pool_p = GetDavrodsMemoryPool (req_p);
+
+			if (pool_p)
+				{
+					const char *username_s = NULL;
+					const char *password_s = NULL;
+					const char *hash_s = NULL;
+					apr_status_t status = GetSessionAuth (req_p, &username_s, &password_s, &hash_s);
+
+					if (status == APR_SUCCESS)
+						{
+							rcComm_t *pool_connection_p = GetIRODSConnectionFromPool (pool_p);
+
+							if (pool_connection_p)
+								{
+									/*
+									 * check that the username for the cached connection
+									 * matches the one on the request.
+									 */
+									if (pool_connection_p -> clientUser.userName && username_s)
+										{
+											if (strcmp (pool_connection_p -> clientUser.userName, username_s) == 0)
+												{
+													connection_p = pool_connection_p;
+												}
+											else
+												{
+													ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, req_p, "usernames differ so won't use cached connection");
+												}
+										}
+									else
+										{
+											ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, req_p, "missing a username so can't check cached connection");
+										}
+
+								}		/* if (connection_p) */
+							else
+								{
+									ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, req_p, "No existing connection");
+								}
+
+
+							if (!connection_p)
+								{
+									/*
+									 * If we are running behind a proxy, the iRODS connection in the pool
+									 * can sometimes get lost. So we check to see whether there are any
+									 * valid authentication authentication details in the request's session.
+									 */
+									if (username_s && password_s)
+										{
+											status = GetIRodsConnection (req_p, &connection_p, username_s, password_s);
+
+											if (status != APR_SUCCESS)
+												{
+
+												}
+										}
+								}
+
+
+						}		/* if (status == APR_SUCCESS) */
+					else
+						{
+							ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_EGENERAL, req_p, "Failed to get session variables");
+
+						}
+
+					if (!connection_p)
+						{
+							connection_p = GetIRODSConnectionForPublicUser (req_p, pool_p, conf_p);
+							username_s = conf_p -> davrods_public_username_s;
+						}
+
+				}
+
+		}		/* if (conf_p) */
+
+	return connection_p;
+}
+
 
 rcComm_t *GetIRODSConnectionForPublicUser (request_rec *req_p, apr_pool_t *davrods_pool_p, davrods_dir_conf_t *conf_p)
 {
