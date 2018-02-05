@@ -93,6 +93,17 @@ struct HtmlTheme
 	const char *ht_user_icon_s;
 
 	apr_table_t *ht_icons_map_p;
+
+
+	const char *ht_name_heading_s;
+
+	const char *ht_size_heading_s;
+
+	const char *ht_owner_heading_s;
+
+	const char *ht_date_heading_s;
+
+	const char *ht_properties_heading_s;
 };
 
 

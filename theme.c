@@ -47,6 +47,8 @@ static apr_status_t PrintBreadcrumbs (struct dav_resource_private *davrods_resou
 
 static apr_status_t PrintUserSection (const char *user_s, const char *escaped_zone_s, request_rec *req_p, const davrods_dir_conf_t *conf_p, apr_bucket_brigade *bb_p);
 
+static apr_status_t PrintTableHeader (const char *heading_s, const char *class_s, apr_bucket_brigade *bucket_brigade_p);
+
 
 /*************************************/
 
@@ -84,6 +86,15 @@ struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 		  theme_p -> ht_add_search_form_flag = 0;
 		  theme_p -> ht_icons_map_p = NULL;
 
+		  theme_p -> ht_name_heading_s = "Name";
+
+		  theme_p -> ht_size_heading_s = "Size";
+
+		  theme_p -> ht_owner_heading_s = "Owner";
+
+		  theme_p -> ht_date_heading_s = "Last modified";
+
+		  theme_p -> ht_properties_heading_s = "Properties";
 		}
 
 	return theme_p;
@@ -652,7 +663,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 		} /* if (apr_ret != APR_SUCCESS) */
 
 
-	apr_status = PrintBasicStringToBucketBrigade ("<th class=\"owner\">Owner</th><th class=\"datestamp\">Last modified</th>", bucket_brigade_p, req_p, __FILE__, __LINE__);
+	apr_status = PrintBasicStringToBucketBrigade ("<th class=\"owner\">Owner</th><th class=\"datestamp\">Date/th>", bucket_brigade_p, req_p, __FILE__, __LINE__);
 	if (apr_status != APR_SUCCESS)
 		{
 			return apr_status;
@@ -673,6 +684,30 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 
 
 	apr_status = PrintBasicStringToBucketBrigade ("</tr>\n</thead>\n<tbody>\n", bucket_brigade_p, req_p, __FILE__, __LINE__);
+
+	return apr_status;
+}
+
+
+static apr_status_t PrintTableHeader (const char *heading_s, const char *class_s, apr_bucket_brigade *bucket_brigade_p)
+{
+	apr_status_t apr_status = APR_SUCCESS;
+
+	if (heading_s)
+		{
+			if (strlen (heading_s) > 0)
+				{
+					if (class_s)
+						{
+							apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<th>%s</th>", heading_s);
+						}
+					else
+						{
+							apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<th class=\"%s\">%s</th>", class_s, heading_s);
+						}
+				}
+
+		}		/* if (heading_s) */
 
 	return apr_status;
 }
@@ -922,6 +957,11 @@ void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p
 	DAVRODS_PROP_MERGE(theme_p -> ht_logout_url_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_user_icon_s);
 
+	DAVRODS_PROP_MERGE(theme_p -> ht_name_heading_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_size_heading_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_owner_heading_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_date_heading_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_properties_heading_s);
 
 	conf_p -> theme_p -> ht_icons_map_p = MergeAPRTables (parent_p -> theme_p -> ht_icons_map_p, child_p -> theme_p -> ht_icons_map_p, pool_p);
 

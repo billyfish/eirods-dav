@@ -14,7 +14,8 @@
 ** limitations under the License.
 */
 
-var G_METADATA_API_URL_S = "/ei-rods-dav/api/metadata/";
+var G_METADATA_API_URL_S = "/data/api/metadata/";
+var G_ROOT_URL_S = "/eirods_dav_files/";
 
 $(document).ready (function () {
 
@@ -66,9 +67,10 @@ function AddMetadataToggleButton (table_cell, callback_fn, closed_flag) {
   var table_row = $(table_cell).parent ();
   var i = $(table_row).attr ("id");
   var container = $(table_cell).find ("ul.metadata:first");
+	var IMAGES_DIR_S = G_ROOT_URL_S + "images/";
 
-  var collapse_src = "/ei-rods-dav-files/images/list_node_collapse";
-  var expand_src = "/ei-rods-dav-files/images/list_node_expand";
+  var collapse_src = IMAGES_DIR_S + "list_node_collapse";
+  var expand_src = IMAGES_DIR_S + "list_node_expand";
 
 	/* 
 	** If no button exists, then add it 
@@ -84,15 +86,15 @@ function AddMetadataToggleButton (table_cell, callback_fn, closed_flag) {
 	}
 
   $(table_cell).find ("img.node").on ('click', function () {
-	  var metadata_list = $(table_cell).find ("ul.metadata:first");
-
+//	  var metadata_list = $(table_cell).find ("ul.metadata:first");
+	var metadata_list = $(table_cell).find ("div.metadata_container");
     
     if ($(this).attr ('src') === collapse_src) {
       $(this).attr ('src', expand_src);
 
-      if (callback_fn != null) {
-        callback_fn ($(table_cell), false);        
-      }
+//      if (callback_fn != null) {
+//        callback_fn ($(table_cell), false);        
+//      }
 
       $(metadata_list).hide ("slideDown");
 
@@ -589,4 +591,5 @@ function PopulateAutoCompleteList (list_id, input_box_id, values_array) {
 	}
 
 } 
+
 
