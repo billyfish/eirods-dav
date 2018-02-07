@@ -621,6 +621,55 @@ static const char *cmd_davrods_show_metadata_search_form (cmd_parms *cmd_p, void
     return NULL;
 }
 
+
+static const char *cmd_davrods_name_heading (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+	conf_p -> theme_p -> ht_name_heading_s = arg_p;
+
+	return NULL;
+}
+
+static const char *cmd_davrods_size_heading (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+	conf_p -> theme_p -> ht_size_heading_s = arg_p;
+
+	return NULL;
+}
+
+static const char *cmd_davrods_owner_heading (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+	conf_p -> theme_p -> ht_owner_heading_s = arg_p;
+
+	return NULL;
+}
+
+static const char *cmd_davrods_date_heading (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+	conf_p -> theme_p -> ht_date_heading_s = arg_p;
+
+	return NULL;
+}
+
+static const char *cmd_davrods_properties_heading (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+	conf_p -> theme_p -> ht_properties_heading_s = arg_p;
+
+	return NULL;
+}
+
+
+
+
 // }}}
 
 const command_rec davrods_directives[] = {
@@ -798,6 +847,31 @@ const command_rec davrods_directives[] = {
 		AP_INIT_TAKE1(
 				DAVRODS_CONFIG_PREFIX "DefaultPassword", cmd_davrods_default_password,
 				NULL, ACCESS_CONF, "Set the default password to use if none is provided."
+		),
+
+		AP_INIT_TAKE1(
+				DAVRODS_CONFIG_PREFIX "NameHeading", cmd_davrods_name_heading,
+				NULL, ACCESS_CONF, "Set the heading for the Name column in directory listings"
+		),
+
+		AP_INIT_TAKE1(
+				DAVRODS_CONFIG_PREFIX "SizeHeading", cmd_davrods_size_heading,
+				NULL, ACCESS_CONF, "Set the heading for the Size column in directory listings"
+		),
+
+		AP_INIT_TAKE1(
+				DAVRODS_CONFIG_PREFIX "OwnerHeading", cmd_davrods_owner_heading,
+				NULL, ACCESS_CONF, "Set the heading for the Owner column in directory listings"
+		),
+
+		AP_INIT_TAKE1(
+				DAVRODS_CONFIG_PREFIX "DateHeading", cmd_davrods_date_heading,
+				NULL, ACCESS_CONF, "Set the heading for the date column in directory listings"
+		),
+
+		AP_INIT_TAKE1(
+				DAVRODS_CONFIG_PREFIX "PropertiesHeading", cmd_davrods_properties_heading,
+				NULL, ACCESS_CONF, "Set the heading for the Properties column in directory listings"
 		),
 
 		{ NULL }

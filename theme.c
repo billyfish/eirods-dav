@@ -49,6 +49,7 @@ static apr_status_t PrintUserSection (const char *user_s, const char *escaped_zo
 
 static apr_status_t PrintTableHeader (const char *heading_s, const char *class_s, apr_bucket_brigade *bucket_brigade_p);
 
+static int IsColumnDisplayed (const char *heading_s);
 
 /*************************************/
 
@@ -486,7 +487,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 	const char *escaped_page_title_s = "";
 	const char *escaped_zone_s = ap_escape_html (pool_p, conf_p -> rods_zone);
 	const char * const api_path_s = conf_p -> davrods_api_path_s;
-
+	const struct HtmlTheme *theme_p = conf_p -> theme_p;
 
 	if (davrods_resource_p)
 		{
@@ -511,9 +512,9 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 	/*
 	 * If we have additional data for the <head> section, add it here.
 	 */
-	if (conf_p -> theme_p -> ht_head_s)
+	if (theme_p -> ht_head_s)
 		{
-			apr_status = PrintSection (conf_p -> theme_p -> ht_head_s, req_p, bucket_brigade_p);
+			apr_status = PrintSection (theme_p -> ht_head_s, req_p, bucket_brigade_p);
 
 			if (apr_status != APR_SUCCESS)
 				{
@@ -542,9 +543,9 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 	/*
 	 * If we have additional data to go above the directory listing, add it here.
 	 */
-	if (conf_p -> theme_p -> ht_top_s)
+	if (theme_p -> ht_top_s)
 		{
-			apr_status = PrintSection (conf_p -> theme_p -> ht_top_s, req_p, bucket_brigade_p);
+			apr_status = PrintSection (theme_p -> ht_top_s, req_p, bucket_brigade_p);
 
 			if (apr_status != APR_SUCCESS)
 				{
@@ -561,7 +562,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 
 	if (davrods_path_s)
 		{
-			if (conf_p -> theme_p -> ht_add_search_form_flag)
+			if (theme_p -> ht_add_search_form_flag)
 				{
 					apr_pool_t *davrods_pool_p = GetDavrodsMemoryPool (req_p);
 
@@ -633,7 +634,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 	/*
 	 * If we are going to display icons, add the column
 	 */
-	if (AreIconsDisplayed (conf_p -> theme_p))
+	if (AreIconsDisplayed (theme_p))
 		{
 			apr_status = PrintBasicStringToBucketBrigade ("<th class=\"icon\"></th>", bucket_brigade_p, req_p, __FILE__, __LINE__);
 
@@ -645,12 +646,16 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 		}		/* if (AreIconsDisplayed (theme_p)) */
 
 
-	apr_status = PrintBasicStringToBucketBrigade ("<th class=\"name\">Name</th><th class=\"size\">Size</th>", bucket_brigade_p, req_p, __FILE__, __LINE__);
-	if (apr_status != APR_SUCCESS)
+	if ((apr_status = PrintTableHeader (theme_p -> ht_name_heading_s, "name", bucket_brigade_p) != APR_SUCCESS))
 		{
 			return apr_status;
-		} /* if (apr_ret != APR_SUCCESS) */
+		}
 
+
+	if ((apr_status = PrintTableHeader (theme_p -> ht_size_heading_s, "size", bucket_brigade_p) != APR_SUCCESS))
+		{
+			return apr_status;
+		}
 
 	if (conf_p -> theme_p -> ht_show_resource_flag)
 		{
@@ -663,23 +668,23 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 		} /* if (apr_ret != APR_SUCCESS) */
 
 
-	apr_status = PrintBasicStringToBucketBrigade ("<th class=\"owner\">Owner</th><th class=\"datestamp\">Date/th>", bucket_brigade_p, req_p, __FILE__, __LINE__);
-	if (apr_status != APR_SUCCESS)
+	if ((apr_status = PrintTableHeader (theme_p -> ht_owner_heading_s, "owner", bucket_brigade_p) != APR_SUCCESS))
 		{
 			return apr_status;
-		} /* if (apr_ret != APR_SUCCESS) */
+		}
 
-
-
-	if (conf_p -> theme_p -> ht_show_metadata_flag)
+	if ((apr_status = PrintTableHeader (theme_p -> ht_date_heading_s, "datestamp", bucket_brigade_p) != APR_SUCCESS))
 		{
-			apr_status = PrintBasicStringToBucketBrigade ("<th class=\"properties\">Properties</th>", bucket_brigade_p, req_p, __FILE__, __LINE__);
+			return apr_status;
+		}
 
-			if (apr_status != APR_SUCCESS)
+
+	if (theme_p -> ht_show_metadata_flag)
+		{
+			if ((apr_status = PrintTableHeader (theme_p -> ht_properties_heading_s, "properties", bucket_brigade_p) != APR_SUCCESS))
 				{
 					return apr_status;
-				} /* if (apr_ret != APR_SUCCESS) */
-
+				}
 		}		/* if (theme_p -> ht_show_metadata_flag) */
 
 
@@ -689,25 +694,38 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 }
 
 
+static int IsColumnDisplayed (const char *heading_s)
+{
+	int res = 0;
+
+	if (heading_s)
+		{
+			if (strcmp (heading_s, "!") != 0)
+				{
+					res = 1;
+				}
+
+		}		/* if (heading_s) */
+
+	return res;
+}
+
+
 static apr_status_t PrintTableHeader (const char *heading_s, const char *class_s, apr_bucket_brigade *bucket_brigade_p)
 {
 	apr_status_t apr_status = APR_SUCCESS;
 
-	if (heading_s)
+	if (IsColumnDisplayed (heading_s))
 		{
-			if (strlen (heading_s) > 0)
+			if (class_s)
 				{
-					if (class_s)
-						{
-							apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<th>%s</th>", heading_s);
-						}
-					else
-						{
-							apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<th class=\"%s\">%s</th>", class_s, heading_s);
-						}
+					apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<th>%s</th>", heading_s);
 				}
-
-		}		/* if (heading_s) */
+			else
+				{
+					apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<th class=\"%s\">%s</th>", class_s, heading_s);
+				}
+		}
 
 	return apr_status;
 }
@@ -832,36 +850,42 @@ apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_
 						}
 				}
 
-			apr_brigade_printf(bb_p, NULL, NULL,
-					"<td class=\"name\"><a href=\"%s\">%s%s</a></td>",
-					relative_link_s,
-					ap_escape_html (pool_p, name_s),
-					link_suffix_s ? link_suffix_s : "");
-
+			if (IsColumnDisplayed (theme_p -> ht_name_heading_s))
+				{
+					apr_brigade_printf(bb_p, NULL, NULL,
+							"<td class=\"name\"><a href=\"%s\">%s%s</a></td>",
+							relative_link_s,
+							ap_escape_html (pool_p, name_s),
+							link_suffix_s ? link_suffix_s : "");
+				}
 		}		/* if (name_s) */
 
 	// Print data object size.
-	status = PrintBasicStringToBucketBrigade ("<td class=\"size\">", bb_p, req_p, __FILE__, __LINE__);
-	if (status != APR_SUCCESS)
+	if (IsColumnDisplayed (theme_p -> ht_size_heading_s))
 		{
-			return status;
+			status = PrintBasicStringToBucketBrigade ("<td class=\"size\">", bb_p, req_p, __FILE__, __LINE__);
+			if (status != APR_SUCCESS)
+				{
+					return status;
+				}
+
+			if (size_s)
+				{
+					apr_brigade_printf (bb_p, NULL, NULL, "%sB", size_s);
+				}
+			else if (irods_obj_p -> io_obj_type == DATA_OBJ_T)
+				{
+					apr_brigade_printf(bb_p, NULL, NULL, "%luB", irods_obj_p -> io_size);
+				}
+
+			status = PrintBasicStringToBucketBrigade ("</td>", bb_p, req_p, __FILE__, __LINE__);
+			if (status != APR_SUCCESS)
+				{
+					return status;
+				}
 		}
 
 
-	if (size_s)
-		{
-			apr_brigade_printf (bb_p, NULL, NULL, "%sB", size_s);
-		}
-	else if (irods_obj_p -> io_obj_type == DATA_OBJ_T)
-		{
-			apr_brigade_printf(bb_p, NULL, NULL, "%luB", irods_obj_p -> io_size);
-		}
-
-	status = PrintBasicStringToBucketBrigade ("</td>", bb_p, req_p, __FILE__, __LINE__);
-	if (status != APR_SUCCESS)
-		{
-			return status;
-		}
 
 
 	if (theme_p -> ht_show_resource_flag)
@@ -870,18 +894,24 @@ apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_
 		}
 
 	// Print owner
-	apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"owner\">%s</td>", ap_escape_html (pool_p, irods_obj_p -> io_owner_name_s));
-
-	if (timestamp_s)
+	if (IsColumnDisplayed (theme_p -> ht_owner_heading_s))
 		{
-			apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"time\">%s</td>", timestamp_s);
+			apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"owner\">%s</td>", ap_escape_html (pool_p, irods_obj_p -> io_owner_name_s));
 		}
-	else
+
+	if (IsColumnDisplayed (theme_p -> ht_date_heading_s))
 		{
-			status = PrintBasicStringToBucketBrigade ("<td class=\"time\"></td>", bb_p, req_p, __FILE__, __LINE__);
-			if (status != APR_SUCCESS)
+			if (timestamp_s)
 				{
-					return status;
+					apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"time\">%s</td>", timestamp_s);
+				}
+			else
+				{
+					status = PrintBasicStringToBucketBrigade ("<td class=\"time\"></td>", bb_p, req_p, __FILE__, __LINE__);
+					if (status != APR_SUCCESS)
+						{
+							return status;
+						}
 				}
 		}
 
