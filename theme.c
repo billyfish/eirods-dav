@@ -20,6 +20,7 @@
  *      Author: billy
  */
 
+#define ALLOCATE_THEME_CONSTANTS (1)
 #include "theme.h"
 #include "meta.h"
 #include "repo.h"
@@ -31,6 +32,20 @@
 #include "listing.h"
 
 static const char *S_FILE_PREFIX_S = "file:";
+
+static const char *S_DEFAULT_NAME_HEADING_S = "Name";
+static const char *S_DEFAULT_DATE_HEADING_S = "Last Modified";
+static const char *S_DEFAULT_SIZE_HEADING_S = "Size";
+static const char *S_DEFAULT_OWNER_HEADING_S = "Owner";
+static const char *S_DEFAULT_PROPERTIES_HEADING_S = "Properties";
+
+
+static const char *S_NAME_CLASS_S = "name";
+static const char *S_DATE_CLASS_S = "date";
+static const char *S_SIZE_CLASS_S = "size";
+static const char *S_OWNER_CLASS_S = "owner";
+static const char *S_PROPERTIES_CLASS_S = "properties";
+
 
 /************************************/
 
@@ -47,9 +62,10 @@ static apr_status_t PrintBreadcrumbs (struct dav_resource_private *davrods_resou
 
 static apr_status_t PrintUserSection (const char *user_s, const char *escaped_zone_s, request_rec *req_p, const davrods_dir_conf_t *conf_p, apr_bucket_brigade *bb_p);
 
-static apr_status_t PrintTableHeader (const char *heading_s, const char *class_s, apr_bucket_brigade *bucket_brigade_p);
+static apr_status_t PrintTableHeader (const char *heading_s, const char *default_heading_s, const char *class_s, apr_bucket_brigade *bucket_brigade_p);
 
 static int IsColumnDisplayed (const char *heading_s);
+
 
 /*************************************/
 
@@ -71,7 +87,7 @@ struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 		  theme_p -> ht_delete_metadata_icon_s = NULL;
 		  theme_p -> ht_delete_metadata_icon_s = NULL;
 
-		  theme_p -> ht_show_metadata_flag = MD_NONE;
+		  theme_p -> ht_show_metadata_flag = MD_UNSET;
 		  theme_p -> ht_metadata_editable_flag = 0;
 		  theme_p -> ht_rest_api_s = NULL;
 
@@ -87,15 +103,15 @@ struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 		  theme_p -> ht_add_search_form_flag = 0;
 		  theme_p -> ht_icons_map_p = NULL;
 
-		  theme_p -> ht_name_heading_s = "Name";
+		  theme_p -> ht_name_heading_s = NULL;
 
-		  theme_p -> ht_size_heading_s = "Size";
+		  theme_p -> ht_size_heading_s = NULL;
 
-		  theme_p -> ht_owner_heading_s = "Owner";
+		  theme_p -> ht_owner_heading_s = NULL;
 
-		  theme_p -> ht_date_heading_s = "Last modified";
+		  theme_p -> ht_date_heading_s = NULL;
 
-		  theme_p -> ht_properties_heading_s = "Properties";
+		  theme_p -> ht_properties_heading_s = NULL;
 		}
 
 	return theme_p;
@@ -112,6 +128,14 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 	collHandle_t coll_handle = { 0 };
 	collEnt_t coll_entry;
 	int status;
+	davrods_dir_conf_t *conf_p = davrods_resource_p->conf;
+
+	const char * const user_s = davrods_resource_p -> rods_conn -> clientUser.userName;
+
+	// Make brigade.
+	apr_bucket_brigade *bucket_brigade_p = apr_brigade_create (pool_p, output_p -> c -> bucket_alloc);
+	apr_status_t apr_status = APR_EGENERAL;
+
 
 	strcpy(coll_inp.collName, davrods_resource_p->rods_path);
 
@@ -125,13 +149,10 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 			return dav_new_error (pool_p, HTTP_INTERNAL_SERVER_ERROR, 0, status, "Could not open a collection");
 		}
 
-	davrods_dir_conf_t *conf_p = davrods_resource_p->conf;
-
-	const char * const user_s = davrods_resource_p -> rods_conn -> clientUser.userName;
 
 	// Make brigade.
-	apr_bucket_brigade *bucket_brigade_p = apr_brigade_create (pool_p, output_p -> c -> bucket_alloc);
-	apr_status_t apr_status = PrintAllHTMLBeforeListing (davrods_resource_p, NULL, user_s, conf_p, req_p, bucket_brigade_p, pool_p);
+	bucket_brigade_p = apr_brigade_create (pool_p, output_p -> c -> bucket_alloc);
+	apr_status = PrintAllHTMLBeforeListing (davrods_resource_p, NULL, user_s, conf_p, req_p, bucket_brigade_p, pool_p);
 
 
 	if (apr_status == APR_SUCCESS)
@@ -646,13 +667,13 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 		}		/* if (AreIconsDisplayed (theme_p)) */
 
 
-	if ((apr_status = PrintTableHeader (theme_p -> ht_name_heading_s, "name", bucket_brigade_p) != APR_SUCCESS))
+	if ((apr_status = PrintTableHeader (theme_p -> ht_name_heading_s, S_DEFAULT_NAME_HEADING_S, S_NAME_CLASS_S, bucket_brigade_p) != APR_SUCCESS))
 		{
 			return apr_status;
 		}
 
 
-	if ((apr_status = PrintTableHeader (theme_p -> ht_size_heading_s, "size", bucket_brigade_p) != APR_SUCCESS))
+	if ((apr_status = PrintTableHeader (theme_p -> ht_size_heading_s, S_DEFAULT_SIZE_HEADING_S, S_SIZE_CLASS_S, bucket_brigade_p) != APR_SUCCESS))
 		{
 			return apr_status;
 		}
@@ -668,12 +689,12 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 		} /* if (apr_ret != APR_SUCCESS) */
 
 
-	if ((apr_status = PrintTableHeader (theme_p -> ht_owner_heading_s, "owner", bucket_brigade_p) != APR_SUCCESS))
+	if ((apr_status = PrintTableHeader (theme_p -> ht_owner_heading_s, S_DEFAULT_OWNER_HEADING_S, S_OWNER_CLASS_S, bucket_brigade_p) != APR_SUCCESS))
 		{
 			return apr_status;
 		}
 
-	if ((apr_status = PrintTableHeader (theme_p -> ht_date_heading_s, "datestamp", bucket_brigade_p) != APR_SUCCESS))
+	if ((apr_status = PrintTableHeader (theme_p -> ht_date_heading_s, S_DEFAULT_DATE_HEADING_S, S_DATE_CLASS_S, bucket_brigade_p) != APR_SUCCESS))
 		{
 			return apr_status;
 		}
@@ -681,7 +702,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 
 	if (theme_p -> ht_show_metadata_flag)
 		{
-			if ((apr_status = PrintTableHeader (theme_p -> ht_properties_heading_s, "properties", bucket_brigade_p) != APR_SUCCESS))
+			if ((apr_status = PrintTableHeader (theme_p -> ht_properties_heading_s, S_DEFAULT_PROPERTIES_HEADING_S, S_PROPERTIES_CLASS_S, bucket_brigade_p) != APR_SUCCESS))
 				{
 					return apr_status;
 				}
@@ -696,39 +717,38 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 
 static int IsColumnDisplayed (const char *heading_s)
 {
-	int res = 0;
-
-	if (heading_s)
-		{
-			if (strcmp (heading_s, "!") != 0)
-				{
-					res = 1;
-				}
-
-		}		/* if (heading_s) */
+	int res = (!heading_s || (strcmp (heading_s, THEME_HIDE_COLUMN_S) != 0)) ? 1 :0;
 
 	return res;
 }
 
 
-static apr_status_t PrintTableHeader (const char *heading_s, const char *class_s, apr_bucket_brigade *bucket_brigade_p)
+static apr_status_t PrintTableHeader (const char *heading_s, const char *default_heading_s, const char *class_s, apr_bucket_brigade *bucket_brigade_p)
 {
 	apr_status_t apr_status = APR_SUCCESS;
+	const char *value_s = NULL;
 
-	if (IsColumnDisplayed (heading_s))
+	if (heading_s)
 		{
-			if (class_s)
+			if (strcmp (heading_s, THEME_HIDE_COLUMN_S) != 0)
 				{
-					apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<th>%s</th>", heading_s);
+					value_s = heading_s;
 				}
-			else
-				{
-					apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<th class=\"%s\">%s</th>", class_s, heading_s);
-				}
+		}
+	else
+		{
+			value_s = default_heading_s;
+		}
+
+	if (value_s)
+		{
+			apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<th class=\"%s\">%s</th>", class_s, value_s);
 		}
 
 	return apr_status;
 }
+
+
 
 
 static int PrintTableEntryToOption (void *data_p, const char *key_s, const char *value_s)
@@ -970,7 +990,6 @@ void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p
 	DAVRODS_PROP_MERGE(theme_p -> ht_collection_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_object_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_listing_class_s);
-	DAVRODS_PROP_MERGE(theme_p -> ht_show_metadata_flag);
 	DAVRODS_PROP_MERGE(theme_p -> ht_metadata_editable_flag);
 	DAVRODS_PROP_MERGE(theme_p -> ht_add_metadata_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_edit_metadata_icon_s);
@@ -1069,6 +1088,16 @@ void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p
 					conf_p -> theme_p -> ht_resources_ss = NULL;
 				}
 		}
+
+
+	if (child_p -> theme_p -> ht_show_metadata_flag == MD_UNSET)
+		{
+			conf_p -> theme_p -> ht_show_metadata_flag = parent_p -> theme_p -> ht_show_metadata_flag;
+		}
+	else
+		{
+			conf_p -> theme_p -> ht_show_metadata_flag = child_p -> theme_p -> ht_show_metadata_flag;
+		}
 }
 
 
@@ -1148,3 +1177,5 @@ static int AreIconsDisplayed (const struct HtmlTheme *theme_p)
 {
 	return ((theme_p -> ht_collection_icon_s) || (theme_p -> ht_object_icon_s) || (theme_p -> ht_icons_map_p)) ? 1 : 0;
 }
+
+

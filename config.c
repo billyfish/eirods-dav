@@ -28,10 +28,36 @@
 APLOG_USE_MODULE(davrods);
 
 
+static const char * const S_DEFAULT_HOST_S = "localhost";
+static const uint16_t S_DEFAULT_PORT = 1247;
+static const char * const S_DEFAULT_ZONE_S = "tempZone";
+static const char * const S_DEFAULT_RESOURCE_S = "";
+static const char * const S_DEFAULT_ENV_S = "/etc/httpd/irods/irods_environment.json";
+static const RodsAuthScheme S_DEFAULT_AUTH_SCHEME = DAVRODS_AUTH_NATIVE;
+static const char * const S_DEFAULT_EXPOSED_ROOT_S = "User";
+static const RodsExposedRootType S_DEFAULT_EXPOSED_ROOT_TYPE = DAVRODS_ROOT_USER_DIR;
+
+static const size_t S_DEFAULT_TX_BUFFER_SIZE = 4 * 1024 * 1024;
+static const size_t S_DEFAULT_RX_BUFFER_SIZE = 4 * 1024 * 1024;
+
+static const TmpFileBehaviour S_DEFAULT_TMPFILE_ROLLBACK = DAVRODS_TMPFILE_ROLLBACK_NO;
+static const char * const S_DEFAULT_LOCK_DBPATH_S = "/var/lib/davrods/lockdb_locallock";
+static const int S_DEFAULT_AUTH_TTL = 1;
+
+static const char * const S_DEFAULT_API_PATH_S = "/api/";
+static const char * const S_DEFAULT_PUBLIC_USERNAME_S = NULL;
+static const char * const S_DEFAULT_PUBLIC_PASSWORD_S = NULL;
+static const int S_DEFAULT_THEMED_LISTINGS = 0;
+
+
+
 static const char *cmd_davrods_default_username(cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
 static const char *cmd_davrods_default_password (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
+static const char *MergeConfigStrings (const char *parent_s, const char *child_s, const char *default_s);
+
+static int MergeConfigInts (const int parent_value, const int child_value, const int default_value);
 
 
 static int set_exposed_root(davrods_dir_conf_t *conf, const char *exposed_root) {
@@ -56,37 +82,37 @@ void *davrods_create_dir_config(apr_pool_t *p, char *dir) {
     if (conf) {
         // We have no 'enabled' flag. Module activation is triggered by
         // directives 'AuthBasicProvider irods' and 'Dav irods'.
-        conf->rods_host              = "localhost";
-        conf->rods_port              = 1247;
-        conf->rods_zone              = "tempZone";
-        conf->rods_default_resource  = "";
-        conf->rods_env_file          = "/etc/httpd/irods/irods_environment.json";
-        conf->rods_auth_scheme       = DAVRODS_AUTH_NATIVE;
+        conf->rods_host              = S_DEFAULT_HOST_S;
+        conf->rods_port              = S_DEFAULT_PORT;
+        conf->rods_zone              = S_DEFAULT_ZONE_S;
+        conf->rods_default_resource  = S_DEFAULT_RESOURCE_S;
+        conf->rods_env_file          = S_DEFAULT_ENV_S;
+        conf->rods_auth_scheme       = S_DEFAULT_AUTH_SCHEME;
         // Default to having the user's home directory as the exposed root
         // because that collection is more or less guaranteed to be readable by
         // the current user (as opposed to the /<zone>/home directory, which
         // seems to be hidden for rodsusers by default).
-        conf->rods_exposed_root      = "User"; // NOTE: Keep this in sync with the option below.
-        conf->rods_exposed_root_type = DAVRODS_ROOT_USER_DIR;
+        conf->rods_exposed_root      = S_DEFAULT_EXPOSED_ROOT_S; // NOTE: Keep this in sync with the option below.
+        conf->rods_exposed_root_type = S_DEFAULT_EXPOSED_ROOT_TYPE;
 
-        conf->rods_tx_buffer_size    = 4 * 1024 * 1024;
-        conf->rods_rx_buffer_size    = 4 * 1024 * 1024;
+        conf->rods_tx_buffer_size    = S_DEFAULT_TX_BUFFER_SIZE;
+        conf->rods_rx_buffer_size    = S_DEFAULT_RX_BUFFER_SIZE;
 
-        conf->tmpfile_rollback       = DAVRODS_TMPFILE_ROLLBACK_NO;
-        conf->locallock_lockdb_path  = "/var/lib/davrods/lockdb_locallock";
+        conf->tmpfile_rollback       = S_DEFAULT_TMPFILE_ROLLBACK;
+        conf->locallock_lockdb_path  = S_DEFAULT_LOCK_DBPATH_S;
 
         // Use the minimum PAM temporary password TTL. We
         // re-authenticate using PAM on every new HTTP connection, so
         // there's no use keeping the temporary password around for
         // longer than the maximum keepalive time. (We don't ever use
         // a temporary password more than once).
-        conf->rods_auth_ttl          = 1; // In hours.
+        conf->rods_auth_ttl          = S_DEFAULT_AUTH_TTL; // In hours.
 
-        conf -> davrods_api_path_s = NULL;
-        conf -> davrods_public_username_s = NULL;
-        conf -> davrods_public_password_s = NULL;
+        conf -> davrods_api_path_s = S_DEFAULT_API_PATH_S;
+        conf -> davrods_public_username_s = S_DEFAULT_PUBLIC_USERNAME_S;
+        conf -> davrods_public_password_s = S_DEFAULT_PUBLIC_PASSWORD_S;
         conf -> theme_p = AllocateHtmlTheme (p);
-        conf -> themed_listings = 0;
+        conf -> themed_listings = S_DEFAULT_THEMED_LISTINGS;
 
     		conf -> exposed_roots_per_user_p = apr_table_make (p, 16);
 
@@ -98,31 +124,24 @@ void *davrods_merge_dir_config(apr_pool_t *p, void *_parent, void *_child) {
     davrods_dir_conf_t *parent_p = _parent;
     davrods_dir_conf_t *child_p  = _child;
     davrods_dir_conf_t *conf_p   = davrods_create_dir_config(p, "merge__");
+    const char *exposed_root_s = NULL;
 
-    DAVRODS_PROP_MERGE(rods_host);
-    DAVRODS_PROP_MERGE(rods_port);
-    DAVRODS_PROP_MERGE(rods_zone);
-    DAVRODS_PROP_MERGE(rods_default_resource);
-    DAVRODS_PROP_MERGE(rods_env_file);
-    DAVRODS_PROP_MERGE(rods_auth_scheme);
+    conf_p -> rods_host = MergeConfigStrings (parent_p -> rods_host, child_p -> rods_host, S_DEFAULT_HOST_S);
+    conf_p -> rods_port = MergeConfigInts (parent_p -> rods_port, child_p -> rods_port, S_DEFAULT_PORT);
+    conf_p -> rods_zone = MergeConfigStrings (parent_p -> rods_zone, child_p -> rods_zone, S_DEFAULT_ZONE_S);
+    conf_p -> rods_default_resource = MergeConfigStrings (parent_p -> rods_default_resource, child_p -> rods_default_resource, S_DEFAULT_RESOURCE_S);
+    conf_p -> rods_env_file = MergeConfigStrings (parent_p -> rods_env_file, child_p -> rods_env_file, S_DEFAULT_ENV_S);
+    conf_p -> rods_auth_scheme = MergeConfigInts (parent_p -> rods_auth_scheme, child_p -> rods_auth_scheme, S_DEFAULT_AUTH_SCHEME);
 
-    const char *exposed_root = child_p->rods_exposed_root
-        ? child_p->rods_exposed_root
-        : parent_p->rods_exposed_root
-            ? parent_p->rods_exposed_root
-            : conf_p->rods_exposed_root;
+    conf_p -> rods_tx_buffer_size = MergeConfigInts (parent_p -> rods_tx_buffer_size, child_p -> rods_tx_buffer_size, S_DEFAULT_TX_BUFFER_SIZE);
+    conf_p -> rods_rx_buffer_size = MergeConfigInts (parent_p -> rods_rx_buffer_size, child_p -> rods_rx_buffer_size, S_DEFAULT_RX_BUFFER_SIZE);
+    conf_p -> tmpfile_rollback = MergeConfigInts (parent_p -> tmpfile_rollback, child_p -> tmpfile_rollback, S_DEFAULT_TMPFILE_ROLLBACK);
+    conf_p -> locallock_lockdb_path = MergeConfigStrings (parent_p -> locallock_lockdb_path, child_p -> locallock_lockdb_path, S_DEFAULT_LOCK_DBPATH_S);
+    conf_p -> davrods_api_path_s = MergeConfigStrings (parent_p -> davrods_api_path_s, child_p -> davrods_api_path_s, S_DEFAULT_API_PATH_S);
+    conf_p -> davrods_public_username_s = MergeConfigStrings (parent_p -> davrods_public_username_s, child_p -> davrods_public_username_s, S_DEFAULT_PUBLIC_USERNAME_S);
+    conf_p -> davrods_public_password_s = MergeConfigStrings (parent_p -> davrods_public_password_s, child_p -> davrods_public_password_s, S_DEFAULT_PUBLIC_PASSWORD_S);
+    conf_p -> themed_listings = MergeConfigInts (parent_p -> themed_listings, child_p -> themed_listings, S_DEFAULT_THEMED_LISTINGS);
 
-    DAVRODS_PROP_MERGE(rods_tx_buffer_size);
-    DAVRODS_PROP_MERGE(rods_rx_buffer_size);
-
-    DAVRODS_PROP_MERGE(tmpfile_rollback);
-    DAVRODS_PROP_MERGE(locallock_lockdb_path);
-
-    DAVRODS_PROP_MERGE(davrods_api_path_s);
-    DAVRODS_PROP_MERGE(davrods_public_username_s);
-    DAVRODS_PROP_MERGE(davrods_public_password_s);
-
-    DAVRODS_PROP_MERGE(themed_listings);
 
     MergeThemeConfigs (conf_p, parent_p, child_p, p);
 
@@ -130,9 +149,11 @@ void *davrods_merge_dir_config(apr_pool_t *p, void *_parent, void *_child) {
   	conf_p -> exposed_roots_per_user_p = MergeAPRTables (parent_p -> exposed_roots_per_user_p, child_p -> exposed_roots_per_user_p, p);
 
 
-    if (set_exposed_root (conf_p, exposed_root) < 0)
+  	exposed_root_s = MergeConfigStrings (parent_p -> rods_exposed_root, child_p -> rods_exposed_root, S_DEFAULT_EXPOSED_ROOT_S);
+
+    if (set_exposed_root (conf_p, exposed_root_s) < 0)
   		{
-  			ap_log_perror (APLOG_MARK, APLOG_DEBUG, APR_EGENERAL, p, "davrods_merge_dir_config: set_exposed_root failed");
+  			ap_log_perror (APLOG_MARK, APLOG_DEBUG, APR_EGENERAL, p, "davrods_merge_dir_config: set_exposed_root failed for \"%s\"", exposed_root_s);
   			conf_p = NULL;
   		}
 
@@ -668,6 +689,43 @@ static const char *cmd_davrods_properties_heading (cmd_parms *cmd_p, void *confi
 }
 
 
+static const char *MergeConfigStrings (const char *parent_s, const char *child_s, const char *default_s)
+{
+	const char *res_s = default_s;
+
+	if (default_s)
+		{
+			if (child_s && (strcmp (child_s, default_s) != 0))
+				{
+					res_s = child_s;
+				}
+			else if (parent_s && (strcmp (parent_s, default_s) != 0))
+				{
+					res_s = parent_s;
+				}
+		}
+	else
+		{
+			if (child_s)
+				{
+					res_s = child_s;
+				}
+			else if (parent_s)
+				{
+					res_s = parent_s;
+				}
+		}
+
+	return res_s;
+}
+
+
+static int MergeConfigInts (const int parent_value, const int child_value, const int default_value)
+{
+	const int res = child_value != default_value ? child_value : parent_value;
+
+	return res;
+}
 
 
 // }}}

@@ -27,6 +27,29 @@
 /* forawrd declaration */
 struct HtmlTheme;
 
+
+typedef enum {
+    // Need to have something other than a bool to recognize an 'unset' state.
+    DAVRODS_TMPFILE_ROLLBACK_YES = 1,
+    DAVRODS_TMPFILE_ROLLBACK_NO,
+} TmpFileBehaviour;
+
+
+typedef enum {
+    DAVRODS_AUTH_NATIVE = 1,
+    DAVRODS_AUTH_PAM,
+} RodsAuthScheme;
+
+
+typedef enum {
+    //                               rods_exposed_root conf value => actual path used
+    //                               ------------------------------------------------------------------------------
+    DAVRODS_ROOT_CUSTOM_DIR = 1, //             <path>           => <path>
+    DAVRODS_ROOT_ZONE_DIR,       //             Zone             => /<zone>
+    DAVRODS_ROOT_HOME_DIR,       //             Home             => /<zone>/home (not the user's home collection!)
+    DAVRODS_ROOT_USER_DIR,       //             User             => /<zone>/home/<user>
+} RodsExposedRootType;
+
 /**
  * \brief Davrods per-directory config structure.
  */
@@ -40,29 +63,15 @@ typedef struct davrods_dir_conf {
     size_t      rods_tx_buffer_size;
     size_t      rods_rx_buffer_size;
 
-    enum {
-        // Need to have something other than a bool to recognize an 'unset' state.
-        DAVRODS_TMPFILE_ROLLBACK_YES = 1,
-        DAVRODS_TMPFILE_ROLLBACK_NO,
-    } tmpfile_rollback;
+    TmpFileBehaviour tmpfile_rollback;
 
     const char *locallock_lockdb_path;
 
-    enum {
-        DAVRODS_AUTH_NATIVE = 1,
-        DAVRODS_AUTH_PAM,
-    } rods_auth_scheme;
+    RodsAuthScheme rods_auth_scheme;
 
     int rods_auth_ttl; // In hours.
 
-    enum {
-        //                               rods_exposed_root conf value => actual path used
-        //                               ------------------------------------------------------------------------------
-        DAVRODS_ROOT_CUSTOM_DIR = 1, //             <path>           => <path>
-        DAVRODS_ROOT_ZONE_DIR,       //             Zone             => /<zone>
-        DAVRODS_ROOT_HOME_DIR,       //             Home             => /<zone>/home (not the user's home collection!)
-        DAVRODS_ROOT_USER_DIR,       //             User             => /<zone>/home/<user>
-    } rods_exposed_root_type;
+    RodsExposedRootType rods_exposed_root_type;
 
     int themed_listings;
     struct HtmlTheme *theme_p;

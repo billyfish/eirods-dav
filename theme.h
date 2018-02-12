@@ -37,6 +37,7 @@
 
 enum MetadataDisplay
 {
+	MD_UNSET,
 	MD_NONE,
 	MD_FULL,
 	MD_ON_DEMAND,
@@ -105,6 +106,19 @@ struct HtmlTheme
 
 	const char *ht_properties_heading_s;
 };
+
+
+
+#ifdef ALLOCATE_THEME_CONSTANTS
+#define THEME_PREFIX
+#define THEME_VAL(x) = x
+#else
+#define THEME_PREFIX extern
+#define THEME_VAL(x)
+#endif
+
+
+THEME_PREFIX const char THEME_HIDE_COLUMN_S [] THEME_VAL ("!");
 
 
 /* forward declaration */
