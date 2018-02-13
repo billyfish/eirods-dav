@@ -630,11 +630,11 @@ static const char *cmd_davrods_show_metadata_search_form (cmd_parms *cmd_p, void
 {
     davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-    if (strcasecmp (arg_p, "true"))
+    if (strcasecmp (arg_p, "true") == 0)
         {
           conf_p -> theme_p -> ht_add_search_form_flag = 1;
         }
-    else if (strcasecmp (arg_p, "false"))
+    else if (strcasecmp (arg_p, "false") == 0)
 	{
 	conf_p -> theme_p -> ht_add_search_form_flag = 0;
 	}

@@ -834,11 +834,11 @@ apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_
 
 	if (theme_p -> ht_show_ids_flag)
 		{
-			status = apr_brigade_printf (bb_p, NULL, NULL, "<tr class=\"id %s\" id=\"%d.%s\">", row_class_s, irods_obj_p -> io_obj_type, irods_obj_p -> io_id_s);
+			status = apr_brigade_printf (bb_p, NULL, NULL, "<tr class=\"%s %d.%s\">", row_class_s, irods_obj_p -> io_obj_type, irods_obj_p -> io_id_s);
 		}
 	else
 		{
-			status = apr_brigade_printf (bb_p, NULL, NULL, "<tr class=\"%s\" id=\"%d.%s\">", row_class_s, irods_obj_p -> io_obj_type, irods_obj_p -> io_id_s);
+			status = apr_brigade_printf (bb_p, NULL, NULL, "<tr class=\"%s\">", row_class_s);
 		}
 
 	if (status != APR_SUCCESS)
