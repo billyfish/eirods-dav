@@ -40,7 +40,7 @@
 
 static const int S_INITIAL_ARRAY_SIZE = 16;
 
-static const char * const S_SEARCH_OPERATOR_EQUALS_S = "=";
+static const char * const S_SEARCH_OPERATOR_EQUALS_S = "equals";
 
 static const char * const S_SEARCH_OPERATOR_LIKE_S = "like";
 

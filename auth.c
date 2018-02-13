@@ -461,16 +461,13 @@ apr_status_t GetSessionAuth (request_rec *req_p, const char **user_ss, const cha
 			/* set the user, even though the user is unauthenticated at this point */
 			if (user_ss && *user_ss)
 				{
+					ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, req_p, "got user \"%s\" from session", *user_ss);
 					req_p -> user = (char *) *user_ss;
 				}
-
-			ap_log_rerror(APLOG_MARK, APLOG_TRACE1, 0, req_p,
-										"from session: " MOD_SESSION_USER ": %s, " MOD_SESSION_PW
-										": %s, %s: %s",
-										user_ss ? *user_ss : "<null>", password_ss ? *password_ss : "<null>",
-												 MOD_AUTH_FORM_HASH_S,
-												hash_ss ? *hash_ss : "<null>");
-
+			else
+				{
+					ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_EGENERAL, req_p, "failed to get user from session");
+				}
 		}
 
 	return status;
@@ -486,8 +483,7 @@ authn_status GetIRodsConnection (request_rec *req_p, rcComm_t **connection_pp,
 
 	if (pool_p)
 		{
-			result = GetIRodsConnection2 (req_p, pool_p, connection_pp, username_s,
-					password_s);
+			result = GetIRodsConnection2 (req_p, pool_p, connection_pp, username_s, password_s);
 		}
 
 	return result;
@@ -547,7 +543,6 @@ static authn_status GetIRodsConnection2 (request_rec *req_p, apr_pool_t *pool_p,
 				{
 					if (connection_p)
 						{
-
 							if (strlen (username_s) > 63)
 								{
 									// This is the NAME_LEN and DB_USERNAME_LEN limit set by iRODS.
@@ -556,7 +551,7 @@ static authn_status GetIRodsConnection2 (request_rec *req_p, apr_pool_t *pool_p,
 
 									rods_conn_cleanup (connection_p);
 									connection_p = NULL;
-								}
+								}		/* if (strlen (username_s) > 63) */
 							else
 								{
 									char *username_buf = apr_pstrdup (pool_p, username_s);
@@ -565,6 +560,8 @@ static authn_status GetIRodsConnection2 (request_rec *req_p, apr_pool_t *pool_p,
 											rods_conn_cleanup, pool_p);
 									apr_pool_userdata_set (username_buf, GetUsernameKey (),
 											apr_pool_cleanup_null, pool_p);
+
+									ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, req_p, "caching connection for %s", username_s);
 
 									// Get iRODS env and store it.
 									rodsEnv *env_p = apr_palloc (pool_p, sizeof(rodsEnv));
@@ -587,7 +584,17 @@ static authn_status GetIRodsConnection2 (request_rec *req_p, apr_pool_t *pool_p,
 											connection_p = NULL;
 										}
 								}
+
+						}		/* if (connection_p) */
+					else
+						{
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, req_p, "no connection after logging in %s", username_s);
 						}
+
+				}		/* if (result == AUTH_GRANTED) */
+			else
+				{
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, req_p, "Failed to login user %s", username_s);
 				}
 		}
 
@@ -621,8 +628,7 @@ static authn_status check_rods (request_rec *req_p, const char *username,
 			// We have a pool, now try to extract its iRODS connection.
 			rcComm_t *rods_connection_p = NULL;
 
-			result = GetIRodsConnection (req_p, &rods_connection_p, username,
-					password);
+			result = GetIRodsConnection (req_p, &rods_connection_p, username,	password);
 
 		}
 	else
