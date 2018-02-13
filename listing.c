@@ -450,7 +450,7 @@ apr_status_t GetAndPrintMetadataRestLinkForIRodsObject (const IRodsObject *irods
 				}
 */
 
-		if (apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"metatable\"><a class=\"get_metadata\" id=\"%d.%s\"></a></td>", obj_type, irods_obj_p -> io_id_s) == APR_SUCCESS)
+		if (apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"metatable\"><a class=\"get_metadata\"></a></td>", obj_type) == APR_SUCCESS)
 			{
 				status = APR_SUCCESS;
 			}
