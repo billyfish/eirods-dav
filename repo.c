@@ -350,10 +350,11 @@ struct dav_error *FillInPrivateResourceData (request_rec *req_p, dav_resource **
 {
 	dav_error *err_p = NULL;
 
-	DebugRequest (req_p);
-
 	// Create private resource context {{{
 	struct dav_resource_private *res_private_p = apr_pcalloc (req_p -> pool, sizeof (struct dav_resource_private));
+
+	//DebugRequest (req_p);
+
 
 	if (res_private_p)
 		{

@@ -129,7 +129,7 @@ int DavrodsRestHandler (request_rec *req_p)
 {
 	int res = DECLINED;
 
-	DebugRequest (req_p);
+	//DebugRequest (req_p);
 
   /* Normally we would check if this is a call for the davrods rest handler,
    * but dav-handler will have gotten there first. So check it against our path
@@ -563,6 +563,21 @@ static apr_status_t ModifyMetadataForEntry (const APICall *call_p, request_rec *
 																}
 															else
 																{
+																	const char *error_s = rodsErrorName (status, NULL);
+
+																	if (error_s)
+																		{
+																			ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p,
+																				"rcModAVUMetadata failed, error: %s for args \"%s\" \"%s\" \"%s\" \"%s\" \"%s\" \"%s\" \"%s\" \"%s\" \"%s\"",
+																				error_s, mod.arg1, mod.arg2, mod.arg3, mod.arg4, mod.arg5, mod.arg6, mod.arg7, mod.arg8, mod.arg9);
+																		}
+																	else
+																		{
+																			ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p,
+																				"rcModAVUMetadata failed, error: %d for args \"%s\" \"%s\" \"%s\" \"%s\" \"%s\" \"%s\" \"%s\" \"%s\" \"%s\"",
+																				status, mod.arg1, mod.arg2, mod.arg3, mod.arg4, mod.arg5, mod.arg6, mod.arg7, mod.arg8, mod.arg9);
+																		}
+
 																	res = APR_EGENERAL;
 																}
 
@@ -823,20 +838,38 @@ static const char *GetIdParameter (apr_table_t *params_p, request_rec *req_p, rc
 			if (path_s)
 				{
 					const char *full_path_s = NULL;
-					const char *root_path_s = GetRodsExposedPath (req_p);
 
-					if (root_path_s)
+					if (*path_s == '/')
 						{
-							full_path_s = apr_pstrcat (pool_p, root_path_s, path_s, NULL);
+							full_path_s = path_s;
 						}
 					else
 						{
-							full_path_s = path_s;
+							const char *root_path_s = GetRodsExposedPath (req_p);
+
+							if (root_path_s)
+								{
+									size_t l = strlen (root_path_s);
+
+									if (* (root_path_s + l - 1) == '/')
+										{
+											full_path_s = apr_pstrcat (pool_p, root_path_s, path_s, NULL);
+										}
+									else
+										{
+											full_path_s = apr_pstrcat (pool_p, root_path_s, "/", path_s, NULL);
+										}
+								}
+							else
+								{
+									full_path_s = path_s;
+								}
+
 						}
 
 					if (full_path_s)
 						{
-							rodsObjStat_t *stat_p = GetObjectStat (full_path_s, rods_connection_p);
+							rodsObjStat_t *stat_p = GetObjectStat (full_path_s, rods_connection_p, pool_p);
 
 							if (stat_p)
 								{

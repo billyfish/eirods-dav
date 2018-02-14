@@ -79,23 +79,80 @@ apr_status_t SetIRodsObjectFromIdString (IRodsObject *obj_p, const char *id_s, r
 		{
 			if (results_p -> rowCnt == 1)
 				{
-					const char *name_s = results_p -> sqlResult [0].value;
-					const char *owner_s = results_p -> sqlResult [1].value;
-					const char *coll_s = results_p -> sqlResult [2].value;
-					const char *modify_s = results_p -> sqlResult [3].value;
-					const char *size_s = results_p -> sqlResult [4].value;
-					const char *resource_s = results_p -> sqlResult [5].value;
+					char *name_s = apr_pstrdup (pool_p, results_p -> sqlResult [0].value);
 
-					rodsLong_t size = atoi (size_s);
+					if (name_s)
+						{
+							char *owner_s = apr_pstrdup (pool_p, results_p -> sqlResult [1].value);
 
-					status = SetIRodsObject (obj_p, DATA_OBJ_T, id_s, name_s, coll_s, owner_s, resource_s, modify_s, size);
-				}
+							if (owner_s)
+								{
+									char *coll_s = apr_pstrdup (pool_p, results_p -> sqlResult [2].value);
+
+									if (coll_s)
+										{
+											char *modify_s = apr_pstrdup (pool_p, results_p -> sqlResult [3].value);
+
+											if (modify_s)
+												{
+													char *size_s = apr_pstrdup (pool_p, results_p -> sqlResult [4].value);
+
+													if (size_s)
+														{
+															char *resource_s = apr_pstrdup (pool_p, results_p -> sqlResult [5].value);
+
+															if (resource_s)
+																{
+																	rodsLong_t size = atoi (size_s);
+
+																	status = SetIRodsObject (obj_p, DATA_OBJ_T, id_s, name_s, coll_s, owner_s, resource_s, modify_s, size);
+																}		/* if (resource_s) */
+															else
+																{
+																	ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to copy resource \"%s\"", results_p -> sqlResult [5].value);
+																}
+
+
+														}		/* if (size_s) */
+													else
+														{
+															ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to copy size \"%s\"", results_p -> sqlResult [4].value);
+														}
+
+
+												}		/* if (modify_s) */
+											else
+												{
+													ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to copy date \"%s\"", results_p -> sqlResult [3].value);
+												}
+
+
+										}		/* if (coll_s) */
+									else
+										{
+											ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to copy collection \"%s\"", results_p -> sqlResult [2].value);
+										}
+
+
+								}		/* if (owner_s) */
+							else
+								{
+									ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to copy owner \"%s\"", results_p -> sqlResult [1].value);
+								}
+
+						}		/* if (name_s) */
+					else
+						{
+							ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to copy name \"%s\"", results_p -> sqlResult [0].value);
+						}
+
+				}		/* if (results_p -> rowCnt == 1) */
 			else
 				{
 					/* it may be a column */
 					select_columns_p [0] = COL_COLL_NAME;
 					select_columns_p [1] = COL_COLL_OWNER_NAME;
-					select_columns_p [2] = COL_COLL_NAME;
+					select_columns_p [2] = COL_COLL_PARENT_NAME;
 					select_columns_p [3] = COL_COLL_CREATE_TIME;
 					select_columns_p [4] = -1;
 
@@ -107,17 +164,66 @@ apr_status_t SetIRodsObjectFromIdString (IRodsObject *obj_p, const char *id_s, r
 
 					if (results_p)
 						{
-							const char *name_s = results_p -> sqlResult [0].value;
-							const char *owner_s = results_p -> sqlResult [1].value;
-							const char *coll_s = results_p -> sqlResult [2].value;
-							const char *modify_s = results_p -> sqlResult [3].value;
+							char *name_s = results_p -> sqlResult [0].value;
 
-							status = SetIRodsObject (obj_p, COLL_OBJ_T, id_s, name_s, coll_s, owner_s, NULL, modify_s, 0);
+							if (name_s)
+								{
+									char *parent_s = apr_pstrdup (pool_p, results_p -> sqlResult [2].value);
 
-							freeGenQueryOut (&results_p);
-						}
+									if (parent_s)
+										{
+											char *owner_s = NULL;
+											size_t parent_length = strlen (parent_s);
+
+											/* Extract the local collection name relative to its parent */
+											if (strncmp (parent_s, name_s, parent_length) == 0)
+												{
+													name_s += parent_length;
+
+													if (*name_s == '/')
+														{
+															++ name_s;
+														}
+												}
+
+											owner_s = apr_pstrdup (pool_p, results_p -> sqlResult [1].value);
+
+											if (owner_s)
+												{
+													char *modify_s = apr_pstrdup (pool_p, results_p -> sqlResult [3].value);
+
+													if (modify_s)
+														{
+															status = SetIRodsObject (obj_p, COLL_OBJ_T, id_s, name_s, parent_s, owner_s, NULL, modify_s, 0);
+														}		/* if (modify_s) */
+													else
+														{
+															ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to copy date \"%s\"", results_p -> sqlResult [3].value);
+														}
+
+												}		/* if (owner_s) */
+											else
+												{
+													ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to copy owner \"%s\"", results_p -> sqlResult [1].value);
+												}
+
+										}		/* if (parent_s) */
+									else
+										{
+											ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to copy collection \"%s\"", results_p -> sqlResult [2].value);
+										}
+
+								}		/* if (name_s) */
+							else
+								{
+									ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to copy name \"%s\"", results_p -> sqlResult [0].value);
+								}
+
+						}		/* if (results_p) */
 				}
-		}
+
+			freeGenQueryOut (&results_p);
+		}		/* if (results_p) */
 
 	return status;
 }
@@ -183,6 +289,40 @@ apr_status_t SetIRodsObjectFromCollEntry (IRodsObject *obj_p, const collEnt_t *c
 		}
 
 	return status;
+}
+
+
+
+char *GetIRodsObjectFullPath (const IRodsObject *obj_p, apr_pool_t *pool_p)
+{
+	char *name_s = NULL;
+
+	if (obj_p -> io_collection_s)
+		{
+			if (obj_p -> io_data_s)
+				{
+					const size_t l =  strlen (obj_p -> io_collection_s);
+
+					if (* ((obj_p -> io_collection_s) + l - 1) == '/')
+						{
+							name_s = apr_pstrcat (pool_p, obj_p -> io_collection_s, obj_p -> io_data_s, NULL);
+						}
+					else
+						{
+							name_s = apr_pstrcat (pool_p, obj_p -> io_collection_s, "/", obj_p -> io_data_s, NULL);
+						}
+				}
+			else
+				{
+					name_s = apr_pstrdup (pool_p, obj_p -> io_collection_s);
+				}
+		}
+	else if (obj_p -> io_data_s)
+		{
+			name_s = apr_pstrdup (pool_p, obj_p -> io_data_s);
+		}
+
+	return name_s;
 }
 
 
@@ -518,7 +658,7 @@ char *GetId (char *value_s, objType_t *type_p, apr_pool_t *pool_p)
 
 
 
-rodsObjStat_t * GetObjectStat (const char * const path_s, rcComm_t *connection_p)
+rodsObjStat_t * GetObjectStat (const char * const path_s, rcComm_t *connection_p, apr_pool_t *pool_p)
 {
 	dataObjInp_t inp;
 	rodsObjStat_t *stat_p = NULL;
@@ -531,7 +671,16 @@ rodsObjStat_t * GetObjectStat (const char * const path_s, rcComm_t *connection_p
 
 	if (status < 0)
 		{
-			WHISPER ("Failed to get object stat for %s, error status %d\n", path_s, status);
+			const char *error_s = rodsErrorName (status, NULL);
+
+			if (error_s)
+				{
+					ap_log_perror (APLOG_MARK, APLOG_ERR, APR_ENOSTAT, pool_p, "Failed to get object stat for %s, error: %s", path_s, error_s);
+				}
+			else
+				{
+					ap_log_perror (APLOG_MARK, APLOG_ERR, APR_ENOSTAT, pool_p, "Failed to get object stat for %s, error: %d", path_s, status);
+				}
 		}
 
 	return stat_p;
@@ -542,23 +691,23 @@ rodsObjStat_t * GetObjectStat (const char * const path_s, rcComm_t *connection_p
 
 static void PrintCollEntry (const collEnt_t *coll_entry_p, apr_pool_t *pool_p)
 {
-	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "\n=====================\n");
-	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "objType %d\n", coll_entry_p -> objType);
-	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "replNum %d\n", coll_entry_p -> replNum);
-	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "replStatus %d\n", coll_entry_p -> replStatus);
-	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "dataMode %d\n", coll_entry_p -> dataMode);
-	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "dataSize %d\n", coll_entry_p -> dataSize);
-	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "collName %s\n", coll_entry_p -> collName);
-	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "dataName %s\n", coll_entry_p -> dataName);
-	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "dataId %s\n", coll_entry_p -> dataId);
-	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "createTime %s\n", coll_entry_p -> createTime);
-	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "modifyTime %s\n", coll_entry_p -> modifyTime);
-	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "chksum", coll_entry_p -> chksum);
-	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "resource %s\n", coll_entry_p -> resource);
-	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "resc_hier %s\n", coll_entry_p -> resc_hier);
-	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "phyPath %s\n", coll_entry_p -> phyPath);
-	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "ownerName %s\n", coll_entry_p -> ownerName);
-	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "dataType %s\n", coll_entry_p -> dataType);
-	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "=====================\n");
+	ap_log_perror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, pool_p, "\n=====================\n");
+	ap_log_perror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, pool_p, "objType %d\n", coll_entry_p -> objType);
+	ap_log_perror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, pool_p, "replNum %d\n", coll_entry_p -> replNum);
+	ap_log_perror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, pool_p, "replStatus %d\n", coll_entry_p -> replStatus);
+	ap_log_perror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, pool_p, "dataMode %d\n", coll_entry_p -> dataMode);
+	ap_log_perror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, pool_p, "dataSize %d\n", coll_entry_p -> dataSize);
+	ap_log_perror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, pool_p, "collName %s\n", coll_entry_p -> collName);
+	ap_log_perror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, pool_p, "dataName %s\n", coll_entry_p -> dataName);
+	ap_log_perror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, pool_p, "dataId %s\n", coll_entry_p -> dataId);
+	ap_log_perror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, pool_p, "createTime %s\n", coll_entry_p -> createTime);
+	ap_log_perror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, pool_p, "modifyTime %s\n", coll_entry_p -> modifyTime);
+	ap_log_perror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, pool_p, "chksum", coll_entry_p -> chksum);
+	ap_log_perror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, pool_p, "resource %s\n", coll_entry_p -> resource);
+	ap_log_perror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, pool_p, "resc_hier %s\n", coll_entry_p -> resc_hier);
+	ap_log_perror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, pool_p, "phyPath %s\n", coll_entry_p -> phyPath);
+	ap_log_perror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, pool_p, "ownerName %s\n", coll_entry_p -> ownerName);
+	ap_log_perror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, pool_p, "dataType %s\n", coll_entry_p -> dataType);
+	ap_log_perror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, pool_p, "=====================\n");
 }
 

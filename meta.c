@@ -40,11 +40,11 @@
 
 static const int S_INITIAL_ARRAY_SIZE = 16;
 
-static const char * const S_SEARCH_OPERATOR_EQUALS_S = "equals";
+static const char * const S_SEARCH_OPERATOR_EQUALS_S = "=";
 
 static const char * const S_SEARCH_OPERATOR_LIKE_S = "like";
 
-static int s_debug_flag = 1;
+static int s_debug_flag = 0;
 
 /**************************************/
 
@@ -54,7 +54,7 @@ static int InitSpecificQuery (specificQueryInp_t *query_p, const int options, co
 
 static int SetMetadataQuery (genQueryInp_t *query_p, const char * const zone_s);
 
-static genQueryOut_t *ExecuteGenQuery (rcComm_t *connection_p, genQueryInp_t * const in_query_p);
+static genQueryOut_t *ExecuteGenQuery (rcComm_t *connection_p, genQueryInp_t * const in_query_p, apr_pool_t *pool_p);
 
 static genQueryOut_t *ExecuteSpecificQuery (rcComm_t *connection_p, specificQueryInp_t * const in_query_p);
 
@@ -160,7 +160,7 @@ char *GetParentCollectionId (const char *child_id_s, const objType_t object_type
 									printGenQI (&in_query);
 								}
 
-							results_p = ExecuteGenQuery (irods_connection_p, &in_query);
+							results_p = ExecuteGenQuery (irods_connection_p, &in_query, pool_p);
 
 							if (results_p)
 								{
@@ -218,7 +218,22 @@ apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t o
 						{
 							if (coll_name_s == NULL)
 								{
+									IRodsObject obj;
+									apr_status_t status;
 
+									InitIRodsObject (&obj);
+
+									status = SetIRodsObjectFromIdString (&obj, id_s, irods_connection_p, pool_p);
+
+									if (status == APR_SUCCESS)
+										{
+											coll_name_s = GetIRodsObjectFullPath (&obj, pool_p);
+
+											if (!coll_name_s)
+												{
+
+												}
+										}
 								}
 
 							if (coll_name_s)
@@ -290,7 +305,7 @@ apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t o
 											printGenQI (&in_query);
 										}
 
-									meta_id_results_p = ExecuteGenQuery (irods_connection_p, &in_query);
+									meta_id_results_p = ExecuteGenQuery (irods_connection_p, &in_query, pool_p);
 
 									if (meta_id_results_p)
 										{
@@ -319,7 +334,7 @@ apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t o
 
 																	if (success_code == 0)
 																		{
-																			genQueryOut_t *metadata_query_results_p = ExecuteGenQuery (irods_connection_p, &in_query);
+																			genQueryOut_t *metadata_query_results_p = ExecuteGenQuery (irods_connection_p, &in_query, pool_p);
 
 																			if (metadata_query_results_p)
 																				{
@@ -444,27 +459,17 @@ genQueryOut_t *RunQuery (rcComm_t *connection_p, const int *select_columns_p, co
 
 			if (success_code == 0)
 				{
-					int status = rcGenQuery (connection_p, &in_query, &out_query_p);
-
-					/* Did we run it successfully? */
-					if (status == 0)
-						{
-							//printBasicGenQueryOut (out_query_p, "result: \"%s\" \"%s\"\n");
-						}
-					else if (status == CAT_NO_ROWS_FOUND)
-						{
-							WHISPER ("No rows found\n");
-						}
-					else if (status < 0 )
-						{
-							WHISPER ("error status: %d\n", status);
-						}
-
+					out_query_p = ExecuteGenQuery (connection_p, &in_query, pool_p);
 				}
+			else
+				{
+					ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "AddClausesToQuery failed");
+				}
+
 		}		/* if (InitGenQuery (&in_query, NULL) == 0) */
 	else
 		{
-
+			ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to initialise query");
 		}
 
 	ClearPooledMemoryFromGenQuery (&in_query);
@@ -671,7 +676,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 																					const char *collection_s = collection_name_results_p -> sqlResult [0].value;
 																					rodsObjStat_t *stat_p;
 
-																					stat_p = GetObjectStat (collection_s, connection_p);
+																					stat_p = GetObjectStat (collection_s, connection_p, pool_p);
 
 																					if (stat_p)
 																						{
@@ -788,7 +793,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 																												{
 																													rodsObjStat_t *stat_p;
 
-																													stat_p = GetObjectStat (irods_data_path_s, connection_p);
+																													stat_p = GetObjectStat (irods_data_path_s, connection_p, pool_p);
 
 																													if (stat_p)
 																														{
@@ -1098,7 +1103,7 @@ apr_status_t GetSearchOperatorFromString (const char *op_s, SearchOperator *op_p
 
 	if (op_s)
 		{
-			if (strcmp (S_SEARCH_OPERATOR_EQUALS_S, op_s) == 0)
+			if ((strcmp (S_SEARCH_OPERATOR_EQUALS_S, op_s) == 0) || (strcmp ("equals", op_s) == 0))
 				{
 					*op_p = SO_EQUALS;
 					res = APR_SUCCESS;
@@ -1260,7 +1265,7 @@ static genQueryOut_t *ExecuteSpecificQuery (rcComm_t *connection_p, specificQuer
 }
 
 
-static genQueryOut_t *ExecuteGenQuery (rcComm_t *connection_p, genQueryInp_t * const in_query_p)
+static genQueryOut_t *ExecuteGenQuery (rcComm_t *connection_p, genQueryInp_t * const in_query_p, apr_pool_t *pool_p)
 {
 	genQueryOut_t *out_query_p = NULL;
 	int status = rcGenQuery (connection_p, in_query_p, &out_query_p);
@@ -1274,11 +1279,20 @@ static genQueryOut_t *ExecuteGenQuery (rcComm_t *connection_p, genQueryInp_t * c
 		}
 	else if (status == CAT_NO_ROWS_FOUND)
 		{
-			WHISPER ("No rows found\n");
+			ap_log_perror (APLOG_MARK, APLOG_TRACE1, APR_SUCCESS, pool_p, "RunQuery no rows found");
 		}
 	else if (status < 0 )
 		{
-			WHISPER ("error status: %d\n", status);
+			const char *error_s = rodsErrorName (status, NULL);
+
+			if (error_s)
+				{
+					ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "RunQuery failed, error: %s", error_s);
+				}
+			else
+				{
+					ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "RunQuery failed, error: %d", status);
+				}
 		}
 
 	return out_query_p;

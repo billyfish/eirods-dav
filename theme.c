@@ -228,6 +228,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 																		 coll_entry.dataName ? coll_entry.dataName : "");
 										}
 
+									//clearCollEnt (&coll_entry);
 								}
 							else
 								{
@@ -507,7 +508,6 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 	// Send start of HTML document.
 	const char *escaped_page_title_s = "";
 	const char *escaped_zone_s = ap_escape_html (pool_p, conf_p -> rods_zone);
-	const char * const api_path_s = conf_p -> davrods_api_path_s;
 	const struct HtmlTheme *theme_p = conf_p -> theme_p;
 
 	if (davrods_resource_p)
