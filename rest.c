@@ -222,6 +222,50 @@ const char *GetMinorId (const char *id_s)
 
 
 
+static apr_status_t ReadRequestBody (request_rec *req_p, apr_bucket_brigade *bucket_brigade_p)
+{
+	apr_status_t status = APR_EGENERAL;
+	int ret = ap_setup_client_block (req_p, REQUEST_CHUNKED_ERROR);
+
+	if (ret == OK)
+		{
+	    if (ap_should_client_block (req_p))
+	    	{
+	        char         temp_s [HUGE_STRING_LEN];
+	        apr_off_t    len_read;
+
+	        status = APR_SUCCESS;
+
+	        while (((len_read = ap_get_client_block (req_p, temp_s, sizeof (temp_s))) > 0) && (status == APR_SUCCESS))
+	        	{
+	  	        * (temp_s + len_read) = '\0';
+
+	  	        status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, temp_s);
+	        	}
+
+
+	       if ((len_read == -1) || (status == APR_EGENERAL))
+	      	 {
+	      		 ap_log_rerror_(APLOG_MARK, APLOG_ERR, APR_EGENERAL, "error getting client block");
+
+	      		 status = APR_EGENERAL;
+	      	 }
+
+	    	}		/* if (ap_should_client_block (req_p)) */
+	  	else
+	  		{
+	  			ap_log_rerror_(APLOG_MARK, APLOG_ERR, APR_EGENERAL, "ap_should_client_block failed");
+	  		}
+
+		}		/* if (ret == OK) */
+	else
+		{
+			ap_log_rerror_(APLOG_MARK, APLOG_ERR, APR_EGENERAL, "Failed to set up client block to read request, %d", ret);
+		}
+
+	return status;
+}
+
 
 /*
  * STATIC DEFINITIONS
@@ -374,7 +418,6 @@ static int DeleteMetadataForEntry (const APICall *call_p, request_rec *req_p, ap
 
 static int AddMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s)
 {
-
 	return EasyModifyMetadataForEntry (call_p, req_p, params_p, config_p, davrods_path_s, "add");
 }
 
