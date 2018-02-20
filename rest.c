@@ -102,6 +102,9 @@ static apr_status_t AddDecodedJSONResponse (const APICall *call_p, apr_status_t 
 static OutputFormat GetRequestedOutputFormat (apr_table_t *params_p, apr_pool_t *pool_p);
 
 
+static apr_status_t ReadRequestBody (request_rec *req_p, apr_bucket_brigade *bucket_brigade_p);
+
+
 /*
  * STATIC VARIABLES
  */
@@ -246,7 +249,7 @@ static apr_status_t ReadRequestBody (request_rec *req_p, apr_bucket_brigade *buc
 
 	       if ((len_read == -1) || (status == APR_EGENERAL))
 	      	 {
-	      		 ap_log_rerror_(APLOG_MARK, APLOG_ERR, APR_EGENERAL, "error getting client block");
+	      		 ap_log_rerror_(APLOG_MARK, APLOG_ERR, APR_EGENERAL, req_p, "error getting client block");
 
 	      		 status = APR_EGENERAL;
 	      	 }
@@ -254,13 +257,13 @@ static apr_status_t ReadRequestBody (request_rec *req_p, apr_bucket_brigade *buc
 	    	}		/* if (ap_should_client_block (req_p)) */
 	  	else
 	  		{
-	  			ap_log_rerror_(APLOG_MARK, APLOG_ERR, APR_EGENERAL, "ap_should_client_block failed");
+	  			ap_log_rerror_(APLOG_MARK, APLOG_ERR, APR_EGENERAL, req_p, "ap_should_client_block failed");
 	  		}
 
 		}		/* if (ret == OK) */
 	else
 		{
-			ap_log_rerror_(APLOG_MARK, APLOG_ERR, APR_EGENERAL, "Failed to set up client block to read request, %d", ret);
+			ap_log_rerror_(APLOG_MARK, APLOG_ERR, APR_EGENERAL, req_p, "Failed to set up client block to read request, %d", ret);
 		}
 
 	return status;
