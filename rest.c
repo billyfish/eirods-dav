@@ -144,11 +144,11 @@ int DavrodsRestHandler (request_rec *req_p)
 		{
 			davrods_dir_conf_t *config_p = ap_get_module_config (req_p -> per_dir_config, &davrods_module);
 
-			if (config_p -> davrods_api_path_s)
+			if ((config_p -> davrods_api_path_s) && (req_p -> uri))
 				{
 					const size_t api_path_length = strlen (config_p -> davrods_api_path_s);
 
-					if ((config_p -> davrods_api_path_s) && (strncmp (config_p -> davrods_api_path_s, req_p -> path_info, api_path_length) == 0))
+					if (strncmp (config_p -> davrods_api_path_s, req_p -> uri, api_path_length) == 0)
 						{
 							/*
 							 * Parse the uri from req_p -> path_info to get the API call
