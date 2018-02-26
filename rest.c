@@ -134,7 +134,8 @@ int DavrodsRestHandler (request_rec *req_p)
 
 	//DebugRequest (req_p);
 
-  /* Normally we would check if this is a call for the davrods rest handler,
+  /*
+   * Normally we would check if this is a call for the ei-rods-dav rest handler,
    * but dav-handler will have gotten there first. So check it against our path
    * and see if we are interested in it.
    * If it is, we accept it and do our things, it not, we simply return DECLINED,
@@ -144,11 +145,11 @@ int DavrodsRestHandler (request_rec *req_p)
 		{
 			davrods_dir_conf_t *config_p = ap_get_module_config (req_p -> per_dir_config, &davrods_module);
 
-			if ((config_p -> davrods_api_path_s) && (req_p -> uri))
+			if ((config_p -> davrods_api_path_s) && (req_p -> path_info))
 				{
 					const size_t api_path_length = strlen (config_p -> davrods_api_path_s);
 
-					if (strncmp (config_p -> davrods_api_path_s, req_p -> uri, api_path_length) == 0)
+					if (strncmp (config_p -> davrods_api_path_s, req_p -> path_info, api_path_length) == 0)
 						{
 							/*
 							 * Parse the uri from req_p -> path_info to get the API call
