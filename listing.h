@@ -140,10 +140,10 @@ char *GetIRodsObjectSizeAsString (const IRodsObject *irods_obj_p, apr_pool_t *po
 char *GetIRodsObjectLastModifiedTime (const  IRodsObject *irods_obj_p, apr_pool_t *pool_p);
 
 
-apr_status_t GetAndPrintMetadataForIRodsObject (const IRodsObject *irods_obj_p, const char * const link_s, const char *zone_s, struct HtmlTheme *theme_p, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p);
+apr_status_t GetAndPrintMetadataForIRodsObject (const IRodsObject *irods_obj_p, const char * const link_s, const char *zone_s, const struct HtmlTheme * const theme_p, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p);
 
 
-apr_status_t GetAndPrintMetadataRestLinkForIRodsObject (const IRodsObject *irods_obj_p, const char * const link_s, const char *zone_s, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p);
+apr_status_t GetAndPrintMetadataRestLinkForIRodsObject (const IRodsObject *irods_obj_p, const char * const apt_root_link_s, const char *zone_s, const struct HtmlTheme * const theme_p, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p);
 
 
 char *GetId (char *value_s, objType_t *type_p, apr_pool_t *pool_p);

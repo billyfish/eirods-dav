@@ -540,9 +540,9 @@ char *GetIRodsObjectLastModifiedTime (const  IRodsObject *irods_obj_p, apr_pool_
 
 
 
-apr_status_t GetAndPrintMetadataForIRodsObject (const IRodsObject *irods_obj_p, const char * const link_s, const char *zone_s, struct HtmlTheme *theme_p, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p)
+apr_status_t GetAndPrintMetadataForIRodsObject (const IRodsObject *irods_obj_p, const char * const api_root_url_s, const char *zone_s, const struct HtmlTheme * const theme_p, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p)
 {
-	int status = -1;
+	apr_status_t status = APR_SUCCESS;
 	apr_array_header_t *metadata_array_p = GetMetadata (connection_p, irods_obj_p -> io_obj_type, irods_obj_p -> io_id_s, irods_obj_p -> io_collection_s, zone_s, pool_p);
 
 	apr_brigade_puts (bb_p, NULL, NULL, "<td class=\"metatable\">\n");
@@ -551,7 +551,16 @@ apr_status_t GetAndPrintMetadataForIRodsObject (const IRodsObject *irods_obj_p, 
 		{
 			if (!apr_is_empty_array (metadata_array_p))
 				{
-					status = PrintMetadata (irods_obj_p -> io_id_s, metadata_array_p, theme_p, bb_p, link_s, pool_p);
+
+					if (theme_p -> ht_show_download_metadata_links_flag)
+						{
+							status = PrintDownloadMetadataObjectAsLinks (theme_p, bb_p, api_root_url_s, irods_obj_p);
+						}
+
+					if (status == APR_SUCCESS)
+						{
+							status = PrintMetadata (irods_obj_p -> io_id_s, metadata_array_p, theme_p, bb_p, api_root_url_s, pool_p);
+						}
 				}		/* if (!apr_is_empty_array (metadata_array_p)) */
 
 		}		/* if (metadata_array_p) */
@@ -562,15 +571,21 @@ apr_status_t GetAndPrintMetadataForIRodsObject (const IRodsObject *irods_obj_p, 
 }
 
 
-apr_status_t GetAndPrintMetadataRestLinkForIRodsObject (const IRodsObject *irods_obj_p, const char * const link_s, const char *zone_s, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p)
+apr_status_t GetAndPrintMetadataRestLinkForIRodsObject (const IRodsObject *irods_obj_p, const char * const apt_root_link_s, const char *zone_s, const struct HtmlTheme * const theme_p, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p)
 {
-	int status = -1;
+	apr_status_t status = APR_SUCCESS;
 	objType_t obj_type = UNKNOWN_OBJ_T;
+	const char *name_s = NULL;
 
 	switch (irods_obj_p -> io_obj_type)
 		{
 			case DATA_OBJ_T:
+				name_s = irods_obj_p -> io_data_s;
+				obj_type = irods_obj_p -> io_obj_type;
+				break;
+
 			case COLL_OBJ_T:
+				name_s = irods_obj_p -> io_collection_s;
 				obj_type = irods_obj_p -> io_obj_type;
 				break;
 
@@ -590,10 +605,18 @@ apr_status_t GetAndPrintMetadataRestLinkForIRodsObject (const IRodsObject *irods
 				}
 */
 
-		if (apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"metatable\"><a class=\"get_metadata\"></a></td>", obj_type) == APR_SUCCESS)
-			{
-				status = APR_SUCCESS;
-			}
+			if ((status = apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"metatable\"><a class=\"get_metadata\"></a>", obj_type)) == APR_SUCCESS)
+				{
+					if (theme_p -> ht_show_download_metadata_links_flag)
+						{
+							status = PrintDownloadMetadataObjectAsLinks (theme_p, bb_p, apt_root_link_s, irods_obj_p);
+						}
+
+					if (status == APR_SUCCESS)
+						{
+							status = apr_brigade_puts (bb_p, NULL, NULL, "</td>");
+						}
+				}
 		}
 
 	return status;

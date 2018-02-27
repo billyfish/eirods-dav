@@ -92,6 +92,7 @@ static apr_status_t GetMetadataArryaAsColumnData (apr_array_header_t *metadata_a
 
 static apr_status_t GetMetadataArryaAsJSON (apr_array_header_t *metadata_array_p, apr_bucket_brigade *bucket_brigade_p);
 
+static apr_status_t PrintDownloadMetadataObjectLink (const IRodsObject *irods_obj_p, const char *icon_s, const char *label_s, const char *type_s, const char *api_root_url_s, apr_bucket_brigade *bb_p);
 
 /*************************************/
 
@@ -1273,9 +1274,10 @@ static genQueryOut_t *ExecuteGenQuery (rcComm_t *connection_p, genQueryInp_t * c
 	/* Did we run it successfully? */
 	if (status == 0)
 		{
-			#if QUERY_DEBUG >= STM_LEVEL_FINER
-			PrintBasicGenQueryOut (out_query_p);
-			#endif
+			if (s_debug_flag)
+				{
+					PrintBasicGenQueryOut (out_query_p);
+				}
 		}
 	else if (status == CAT_NO_ROWS_FOUND)
 		{
@@ -1430,91 +1432,108 @@ static int CompareIrodsMetadata (const void *v0_p, const void *v1_p)
 
 
 
-apr_status_t PrintMetadata (const char *id_s, const apr_array_header_t *metadata_list_p, struct HtmlTheme *theme_p, apr_bucket_brigade *bb_p, const char *api_root_url_s, apr_pool_t *pool_p)
+apr_status_t PrintMetadata (const char *id_s, const apr_array_header_t *metadata_list_p, const struct HtmlTheme * const theme_p, apr_bucket_brigade *bb_p, const char *api_root_url_s, apr_pool_t *pool_p)
 {
-	apr_status_t status = apr_brigade_puts (bb_p, NULL, NULL, "<div class=\"metadata_container\">\n");
+	apr_status_t status = APR_SUCCESS;
 
 	if (status == APR_SUCCESS)
 		{
-			const int size = metadata_list_p -> nelts;
+			status = apr_brigade_puts (bb_p, NULL, NULL, "<div class=\"metadata_container\">\n");
 
-			if (size > 0)
+			if (status == APR_SUCCESS)
 				{
-					status = apr_brigade_puts (bb_p, NULL, NULL, "<ul class=\"metadata\">");
+					const int size = metadata_list_p -> nelts;
 
-					if (status == APR_SUCCESS)
+					if (size > 0)
 						{
-							int i;
 
-							for (i = 0; i < size; ++ i)
+							status = apr_brigade_puts (bb_p, NULL, NULL, "<ul class=\"metadata\">");
+
+							if (status == APR_SUCCESS)
 								{
-									const IrodsMetadata *metadata_p = APR_ARRAY_IDX (metadata_list_p, i, IrodsMetadata *);
+									int i;
 
-									apr_brigade_puts (bb_p, NULL, NULL, "<li>");
-
-									if (theme_p -> ht_metadata_editable_flag)
+									for (i = 0; i < size; ++ i)
 										{
-											if (theme_p -> ht_delete_metadata_icon_s)
+											const IrodsMetadata *metadata_p = APR_ARRAY_IDX (metadata_list_p, i, IrodsMetadata *);
+
+											apr_brigade_puts (bb_p, NULL, NULL, "<li>");
+
+											if (theme_p -> ht_metadata_editable_flag)
 												{
-													apr_brigade_printf (bb_p, NULL, NULL, "<img class=\"button delete_metadata\" src=\"%s\" title=\"Delete this key=value metadata pair\" alt=\"delete metadata attribute-value pair\" />", theme_p -> ht_delete_metadata_icon_s);
+													if (theme_p -> ht_delete_metadata_icon_s)
+														{
+															apr_brigade_printf (bb_p, NULL, NULL, "<img class=\"button delete_metadata\" src=\"%s\" title=\"Delete this key=value metadata pair\" alt=\"delete metadata attribute-value pair\" />", theme_p -> ht_delete_metadata_icon_s);
+														}
+
+													if (theme_p -> ht_edit_metadata_icon_s)
+														{
+															apr_brigade_printf (bb_p, NULL, NULL, "<img class=\"button edit_metadata\" src=\"%s\" title=\"Edit this key=value metadata pair\" alt=\"edit metadata attribute-value pair\" />", theme_p -> ht_edit_metadata_icon_s);
+														}
 												}
 
-											if (theme_p -> ht_edit_metadata_icon_s)
+
+											if (api_root_url_s)
 												{
-													apr_brigade_printf (bb_p, NULL, NULL, "<img class=\"button edit_metadata\" src=\"%s\" title=\"Edit this key=value metadata pair\" alt=\"edit metadata attribute-value pair\" />", theme_p -> ht_edit_metadata_icon_s);
+													char *escaped_key_s = ap_escape_urlencoded (pool_p, metadata_p -> im_key_s);
+													char *escaped_value_s = ap_escape_urlencoded (pool_p, metadata_p -> im_value_s);
+
+													apr_brigade_printf (bb_p, NULL, NULL, "<a href=\"%s/%s?key=%s&amp;value=%s\">", api_root_url_s, REST_METADATA_SEARCH_S, escaped_key_s, escaped_value_s);
 												}
+
+											apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"key\">%s</span>: <span class=\"value\">%s</span>", metadata_p -> im_key_s, metadata_p -> im_value_s);
+
+											if ((metadata_p -> im_units_s) && (strlen (metadata_p -> im_units_s) > 0))
+												{
+													apr_brigade_printf (bb_p, NULL, NULL, " <span class=\"units\">(%s)</span>", metadata_p -> im_units_s);
+												}
+
+
+											if (api_root_url_s)
+												{
+													apr_brigade_puts (bb_p, NULL, NULL, "</a>");
+												}
+
+
+											apr_brigade_puts (bb_p, NULL, NULL, "</li>");
 										}
 
-
-									if (api_root_url_s)
-										{
-											char *escaped_key_s = ap_escape_urlencoded (pool_p, metadata_p -> im_key_s);
-											char *escaped_value_s = ap_escape_urlencoded (pool_p, metadata_p -> im_value_s);
-
-											apr_brigade_printf (bb_p, NULL, NULL, "<a href=\"%s/%s?key=%s&amp;value=%s\">", api_root_url_s, REST_METADATA_SEARCH_S, escaped_key_s, escaped_value_s);
-										}
-
-									apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"key\">%s</span>: <span class=\"value\">%s</span>", metadata_p -> im_key_s, metadata_p -> im_value_s);
-
-									if ((metadata_p -> im_units_s) && (strlen (metadata_p -> im_units_s) > 0))
-										{
-											apr_brigade_printf (bb_p, NULL, NULL, " <span class=\"units\">(%s)</span>", metadata_p -> im_units_s);
-										}
-
-
-									if (api_root_url_s)
-										{
-											apr_brigade_puts (bb_p, NULL, NULL, "</a>");
-										}
-
-
-									apr_brigade_puts (bb_p, NULL, NULL, "</li>");
+									apr_brigade_puts (bb_p, NULL, NULL, "</ul>\n\n");
+								}
+							else
+								{
+									ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_EGENERAL, pool_p, "Failed to print start of containing <ul>");
 								}
 
-							apr_brigade_puts (bb_p, NULL, NULL, "</ul>\n\n");
-						}
+						}		/* if (size > 0) */
 					else
 						{
-							ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_EGENERAL, pool_p, "Failed to print start of containing <ul>");
+							ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_SUCCESS, pool_p, "No metadata results");
 						}
 
-				}		/* if (size > 0) */
+				}
 			else
 				{
-					ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_SUCCESS, pool_p, "No metadata results");
+					ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to print start of containing div");
 				}
 
-		}
+		}		/* if (status == APR_SUCCESS) */
 	else
 		{
-			ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to print start of containing div");
+			ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_SUCCESS, pool_p, "PrintDownloadMetadataObjectAsLinks failed");
 		}
+
 
 	if (status == APR_SUCCESS)
 		{
 			if ((status = PrintAddMetadataObject (theme_p, bb_p, api_root_url_s)) == APR_SUCCESS)
 				{
-					if ((status = PrintDownloadMetadataObject (theme_p, bb_p, api_root_url_s, id_s)) == APR_SUCCESS)
+					if (! (theme_p -> ht_show_download_metadata_links_flag))
+						{
+							status = PrintDownloadMetadataObject (theme_p, bb_p, api_root_url_s, id_s);
+						}
+
+					if (status)
 						{
 							status = apr_brigade_puts (bb_p, NULL, NULL, "</div>\n");
 
@@ -1556,6 +1575,63 @@ static apr_status_t PrintAddMetadataObject (const struct HtmlTheme *theme_p, apr
 
 	return status;
 }
+
+
+
+apr_status_t PrintDownloadMetadataObjectAsLinks (const struct HtmlTheme *theme_p, apr_bucket_brigade *bb_p, const char *api_root_url_s, const IRodsObject *irods_obj_p)
+{
+	apr_status_t status = apr_brigade_puts (bb_p, NULL, NULL, "<div class=\"metadata_toolbar\">\n");
+
+	if (status == APR_SUCCESS)
+		{
+			if ((status = PrintDownloadMetadataObjectLink (irods_obj_p, theme_p -> ht_download_metadata_as_csv_icon_s, "CSV", "csv", api_root_url_s, bb_p)) == APR_SUCCESS)
+				{
+					if ((status = PrintDownloadMetadataObjectLink (irods_obj_p, theme_p -> ht_download_metadata_as_json_icon_s, "JSON", "json", api_root_url_s, bb_p)) == APR_SUCCESS)
+						{
+							status = apr_brigade_puts (bb_p, NULL, NULL, "</div>\n");
+						}
+				}
+		}
+
+
+	return status;
+}
+
+
+static apr_status_t PrintDownloadMetadataObjectLink (const IRodsObject *irods_obj_p, const char *icon_s, const char *label_s, const char *type_s, const char *api_root_url_s, apr_bucket_brigade *bb_p)
+{
+	apr_status_t status = apr_brigade_printf (bb_p, NULL, NULL, "<a href=\"%s/%s?id=%d.%s&amp;output_format=%s\">", api_root_url_s, REST_METADATA_GET_S, irods_obj_p -> io_obj_type, irods_obj_p -> io_id_s, type_s);
+
+	if (status == APR_SUCCESS)
+		{
+			if (icon_s)
+				{
+					const char *name_s = GetIRodsObjectDisplayName (irods_obj_p);
+
+					if (name_s)
+						{
+							status = apr_brigade_printf (bb_p, NULL, NULL, "<img src=\"%s\" alt=\"View metadata for %s as %s\" title=\"View metadata for %s as %s\" />", icon_s, name_s, label_s, name_s, label_s);
+						}
+					else
+						{
+							status = apr_brigade_printf (bb_p, NULL, NULL, "<img src=\"%s\" alt=\"View metadata as %s\" />", icon_s, label_s);
+						}
+				}
+			else
+				{
+					status = apr_brigade_printf (bb_p, NULL, NULL, "View as %s", label_s);
+				}
+
+			if (status == APR_SUCCESS)
+				{
+					status = apr_brigade_puts (bb_p, NULL, NULL, "</a>");
+				}
+		}
+
+
+	return status;
+}
+
 
 
 static apr_status_t PrintDownloadMetadataObject (const struct HtmlTheme *theme_p, apr_bucket_brigade *bb_p, const char *api_root_url_s, const char *id_s)

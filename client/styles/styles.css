@@ -192,6 +192,10 @@ form.download_metadata div.buttons {
 	text-align: right;
 }
 
+.metadata_toolbar {
+	display: inline;
+}
+
 ul.autocomplete {
 	display: none;
 	border: 1px solid grey;
@@ -241,6 +245,5 @@ section.user {
 
 section.user h2 {
 	margin-top: 0;
-
 }
 

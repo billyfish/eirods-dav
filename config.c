@@ -536,6 +536,28 @@ static const char *cmd_davrods_download_metadata_image (cmd_parms *cmd_p, void *
 }
 
 
+static const char *cmd_davrods_download_metadata_image_json (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> theme_p -> ht_download_metadata_as_json_icon_s = arg_p;
+
+    return NULL;
+}
+
+
+
+static const char *cmd_davrods_download_metadata_image_csv (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> theme_p -> ht_download_metadata_as_csv_icon_s = arg_p;
+
+    return NULL;
+}
+
+
+
 
 static const char *cmd_davrods_delete_metadata_image (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
@@ -631,13 +653,30 @@ static const char *cmd_davrods_show_metadata_search_form (cmd_parms *cmd_p, void
     davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
     if (strcasecmp (arg_p, "true") == 0)
-        {
-          conf_p -> theme_p -> ht_add_search_form_flag = 1;
-        }
+			{
+				conf_p -> theme_p -> ht_add_search_form_flag = 1;
+			}
     else if (strcasecmp (arg_p, "false") == 0)
-	{
-	conf_p -> theme_p -> ht_add_search_form_flag = 0;
-	}
+			{
+    		conf_p -> theme_p -> ht_add_search_form_flag = 0;
+			}
+
+    return NULL;
+}
+
+
+static const char *cmd_davrods_show_metadata_download_links (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    if (strcasecmp (arg_p, "true") == 0)
+			{
+				conf_p -> theme_p -> ht_show_download_metadata_links_flag = 1;
+			}
+    else if (strcasecmp (arg_p, "false") == 0)
+			{
+				conf_p -> theme_p -> ht_show_download_metadata_links_flag = 0;
+			}
 
     return NULL;
 }
@@ -851,6 +890,23 @@ const command_rec davrods_directives[] = {
         DAVRODS_CONFIG_PREFIX "HTMLDownloadMetadataImage", cmd_davrods_download_metadata_image,
         NULL, ACCESS_CONF, "Image for the download metadata button"
     ),
+
+
+    AP_INIT_TAKE1(
+        DAVRODS_CONFIG_PREFIX "HTMLDownloadMetadataAsJSONImage", cmd_davrods_download_metadata_image_json,
+        NULL, ACCESS_CONF, "Image for the download metadata as JSON button"
+    ),
+
+    AP_INIT_TAKE1(
+        DAVRODS_CONFIG_PREFIX "HTMLDownloadMetadataAsCSVImage", cmd_davrods_download_metadata_image_csv,
+        NULL, ACCESS_CONF, "Image for the download metadata as CSV button"
+    ),
+
+    AP_INIT_TAKE1(
+        DAVRODS_CONFIG_PREFIX "HTMLShowDownloadMetadataAsLinks", cmd_davrods_show_metadata_download_links,
+        NULL, ACCESS_CONF, "Show the download metadata functionality as links rather than as a form "
+    ),
+
 
 
     AP_INIT_TAKE1(

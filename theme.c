@@ -85,7 +85,11 @@ struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 		  theme_p -> ht_add_metadata_icon_s = NULL;
 		  theme_p -> ht_edit_metadata_icon_s = NULL;
 		  theme_p -> ht_delete_metadata_icon_s = NULL;
-		  theme_p -> ht_delete_metadata_icon_s = NULL;
+		  theme_p -> ht_download_metadata_icon_s = NULL;
+		  theme_p -> ht_download_metadata_as_csv_icon_s = NULL;
+		  theme_p -> ht_download_metadata_as_json_icon_s = NULL;
+
+		  theme_p -> ht_show_download_metadata_links_flag = 0;
 
 		  theme_p -> ht_show_metadata_flag = MD_UNSET;
 		  theme_p -> ht_metadata_editable_flag = 0;
@@ -159,7 +163,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 		{
 			const char *davrods_root_path_s = davrods_resource_p -> root_dir;
 			const char *exposed_root_s = GetRodsExposedPath (req_p);
-			char *metadata_link_s = apr_pstrcat (pool_p, davrods_resource_p -> root_dir, conf_p -> davrods_api_path_s, REST_METADATA_SEARCH_S, NULL);
+			char *metadata_link_s = apr_pstrcat (pool_p, davrods_resource_p -> root_dir, conf_p -> davrods_api_path_s, NULL);
 			IRodsConfig irods_config;
 
 			if (SetIRodsConfig (&irods_config, exposed_root_s, davrods_root_path_s, metadata_link_s) == APR_SUCCESS)
@@ -948,7 +952,7 @@ apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_
 				{
 					const char *zone_s = NULL;
 
-					status = GetAndPrintMetadataRestLinkForIRodsObject (irods_obj_p, config_p -> ic_metadata_root_link_s, zone_s, bb_p, connection_p, pool_p);
+					status = GetAndPrintMetadataRestLinkForIRodsObject (irods_obj_p, config_p -> ic_metadata_root_link_s, zone_s, theme_p, bb_p, connection_p, pool_p);
 
 					if (status == APR_SUCCESS)
 						{
@@ -989,6 +993,9 @@ void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p
 	DAVRODS_PROP_MERGE(theme_p -> ht_edit_metadata_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_delete_metadata_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_download_metadata_icon_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_download_metadata_as_csv_icon_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_download_metadata_as_json_icon_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_show_download_metadata_links_flag);
 	DAVRODS_PROP_MERGE(theme_p -> ht_ok_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_cancel_icon_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_rest_api_s);
