@@ -71,6 +71,12 @@ struct HtmlTheme
 
 	const char *ht_download_metadata_icon_s;
 
+	const char *ht_download_metadata_as_csv_icon_s;
+
+	const char *ht_download_metadata_as_json_icon_s;
+
+	int ht_show_download_metadata_links_flag;
+
 	const char *ht_ok_icon_s;
 
 	const char *ht_cancel_icon_s;

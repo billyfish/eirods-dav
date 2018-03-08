@@ -56,7 +56,7 @@ $(document).ready (function () {
 
 function AddMetadataToggleButtons (cells, callback_fn, closed_flag) {
  $(cells).each (function () {
-    $(this).html ("");
+   // $(this).html ("");
     AddMetadataToggleButton ($ (this), callback_fn, closed_flag);
   });
 }
@@ -76,12 +76,12 @@ function AddMetadataToggleButton (table_cell, callback_fn, closed_flag) {
 	** If no button exists, then add it 
 	*/
 	if ($(table_cell).find ("img.node").length === 0) {
-		var button_src = "<img class='button node' src=" + ((closed_flag === true) ? expand_src : collapse_src) + " />";
+		var button_src = "<img class='button node' src='" + ((closed_flag === true) ? expand_src : collapse_src) + "' title='Show or hide the metadata' alt='Show or hide the metadata'>";
 
 		if (container.length != 0) {
 		  container.before (button_src);
 		} else {
-		  $(table_cell).append (button_src);
+		  $(table_cell).prepend (button_src);
 		}
 	}
 
