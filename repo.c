@@ -46,7 +46,12 @@ static const char *get_rods_root (apr_pool_t *davrods_pool, request_rec *r);
 static int walker_push_seen_path (apr_pool_t *p, walker_seen_resource_t **seen, const char *rods_path);
 static dav_error *dav_repo_get_resource (request_rec *r, const char *root_dir, const char *label, int use_checked_in, dav_resource **result_resource);
 
+static dav_error *DeliverFile (const dav_resource *resource_p, ap_filter_t *output_p);
+
 APLOG_USE_MODULE (davrods);
+
+
+
 
 const char *GetRodsExposedPath (request_rec *req_p)
 {
@@ -1277,6 +1282,190 @@ static dav_error *deliver_file (const dav_resource *resource,
 	return NULL;
 }
 
+
+static dav_error *DeliverFile (const dav_resource *resource_p, ap_filter_t *output_p)
+{
+	dav_error *error_p = NULL;
+	apr_pool_t *pool_p = resource_p -> pool;
+	rcComm_t *connection_p = resource_p -> info -> rods_conn;
+	request_rec *req_p = resource_p -> info -> r;
+	dataObjInp_t open_params;
+	int irods_status;
+	apr_status_t apr_status;
+	const char *error_s = NULL;
+	apr_status_t error_status = APR_EGENERAL;
+	const char * const filename_s = resource_p -> info -> rods_path;
+
+	memset (&open_params, 0, sizeof (dataObjInp_t));
+
+	open_params.openFlags = O_RDONLY;
+	strcpy (open_params.objPath, filename_s);
+
+	if ((irods_status = rcDataObjOpen (connection_p, &open_params)) >= 0)
+		{
+			openedDataObjInp_t close_params;
+			openedDataObjInp_t data_obj;
+			apr_bucket_brigade *bb_p;
+
+			memset (&data_obj, 0, sizeof (openedDataObjInp_t));
+			// irods_status contains some sort of file descriptor.
+			data_obj.l1descInx = irods_status;
+
+			bb_p = apr_brigade_create (pool_p, output_p -> c -> bucket_alloc);
+
+			if (bb_p)
+				{
+					apr_bucket *bkt_p;
+					bytesBuf_t read_buffer;
+					const size_t buffer_size = resource_p -> info -> conf -> rods_rx_buffer_size;
+					int current_bytes_read = 0;
+					size_t total_bytes_read = 0;
+
+					memset (&read_buffer, 0, sizeof (bytesBuf_t));
+
+					data_obj.len = buffer_size;
+
+
+					ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, req_p, "Reading data object in %luK chunks", buffer_size / 1024);
+
+					// Read from iRODS, write to the client.
+					do
+						{
+							current_bytes_read = rcDataObjRead (connection_p, &data_obj, &read_buffer);
+
+							if (current_bytes_read > 0)
+								{
+									if ((apr_status = apr_brigade_write (bb_p, NULL, NULL, read_buffer.buf, current_bytes_read)) == APR_SUCCESS)
+										{
+											if ((apr_status = ap_pass_brigade (output_p, bb_p)) == APR_SUCCESS)
+												{
+													total_bytes_read += current_bytes_read;
+												}
+											else
+												{
+													char error_buffer_s [8192];
+													apr_strerror (apr_status, error_buffer_s, 8192);
+
+													ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "ap_pass_brigade failed for %s: %s after %lu total bytes", filename_s, error_buffer_s, total_bytes_read);
+
+													error_s = "Could not pass brigade to filter.";
+													error_status = apr_status;
+												}
+										}
+									else
+										{
+											char error_buffer_s [8192];
+											apr_strerror (apr_status, error_buffer_s, 8192);
+
+											ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "apr_brigade_write failed for %s: %s after %lu total bytes", filename_s, error_buffer_s, total_bytes_read);
+
+											error_s = "Could not write contents to brigade.";
+											error_status = apr_status;
+										}
+								}
+							else if (current_bytes_read < 0)
+								{
+									ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, req_p, "rcDataObjRead failed for %s: %d = %s after %lu total bytes", filename_s, current_bytes_read, get_rods_error_msg (current_bytes_read), total_bytes_read);
+
+									error_s = "Could not read from requested resource";
+								}
+
+							if (read_buffer.buf)
+								{
+									free (read_buffer.buf);
+									read_buffer.buf = NULL;
+								}
+						}
+					while (((size_t) current_bytes_read == buffer_size) && (!error_s));
+
+					/* Add the end-of-stream bucket */
+					if ((bkt_p = apr_bucket_eos_create (output_p -> c -> bucket_alloc)) != NULL)
+						{
+							APR_BRIGADE_INSERT_TAIL (bb_p, bkt_p);
+
+							if ((apr_status = ap_pass_brigade (output_p, bb_p)) != APR_SUCCESS)
+								{
+									char error_buffer_s [8192];
+									apr_strerror (apr_status, error_buffer_s, 8192);
+
+									ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "ap_pass_brigade failed for closing buffer for %s: %s after %lu total bytes:", filename_s, error_buffer_s, total_bytes_read);
+
+									error_s = "Could not read from requested resource";
+								}
+
+						}		/* if ((bkt_p = apr_bucket_eos_create (output_p -> c -> bucket_alloc)) != NULL) */
+					else
+						{
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "apr_bucket_eos_create failed for creating terminating bucket for %s after %lu total bytes:", filename_s, total_bytes_read);
+
+							error_s = "Could not create closing bucket";
+							error_status = APR_ENOMEM;
+						}
+
+					apr_status = apr_brigade_destroy (bb_p);
+					if (apr_status != APR_SUCCESS)
+						{
+							char error_buffer_s [8192];
+							apr_strerror (apr_status, error_buffer_s, 8192);
+
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "apr_brigade_destroy failed for closing buffer for %s: %s after %lu total bytes:", filename_s, error_buffer_s, total_bytes_read);
+
+							error_s = "Could not read from requested resource";
+						}
+
+					if (!error_s)
+						{
+							ap_log_rerror (APLOG_MARK, APLOG_INFO, APR_SUCCESS, req_p, "Delivered %s with %lu total bytes:", filename_s, total_bytes_read);
+						}
+
+				}		/* if (bb_p) */
+			else
+				{
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_ENOMEM, req_p, "apr_brigade_create failed for %s", filename_s);
+					error_s = "Could not create temporary buffer";
+					error_status = APR_ENOMEM;
+				}
+
+
+			memset (&close_params, 0, sizeof (openedDataObjInp_t));
+			close_params.l1descInx = data_obj.l1descInx;
+
+			if ((irods_status = rcDataObjClose (connection_p, &close_params)) < 0)
+				{
+					ap_log_rerror (APLOG_MARK, APLOG_WARNING, APR_EGENERAL, req_p, "rcDataObjClose failed for %s: %d = %s (proceeding as if nothing happened)", filename_s, irods_status, get_rods_error_msg (irods_status));
+					// We already gave the entire file to the client, it makes no sense to send them an error here.
+
+					//return dav_new_error(
+					//    pool, HTTP_INTERNAL_SERVER_ERROR, 0, status,
+					//    "Could not close requested data object"
+					//);
+				}
+
+		}		/* if ((irods_status = rcDataObjOpen (connection_p, &open_params)) >= 0) */
+	else
+		{
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, req_p, "rcDataObjOpen failed for %s: %d = %s", filename_s, irods_status, get_rods_error_msg (irods_status));
+
+			// Note: This might be a CONFLICT situation where the file was deleted
+			//       in a separate concurrent request.
+
+			error_s = "Could not open requested resource for reading";
+		}
+
+	if (error_s)
+		{
+			error_p = dav_new_error (pool_p, HTTP_INTERNAL_SERVER_ERROR, 0, error_status, error_s);
+
+			if (!error_p)
+				{
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, req_p, "dav_new_error failed for %s: %d = %s", filename_s, error_status, error_s);
+				}
+		}
+
+	return error_p;
+}
+
+
 static dav_error *deliver_directory (const dav_resource *resource,
 		ap_filter_t *output)
 {
@@ -1487,7 +1676,7 @@ static dav_error *dav_repo_deliver (const dav_resource *resource,
 		}
 	else
 		{
-			return deliver_file (resource, output);
+			return DeliverFile (resource, output);
 		}
 }
 
