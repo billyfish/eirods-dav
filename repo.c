@@ -111,6 +111,7 @@ const char *get_basename (const char *path)
 			if (i < len - 1 && path [i] == '/')
 				{
 					WHISPER("Translated path <%s> to basename <%s>\n", path, &path[i+1]);
+
 					return path + i + 1;
 				}
 		}
