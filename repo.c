@@ -1325,8 +1325,7 @@ static dav_error *DeliverFile (const dav_resource *resource_p, ap_filter_t *outp
 
 					data_obj.len = buffer_size;
 
-
-					ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, req_p, "Reading data object in %luK chunks", buffer_size / 1024);
+					ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, req_p, "Reading data object in %luK chunks for %s", buffer_size / 1024, filename_s);
 
 					// Read from iRODS, write to the client.
 					do
