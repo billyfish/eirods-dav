@@ -47,6 +47,7 @@ static int walker_push_seen_path (apr_pool_t *p, walker_seen_resource_t **seen, 
 static dav_error *dav_repo_get_resource (request_rec *r, const char *root_dir, const char *label, int use_checked_in, dav_resource **result_resource);
 
 static dav_error *DeliverFile (const dav_resource *resource_p, ap_filter_t *output_p);
+static void LogFilters (const ap_filter_t *filter_p, request_rec *req_p);
 
 APLOG_USE_MODULE (davrods);
 
@@ -1283,6 +1284,20 @@ static dav_error *deliver_file (const dav_resource *resource,
 }
 
 
+static void LogFilters (const ap_filter_t *filter_p, request_rec *req_p)
+{
+	size_t index = 0;
+
+	while (filter_p)
+		{
+			ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, req_p, "Filter [%lu] = \"%s\"", index, filter_p -> frec -> name);
+
+			filter_p = filter_p -> next;
+			++ index;
+		}
+}
+
+
 static dav_error *DeliverFile (const dav_resource *resource_p, ap_filter_t *output_p)
 {
 	dav_error *error_p = NULL;
@@ -1326,6 +1341,8 @@ static dav_error *DeliverFile (const dav_resource *resource_p, ap_filter_t *outp
 					data_obj.len = buffer_size;
 
 					ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, req_p, "Reading data object in %luK chunks for %s", buffer_size / 1024, filename_s);
+
+					LogFilters (output_p, req_p);
 
 					// Read from iRODS, write to the client.
 					do
