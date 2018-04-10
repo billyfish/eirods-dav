@@ -99,6 +99,9 @@ apr_status_t GetMetadataTableForId (char *combined_id_s, davrods_dir_conf_t *con
 apr_status_t PrintDownloadMetadataObjectAsLinks (const struct HtmlTheme *theme_p, apr_bucket_brigade *bb_p, const char *api_root_url_s, const IRodsObject *irods_obj_p);
 
 
+char *GetCollectionId (const char *collection_s, rcComm_t *connection_p, apr_pool_t *pool_p);
+
+
 
 #ifdef __cplusplus
 }

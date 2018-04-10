@@ -141,10 +141,10 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 	apr_status_t apr_status = APR_EGENERAL;
 
 
-	strcpy(coll_inp.collName, davrods_resource_p->rods_path);
+	strcpy (coll_inp.collName, davrods_resource_p -> rods_path);
 
 	// Open the collection
-	status = rclOpenCollection (davrods_resource_p->rods_conn, davrods_resource_p->rods_path, DATA_QUERY_FIRST_FG | LONG_METADATA_FG | NO_TRIM_REPL_FG, &coll_handle);
+	status = rclOpenCollection (davrods_resource_p -> rods_conn, davrods_resource_p->rods_path, DATA_QUERY_FIRST_FG | LONG_METADATA_FG | NO_TRIM_REPL_FG, &coll_handle);
 
 	if (status < 0)
 		{
@@ -513,6 +513,14 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 	const char *escaped_page_title_s = "";
 	const char *escaped_zone_s = ap_escape_html (pool_p, conf_p -> rods_zone);
 	const struct HtmlTheme *theme_p = conf_p -> theme_p;
+	apr_pool_t *davrods_pool_p = GetDavrodsMemoryPool (req_p);
+	rcComm_t *connection_p = NULL;
+
+	if (davrods_pool_p)
+		{
+			connection_p  = GetIRODSConnectionFromPool (davrods_pool_p);
+		}
+
 
 	if (davrods_resource_p)
 		{
@@ -552,12 +560,31 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 	/*
 	 * Write the start of the body section
 	 */
-	apr_status = PrintBasicStringToBucketBrigade ("<body>\n\n"
-			"<!-- Warning: Do not parse this directory listing programmatically,\n"
-			"              the format may change without notice!\n"
-			"              If you want to script access to these WebDAV collections,\n"
-			"              please use the PROPFIND method instead. -->\n\n",
-			bucket_brigade_p, req_p, __FILE__, __LINE__);
+
+
+	if ((apr_status = PrintBasicStringToBucketBrigade ("<body", bucket_brigade_p, req_p, __FILE__, __LINE__)) == APR_SUCCESS)
+		{
+			if (connection_p)
+				{
+					char *current_id_s = GetCollectionId (davrods_resource_p -> rods_path, connection_p, pool_p);
+
+					if (current_id_s)
+						{
+							apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, " id=\"2.%s\"", current_id_s);
+						}
+				}
+
+
+
+			if (apr_status == APR_SUCCESS)
+				{
+					apr_status = PrintBasicStringToBucketBrigade (">\n\n"
+							"<!-- Warning: Do not parse this directory listing programmatically,\n"
+							"              the format may change without notice!\n"
+							"              If you want to script access to these WebDAV collections,\n"
+							"              please use the PROPFIND method instead. -->\n\n", bucket_brigade_p, req_p, __FILE__, __LINE__);
+				}
+		}
 
 	if (apr_status != APR_SUCCESS)
 		{
@@ -589,39 +616,32 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 		{
 			if (theme_p -> ht_add_search_form_flag)
 				{
-					apr_pool_t *davrods_pool_p = GetDavrodsMemoryPool (req_p);
-
-					if (davrods_pool_p)
+					if (connection_p)
 						{
-							rcComm_t *connection_p  = GetIRODSConnectionFromPool (davrods_pool_p);
+							/* Get the Location path where davrods is hosted */
 
-							if (connection_p)
+							/* int i = 0; */
+
+							apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL,
+								"<form action=\"%s%s\" class=\"search_form\">\n<fieldset><legend>Search:</legend>\n<label for=\"search_key\">Attribute:</label><input name=\"key\" type=\"text\" id=\"search_key\">\n", davrods_path_s, REST_METADATA_SEARCH_S);
+							apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<ul id=\"search_keys_autocomplete_list\" class=\"autocomplete\"></ul>\n");
+
+							/*
+							for (i = 0; i < keys_p -> nelts; ++ i)
 								{
-									/* Get the Location path where davrods is hosted */
+									char *value_s = ((char **) keys_p -> elts) [i];
+									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<option>%s</option>\n", value_s);
 
-									/* int i = 0; */
-
-									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL,
-										"<form action=\"%s%s\" class=\"search_form\">\n<fieldset><legend>Search:</legend>\n<label for=\"search_key\">Attribute:</label><input name=\"key\" type=\"text\" id=\"search_key\">\n", davrods_path_s, REST_METADATA_SEARCH_S);
-									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<ul id=\"search_keys_autocomplete_list\" class=\"autocomplete\"></ul>\n");
-
-									/*
-									for (i = 0; i < keys_p -> nelts; ++ i)
+									if (apr_status != APR_SUCCESS)
 										{
-											char *value_s = ((char **) keys_p -> elts) [i];
-											apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<option>%s</option>\n", value_s);
-
-											if (apr_status != APR_SUCCESS)
-												{
-													break;
-												}
+											break;
 										}
-									*/
-
-									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "\n<label for=\"search_value\">Value:</label><input type=\"text\" id=\"search_value\" name=\"value\" />");
-									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<ul id=\"search_values_autocomplete_list\" class=\"autocomplete\"></ul>\n");
-									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "\n<input type=\"submit\" name=\"Search\" /></fieldset></form>");
 								}
+							*/
+
+							apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "\n<label for=\"search_value\">Value:</label><input type=\"text\" id=\"search_value\" name=\"value\" />");
+							apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<ul id=\"search_values_autocomplete_list\" class=\"autocomplete\"></ul>\n");
+							apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "\n<input type=\"submit\" name=\"Search\" /></fieldset></form>");
 						}
 
 				}		/* if (theme_p -> ht_add_search_form_flag) */

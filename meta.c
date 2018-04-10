@@ -1750,6 +1750,35 @@ static int AddKeysToTable (apr_pool_t *pool_p, rcComm_t *connection_p, const int
 }
 
 
+char *GetCollectionId (const char *collection_s, rcComm_t *connection_p, apr_pool_t *pool_p)
+{
+	char *id_s = NULL;
+
+	/*
+	 * For collections, the data id is NULL, so let's get the collection id for it.
+	 */
+
+	int select_columns_p [2] = { COL_COLL_ID, -1 };
+	int where_columns_p [1] = { COL_COLL_NAME };
+	const char *where_values_ss [1] = { collection_s };
+
+	genQueryOut_t *results_p = RunQuery (connection_p, select_columns_p, where_columns_p, where_values_ss, NULL, 1, 0, pool_p);
+
+	if (results_p)
+		{
+			if (results_p -> rowCnt == 1)
+				{
+					id_s = apr_pstrdup (pool_p, results_p -> sqlResult [0].value);
+				}
+
+			freeGenQueryOut (&results_p);
+		}
+
+	return id_s;
+}
+
+
+
 apr_table_t *GetAllDataObjectMetadataValuesForKey (apr_pool_t *pool_p, rcComm_t *connection_p, const char *key_s)
 {
 	return NULL;
