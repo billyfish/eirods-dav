@@ -163,7 +163,7 @@ apr_status_t SetIRodsObjectFromIdString (IRodsObject *obj_p, const char *id_s, r
 
 					if (results_p)
 						{
-							char *name_s = apr_pstrdup (results_p -> sqlResult [0].value);
+							char *name_s = apr_pstrdup (pool_p, results_p -> sqlResult [0].value);
 
 							if (name_s)
 								{
