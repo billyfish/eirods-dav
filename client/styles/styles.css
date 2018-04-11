@@ -36,6 +36,8 @@ footer {
 	font-size: 0.9em;
 }
 
+
+
 span.key {
 	padding-left: 1.0em;
 }
@@ -156,11 +158,6 @@ ul.metadata li:last-child {
 
 
 
-.search_form {
-	padding-top:  1.0em;
-	padding-bottom:  1.0em;
-}
-
 
 
 .add_metadata {
@@ -212,8 +209,22 @@ ul.autocomplete li:hover {
 	cursor: pointer;
 }
 
+
+#info 
+{
+	display: flex;
+}
+
+
 form.search_form {
-	display: inline-block;
+	padding: 1.0em;
+	padding-top:  1.0em;
+	padding-bottom:  1.0em;
+  max-width: 50%;
+}
+
+form.search_form legend {
+	font-size: 1.2em;
 }
 
 form.search_form label{
@@ -227,21 +238,16 @@ form.search_form input {
 	display: inline-block;
 }
 
-
-
 section.user {
-	margin-top: 1.0em;
-	margin-bottom: 1.0em;
 	padding-top: 0.5em;
 	padding-bottom: 0.5em;
-	border-top: 1px solid grey;
-	border-bottom: 1px solid grey;
-	display: table-cell;
+	padding-left: 2.0em;
+  max-width: 50%;
 }
 
 section.user h2 {
 	margin-top: 0;
-
+	font-size: 1.2em;
 }
 
 

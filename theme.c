@@ -514,7 +514,9 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 	const char *escaped_zone_s = ap_escape_html (pool_p, conf_p -> rods_zone);
 	const struct HtmlTheme *theme_p = conf_p -> theme_p;
 	apr_pool_t *davrods_pool_p = GetDavrodsMemoryPool (req_p);
+	const char *davrods_path_s = NULL;
 	rcComm_t *connection_p = NULL;
+	apr_status_t apr_status;
 
 	if (davrods_pool_p)
 		{
@@ -533,7 +535,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 	/*
 	 * Print the start of the doc
 	 */
-	apr_status_t apr_status =	apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<!DOCTYPE html>\n<html lang=\"en\">\n<head><title>Index of %s on %s</title>\n", escaped_page_title_s, escaped_zone_s);
+	apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<!DOCTYPE html>\n<html lang=\"en\">\n<head><title>Index of %s on %s</title>\n", escaped_page_title_s, escaped_zone_s);
 	if (apr_status != APR_SUCCESS)
 		{
 			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to add start of html doc with relative uri \"%s\" and zone \"%s\"", escaped_page_title_s, escaped_zone_s);
@@ -607,11 +609,18 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 		}		/* if (theme_p -> ht_top_s) */
 
 
-	apr_status = PrintBasicStringToBucketBrigade ("<main>", bucket_brigade_p, req_p, __FILE__, __LINE__);
+	apr_status = PrintBasicStringToBucketBrigade ("<main><div id=\"info\">", bucket_brigade_p, req_p, __FILE__, __LINE__);
+
+	apr_status = PrintUserSection (user_s, escaped_zone_s, req_p, conf_p, bucket_brigade_p);
+
+	if (apr_status != APR_SUCCESS)
+		{
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to add the user status with user \"%s\", uri \"%s\", zone \"%s\"", user_s, escaped_page_title_s);
+			return apr_status;
+		} /* if (apr_ret != APR_SUCCESS) */
 
 	/* Get the Location path where davrods is hosted */
-	const char *davrods_path_s = GetDavrodsAPIPath (davrods_resource_p, conf_p, req_p);
-
+	davrods_path_s = GetDavrodsAPIPath (davrods_resource_p, conf_p, req_p);
 	if (davrods_path_s)
 		{
 			if (theme_p -> ht_add_search_form_flag)
@@ -649,14 +658,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 
 		}		/* if (davrods_path_s) */
 
-
-	apr_status = PrintUserSection (user_s, escaped_zone_s, req_p, conf_p, bucket_brigade_p);
-
-	if (apr_status != APR_SUCCESS)
-		{
-			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to add the user status with user \"%s\", uri \"%s\", zone \"%s\"", user_s, escaped_page_title_s);
-			return apr_status;
-		} /* if (apr_ret != APR_SUCCESS) */
+	PrintBasicStringToBucketBrigade ("</div>", bucket_brigade_p, req_p, __FILE__, __LINE__);
 
 	if (davrods_resource_p)
 		{

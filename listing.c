@@ -148,7 +148,7 @@ apr_status_t SetIRodsObjectFromIdString (IRodsObject *obj_p, const char *id_s, r
 				}		/* if (results_p -> rowCnt == 1) */
 			else
 				{
-					/* it may be a column */
+					/* it may be a collection */
 					select_columns_p [0] = COL_COLL_NAME;
 					select_columns_p [1] = COL_COLL_OWNER_NAME;
 					select_columns_p [2] = COL_COLL_PARENT_NAME;
@@ -163,7 +163,7 @@ apr_status_t SetIRodsObjectFromIdString (IRodsObject *obj_p, const char *id_s, r
 
 					if (results_p)
 						{
-							char *name_s = results_p -> sqlResult [0].value;
+							char *name_s = apr_pstrdup (results_p -> sqlResult [0].value);
 
 							if (name_s)
 								{
