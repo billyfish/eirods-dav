@@ -972,7 +972,7 @@ static apr_status_t GetMetadataArryaAsJSON (apr_array_header_t *metadata_array_p
 												}
 											else
 												{
-													status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, "\n\t}, {\n");
+													status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, "\n\t},\n");
 												}
 										}
 								}
