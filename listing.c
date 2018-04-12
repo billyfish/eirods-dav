@@ -30,6 +30,7 @@
 
 #include "apr_strings.h"
 #include "apr_time.h"
+#include "util_script.h"
 
 #define S_LISTING_DEBUG (0)
 
@@ -517,12 +518,12 @@ char *GetIRodsObjectLastModifiedTime (const  IRodsObject *irods_obj_p, apr_pool_
 
 
 
-apr_status_t GetAndPrintMetadataForIRodsObject (const IRodsObject *irods_obj_p, const char * const api_root_url_s, const char *zone_s, const struct HtmlTheme * const theme_p, apr_bucket_brigade *bb_p, rcComm_t *connection_p, apr_pool_t *pool_p)
+apr_status_t GetAndPrintMetadataForIRodsObject (const IRodsObject *irods_obj_p, const char * const api_root_url_s, const char *zone_s, const struct HtmlTheme * const theme_p, apr_bucket_brigade *bb_p, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p)
 {
 	apr_status_t status = APR_SUCCESS;
 	apr_array_header_t *metadata_array_p = GetMetadata (connection_p, irods_obj_p -> io_obj_type, irods_obj_p -> io_id_s, irods_obj_p -> io_collection_s, zone_s, pool_p);
 
-	apr_brigade_puts (bb_p, NULL, NULL, "<td class=\"metatable\">\n");
+	apr_brigade_puts (bb_p, NULL, NULL, "<td class=\"metatable\"><div class=\"metadata_toolbar\"\n");
 
 	if (metadata_array_p)
 		{
@@ -536,13 +537,17 @@ apr_status_t GetAndPrintMetadataForIRodsObject (const IRodsObject *irods_obj_p, 
 
 					if (status == APR_SUCCESS)
 						{
-							status = PrintMetadata (irods_obj_p -> io_id_s, metadata_array_p, theme_p, bb_p, api_root_url_s, pool_p);
+							apr_table_t *params_p = NULL;
+							ap_args_to_table (req_p, &params_p);
+							int editable_flag = GetEditableFlag (theme_p, params_p, pool_p);
+
+							status = PrintMetadata (irods_obj_p -> io_id_s, metadata_array_p, theme_p, editable_flag, bb_p, api_root_url_s, pool_p);
 						}
 				}		/* if (!apr_is_empty_array (metadata_array_p)) */
 
 		}		/* if (metadata_array_p) */
 
-	apr_brigade_puts(bb_p, NULL, NULL, "</td>");
+	apr_brigade_puts(bb_p, NULL, NULL, "</div></td>");
 
 	return status;
 }
@@ -582,7 +587,7 @@ apr_status_t GetAndPrintMetadataRestLinkForIRodsObject (const IRodsObject *irods
 				}
 */
 
-			if ((status = apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"metatable\"><a class=\"get_metadata\"></a>", obj_type)) == APR_SUCCESS)
+			if ((status = apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"metatable\"><div class=\"metadata_toolbar\"><a class=\"get_metadata\"></a>", obj_type)) == APR_SUCCESS)
 				{
 					if (theme_p -> ht_show_download_metadata_links_flag)
 						{
@@ -591,7 +596,7 @@ apr_status_t GetAndPrintMetadataRestLinkForIRodsObject (const IRodsObject *irods
 
 					if (status == APR_SUCCESS)
 						{
-							status = apr_brigade_puts (bb_p, NULL, NULL, "</td>");
+							status = apr_brigade_puts (bb_p, NULL, NULL, "</div></td>");
 						}
 				}
 		}

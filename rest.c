@@ -39,6 +39,7 @@
 #include "common.h"
 #include "listing.h"
 #include "repo.h"
+#include "theme.h"
 
 #include "debug.h"
 
@@ -79,9 +80,6 @@ static int GetMatchingMetadataValues (const APICall *call_p, request_rec *req_p,
 
 
 static const char *GetIdParameter (apr_table_t *params_p, request_rec *req_p, rcComm_t *rods_connection_p, apr_pool_t *pool_p);
-
-
-static const char *GetParameterValue (apr_table_t *params_p, const char * const param_s, apr_pool_t *pool_p);
 
 
 static rcComm_t *GetIRODSConnectionForAPI (request_rec *req_p, davrods_dir_conf_t *config_p);
@@ -363,7 +361,9 @@ static int GetMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_t
 					if (id_s)
 						{
 							OutputFormat format = GetRequestedOutputFormat (params_p, pool_p);
-							apr_status_t status = GetMetadataTableForId ((char *) id_s, config_p, rods_connection_p, req_p, pool_p, bucket_brigade_p, format);
+							int editable_flag = GetEditableFlag (config_p -> theme_p, params_p, pool_p);
+
+							apr_status_t status = GetMetadataTableForId ((char *) id_s, config_p, rods_connection_p, req_p, pool_p, bucket_brigade_p, format, editable_flag);
 
 							if (status == APR_SUCCESS)
 								{
@@ -863,23 +863,6 @@ static int GetMatchingMetadataValues (const APICall *call_p, request_rec *req_p,
 		}
 
 	return res;
-}
-
-
-
-static const char *GetParameterValue (apr_table_t *params_p, const char * const param_s, apr_pool_t *pool_p)
-{
-	const char *value_s = NULL;
-	const char * const raw_value_s = apr_table_get (params_p, param_s);
-	const char *forbid_s = NULL;
-	const char *reserved_s = NULL;
-
-	if (raw_value_s)
-		{
-			value_s = apr_punescape_url (pool_p, raw_value_s, forbid_s, reserved_s, 1);
-		}
-
-	return value_s;
 }
 
 

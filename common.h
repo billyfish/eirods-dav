@@ -71,4 +71,6 @@ const char *GetUsernameFromPool (apr_pool_t *pool_p);
 apr_table_t *MergeAPRTables (apr_table_t *table1_p, apr_table_t *table2_p, apr_pool_t *pool_p);
 
 
+const char *GetParameterValue (apr_table_t *params_p, const char * const param_s, apr_pool_t *pool_p);
+
 #endif /* _DAVRODS_COMMON_H_ */

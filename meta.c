@@ -582,9 +582,10 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 	genQueryOut_t *meta_id_results_p = NULL;
 	apr_bucket_brigade *bucket_brigade_p = apr_brigade_create (pool_p, bucket_allocator_p);
 
-	char *relative_uri_s = apr_pstrcat (pool_p, "metadata search results for ", key_s, ":", value_s, NULL);
+	char *relative_uri_s = apr_pstrcat (pool_p, "the search results for ", key_s, " = ", value_s, NULL);
+	char *marked_up_relative_uri_s = apr_pstrcat (pool_p, "the search results for <strong>", key_s, "</strong> = <strong>", value_s, "</strong>", NULL);
 
-	apr_status_t apr_status = PrintAllHTMLBeforeListing (NULL, relative_uri_s, username_s, conf_p, req_p, bucket_brigade_p, pool_p);
+	apr_status_t apr_status = PrintAllHTMLBeforeListing (NULL, relative_uri_s, marked_up_relative_uri_s, username_s, conf_p, req_p, bucket_brigade_p, pool_p);
 
 	/*
 	 * SELECT meta_id FROM r_meta_main WHERE meta_attr_name = ' ' AND meta_attr_value = ' ';
@@ -874,7 +875,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 }
 
 
-apr_status_t GetMetadataTableForId (char *id_s, davrods_dir_conf_t *config_p, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p, apr_bucket_brigade *bucket_brigade_p, OutputFormat format)
+apr_status_t GetMetadataTableForId (char *id_s, davrods_dir_conf_t *config_p, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p, apr_bucket_brigade *bucket_brigade_p, OutputFormat format, const int editable_flag)
 {
 	apr_status_t status = APR_EGENERAL;
 	objType_t obj_type = UNKNOWN_OBJ_T;
@@ -911,7 +912,7 @@ apr_status_t GetMetadataTableForId (char *id_s, davrods_dir_conf_t *config_p, rc
 										{
 											char *metadata_link_s = GetDavrodsAPIPath (NULL, config_p, req_p);
 
-											status = PrintMetadata (id_s, metadata_array_p, config_p -> theme_p, bucket_brigade_p, metadata_link_s, pool_p);
+											status = PrintMetadata (id_s, metadata_array_p, config_p -> theme_p, editable_flag, bucket_brigade_p, metadata_link_s, pool_p);
 										}
 										break;
 								}
@@ -1432,7 +1433,7 @@ static int CompareIrodsMetadata (const void *v0_p, const void *v1_p)
 
 
 
-apr_status_t PrintMetadata (const char *id_s, const apr_array_header_t *metadata_list_p, const struct HtmlTheme * const theme_p, apr_bucket_brigade *bb_p, const char *api_root_url_s, apr_pool_t *pool_p)
+apr_status_t PrintMetadata (const char *id_s, const apr_array_header_t *metadata_list_p, const struct HtmlTheme * const theme_p, const int editable_flag, apr_bucket_brigade *bb_p, const char *api_root_url_s, apr_pool_t *pool_p)
 {
 	apr_status_t status = APR_SUCCESS;
 
@@ -1459,7 +1460,7 @@ apr_status_t PrintMetadata (const char *id_s, const apr_array_header_t *metadata
 
 											apr_brigade_puts (bb_p, NULL, NULL, "<li>");
 
-											if (theme_p -> ht_metadata_editable_flag)
+											if (editable_flag)
 												{
 													if (theme_p -> ht_delete_metadata_icon_s)
 														{
@@ -1478,7 +1479,8 @@ apr_status_t PrintMetadata (const char *id_s, const apr_array_header_t *metadata
 													char *escaped_key_s = ap_escape_urlencoded (pool_p, metadata_p -> im_key_s);
 													char *escaped_value_s = ap_escape_urlencoded (pool_p, metadata_p -> im_value_s);
 
-													apr_brigade_printf (bb_p, NULL, NULL, "<a href=\"%s/%s?key=%s&amp;value=%s\">", api_root_url_s, REST_METADATA_SEARCH_S, escaped_key_s, escaped_value_s);
+													apr_brigade_printf (bb_p, NULL, NULL, "<a href=\"%s/%s?key=%s&amp;value=%s\" title=\"Find all items that match %s = %s\">",
+														api_root_url_s, REST_METADATA_SEARCH_S, escaped_key_s, escaped_value_s, metadata_p -> im_key_s, metadata_p -> im_value_s);
 												}
 
 											apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"key\">%s</span>: <span class=\"value\">%s</span>", metadata_p -> im_key_s, metadata_p -> im_value_s);
@@ -1526,18 +1528,21 @@ apr_status_t PrintMetadata (const char *id_s, const apr_array_header_t *metadata
 
 	if (status == APR_SUCCESS)
 		{
-			if ((status = PrintAddMetadataObject (theme_p, bb_p, api_root_url_s)) == APR_SUCCESS)
+			if (editable_flag)
+				{
+					status = PrintAddMetadataObject (theme_p, bb_p, api_root_url_s);
+				}
+
+			if (status == APR_SUCCESS)
 				{
 					if (! (theme_p -> ht_show_download_metadata_links_flag))
 						{
 							status = PrintDownloadMetadataObject (theme_p, bb_p, api_root_url_s, id_s);
 						}
 
-					if (status)
+					if (status == APR_SUCCESS)
 						{
-							status = apr_brigade_puts (bb_p, NULL, NULL, "</div>\n");
-
-							if (status != APR_SUCCESS)
+							if ((status = apr_brigade_puts (bb_p, NULL, NULL, "</div>\n")) != APR_SUCCESS)
 								{
 									ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to print end of containing div");
 								}
@@ -1580,17 +1585,11 @@ static apr_status_t PrintAddMetadataObject (const struct HtmlTheme *theme_p, apr
 
 apr_status_t PrintDownloadMetadataObjectAsLinks (const struct HtmlTheme *theme_p, apr_bucket_brigade *bb_p, const char *api_root_url_s, const IRodsObject *irods_obj_p)
 {
-	apr_status_t status = apr_brigade_puts (bb_p, NULL, NULL, "<div class=\"metadata_toolbar\">\n");
+	apr_status_t status = PrintDownloadMetadataObjectLink (irods_obj_p, theme_p -> ht_download_metadata_as_csv_icon_s, "CSV", "csv", api_root_url_s, bb_p);
 
 	if (status == APR_SUCCESS)
 		{
-			if ((status = PrintDownloadMetadataObjectLink (irods_obj_p, theme_p -> ht_download_metadata_as_csv_icon_s, "CSV", "csv", api_root_url_s, bb_p)) == APR_SUCCESS)
-				{
-					if ((status = PrintDownloadMetadataObjectLink (irods_obj_p, theme_p -> ht_download_metadata_as_json_icon_s, "JSON", "json", api_root_url_s, bb_p)) == APR_SUCCESS)
-						{
-							status = apr_brigade_puts (bb_p, NULL, NULL, "</div>\n");
-						}
-				}
+			status = PrintDownloadMetadataObjectLink (irods_obj_p, theme_p -> ht_download_metadata_as_json_icon_s, "JSON", "json", api_root_url_s, bb_p);
 		}
 
 

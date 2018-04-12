@@ -23,15 +23,10 @@ $(document).ready (function () {
 
   var metadata_cells = $(listings_table).find ("td.metatable")
 
-  $(metadata_cells).each (function () {
-    SetUpGeneralMetadataButtons ($(this));
-  });
 
   if ($(listings_table).hasClass ("ajax")) {
     AddMetadataToggleButtons (metadata_cells, CallGetMetadata, true);
   } else {
-    CalculateWidth ();
-
     AddMetadataToggleButtons (metadata_cells, null, true);
   
     if ($(listings_table).hasClass ("editable")) {
@@ -47,15 +42,19 @@ $(document).ready (function () {
 
   }
 
+  $(metadata_cells).each (function () {
+    SetUpGeneralMetadataButtons ($(this));
+  });
+
 	SetUpMetadataKeysAutoCompleteList ();
 	SetUpMetadataValuesAutoCompleteList ();
 
- // SetUpMouseOvers ();
+	$('[data-toggle="tooltip"]').tooltip ();
 });
 
 
 function AddMetadataToggleButtons (cells, callback_fn, closed_flag) {
- $(cells).each (function () {
+	$(cells).each (function () {
    // $(this).html ("");
     AddMetadataToggleButton ($ (this), callback_fn, closed_flag);
   });
@@ -63,7 +62,43 @@ function AddMetadataToggleButtons (cells, callback_fn, closed_flag) {
 
 
 
+
 function AddMetadataToggleButton (table_cell, callback_fn, closed_flag) {
+  var table_row = $(table_cell).parent ();
+  var i = $(table_row).attr ("id");
+  var container = $(table_cell).find ("div.metadata_toolbar ");
+  var img_src = G_ROOT_URL_S + "images/show";
+  var obj_name = null;
+
+  $(table_row).find ("td.name:first a").each (function () {
+    obj_name = $(this).html ();
+  });
+
+	/* 
+	** If no button exists, then add it 
+	*/
+	if ($(table_cell).find ("img.metadata_view_button").length === 0) {
+		if (obj_name) { 
+
+			button_src = "<img class='btn metadata_view_button' src='" + img_src + "' data-id='" + i + "' data-title='" + obj_name + "' title='Show the metadata for " + obj_name + "' alt='Show the metadata for " + obj_name + "' />";
+		} else {
+			button_src += "  data-toggle='tooltip' data-html='true' title='Show the metadata' alt='Show the metadata' />";
+		}
+
+		if (container.length != 0) {
+		  container.prepend (button_src);
+		} else {
+		  $(table_cell).prepend (button_src);
+		}
+	}
+
+	table_cell.find ("img.metadata_view_button").on ('click', function () {
+		ShowMetadata (table_cell, i, obj_name);
+	});
+}
+
+
+function AddMetadataToggleButtonOld (table_cell, callback_fn, closed_flag) {
   var table_row = $(table_cell).parent ();
   var i = $(table_row).attr ("id");
   var container = $(table_cell).find ("ul.metadata:first");
@@ -113,13 +148,39 @@ function AddMetadataToggleButton (table_cell, callback_fn, closed_flag) {
 }
 
 
-function GetMetadataList (table_cell, irods_id, show_flag) {
+
+function NewGetMetadataList (irods_id, editable_flag, callback_fn) {
+	var metadata = null; 
 	var rest_url = G_METADATA_API_URL_S + "get?id=" + irods_id;
+	 
+	if (!editable_flag) {
+		rest_url += "&edit=false";
+	}
 
 	$.ajax (rest_url, {
 		dataType: "html",
 		success: function (data, status) {
 		  if (status === "success") {
+				if (callback_fn) {
+					callback_fn (metadata);
+				}
+    	} else {
+        alert ("Failed to get metadata");
+      }
+		}
+	});
+}
+
+
+function GetMetadataListOld (table_cell, irods_id, show_flag) {
+	var rest_url = G_METADATA_API_URL_S + "get?id=" + irods_id;
+	 
+	$.ajax (rest_url, {
+		dataType: "html",
+		success: function (data, status) {
+		  if (status === "success") {
+
+				//alert (data);
 
 				/* if there is an old list, then remove it */
         var metadata_containers = $(table_cell).find ("div.metadata_container:first");
@@ -182,7 +243,8 @@ function CallGetMetadata (table_cell, show_flag) {
     }
 
   }
-
+	
+	return metadata_list;
 }
 
 
@@ -409,6 +471,15 @@ function SetUpDownloadMetadataButtons (table_cell) {
 
 	});
 
+	/* Enable the bootstrap tooltip functionality */
+	$(table_cell).find ("div.metadata_toolbar img").each (function () {
+		if (! ($(this).attr ("data-placement"))) {
+			$(this).attr ("data-placement", "top");
+			$(this).attr ("data-toggle", "tooltip");
+			$(this).attr ("data-html", "true");
+		}
+	});
+
 }
 
 
@@ -469,51 +540,6 @@ function GetEscapedId (id_string) {
   return "#" + id_string.replace (/(:|\.|\[|\]|,|=|@)/g, "\\$1"); 
 }
 
-function CalculateWidth () {
-  var width = 0;
-  
-  $("#listings_table tr").each (function() {
-    var t = $(this);
-    var i = $(this).attr("id");
-    var metadata_container = $(this).find(".metadata_container");
-    
-    var properties_cell = $(t).find ("td.metatable");
-    
-    var cloned_metalist = $(metadata_container).clone().css({
-        'visibility': 'visible',
-        'position': 'absolute',
-        'z-index': '-99999',
-        'left': '99999999px',
-        'top': '0px'
-    }).appendTo('body');
-
-    $(cloned_metalist).width ("10000px");
-      
-    $(cloned_metalist).find ("ul.metadata").show ();
-    $(cloned_metalist).find ('li').each (function() {
-      $(this).show ();
-      
-      var w = GetTextWidth ($(this)); // $(this).width (); //
-      if (width < w) {
-        width = w;
-      }
-    });
-
-    $(cloned_metalist).remove();
-  });
-
-  width += 50;
-  $("th.properties").width (width);
-}
-
-function GetTextWidth (value) {
-	var html_org = $(value).html();
-  var html_calc = '<span>' + html_org + '</span>';
-  $(value).html(html_calc);
-  var width =  $(value).find('span:first').width();
-  $(value).html(html_org);
-  return width;
- }
 
 
 function SetUpMetadataKeysAutoCompleteList () {
@@ -592,4 +618,55 @@ function PopulateAutoCompleteList (list_id, input_box_id, values_array) {
 
 } 
 
+
+
+
+function ShowMetadata (table_cell, irods_id, name_s) {
+	var container = $(table_cell).find ("div.metadata_container");
+
+	/* Does the metadata list already exist? */
+	if ($(container).length > 0) {
+		var metadata_list = $(container).clone ();
+		PopulateMetadataViewer ($(metadata_list).html (), name_s);
+	} else {
+
+		/* Download the data */
+		var rest_url = G_METADATA_API_URL_S + "get?edit=false&id=" + irods_id;
+
+		$.ajax (rest_url, {
+			dataType: "html"
+		}).done (function (data, status) {
+			if (status == "success") {
+				if (data) {
+					$(table_cell).append (data);	
+					PopulateMetadataViewer (data, name_s);
+				}
+			}
+		}).fail (function (data) {
+			alert ("Failed to get properties for " + name_s); 
+		});
+	
+	}
+
+}
+
+
+
+function PopulateMetadataViewer (metadata_list, object_name) {
+  $("#metadata_viewer_title").text ("Properties for " + object_name);
+	$("#metadata_viewer_content").html (metadata_list);
+
+	/* Enable the bootstrap tooltip functionality */
+	$("#metadata_viewer_content").find ("a").each (function () {
+		if (! ($(this).attr ("data-placement"))) {
+			$(this).attr ("data-placement", "top");
+			$(this).attr ("data-toggle", "tooltip");
+			$(this).attr ("data-html", "true");
+			$(this).tooltip ();
+		}
+
+	});
+
+	$("#metadata_viewer").modal ("show");
+}
 

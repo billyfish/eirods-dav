@@ -156,7 +156,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 	// Make brigade.
 	bucket_brigade_p = apr_brigade_create (pool_p, output_p -> c -> bucket_alloc);
-	apr_status = PrintAllHTMLBeforeListing (davrods_resource_p, NULL, user_s, conf_p, req_p, bucket_brigade_p, pool_p);
+	apr_status = PrintAllHTMLBeforeListing (davrods_resource_p, NULL, NULL, user_s, conf_p, req_p, bucket_brigade_p, pool_p);
 
 
 	if (apr_status == APR_SUCCESS)
@@ -507,7 +507,7 @@ char *GetDavrodsAPIPath (struct dav_resource_private *davrods_resource_p, davrod
 }
 
 
-apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_resource_p, const char * const page_title_s, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
+apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_resource_p, const char * const page_title_s, const char * const marked_up_page_title_s, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
 {
 	// Send start of HTML document.
 	const char *escaped_page_title_s = "";
@@ -568,11 +568,15 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 		{
 			if (connection_p)
 				{
-					char *current_id_s = GetCollectionId (davrods_resource_p -> rods_path, connection_p, pool_p);
-
-					if (current_id_s)
+					/* If we are listing some search results, then davrods_resource_p will be NULL */
+					if (davrods_resource_p)
 						{
-							apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, " id=\"2.%s\"", current_id_s);
+							char *current_id_s = GetCollectionId (davrods_resource_p -> rods_path, connection_p, pool_p);
+
+							if (current_id_s)
+								{
+									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, " id=\"2.%s\"", current_id_s);
+								}
 						}
 				}
 
@@ -662,8 +666,29 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 
 	if (davrods_resource_p)
 		{
-			PrintBreadcrumbs (davrods_resource_p, user_s, conf_p, req_p, bucket_brigade_p, pool_p);
+			apr_status = PrintBreadcrumbs (davrods_resource_p, user_s, conf_p, req_p, bucket_brigade_p, pool_p);
 		}
+	else
+		{
+			char *home_uri_s;
+
+			apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<nav>You are browsing %s, click <a href=\"\" onclick=\"parent.history.back (); return false;\">here</a> to go to the previous page", marked_up_page_title_s);
+
+			home_uri_s = strstr (req_p -> uri, conf_p -> davrods_api_path_s);
+			if (home_uri_s)
+				{
+					size_t l = home_uri_s - (req_p -> uri);
+					home_uri_s = apr_pstrndup (pool_p, req_p -> uri, l);
+
+					if (home_uri_s)
+						{
+							apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, " or <a href=\"%s\">here</a> to go the homepage", home_uri_s);
+						}
+				}
+
+			PrintBasicStringToBucketBrigade (".</nav>", bucket_brigade_p, req_p, __FILE__, __LINE__);
+		}
+
 
 	/*
 	 * Add the listing class
@@ -961,7 +986,7 @@ apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_
 				{
 					const char *zone_s = NULL;
 
-					status = GetAndPrintMetadataForIRodsObject (irods_obj_p, config_p -> ic_metadata_root_link_s, zone_s, theme_p, bb_p, connection_p, pool_p);
+					status = GetAndPrintMetadataForIRodsObject (irods_obj_p, config_p -> ic_metadata_root_link_s, zone_s, theme_p, bb_p, connection_p, req_p, pool_p);
 
 					if (status == APR_SUCCESS)
 						{
@@ -999,6 +1024,29 @@ apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_
 		}
 
 	return status;
+}
+
+
+int GetEditableFlag (const struct HtmlTheme  * const theme_p, apr_table_t *params_p, apr_pool_t *pool_p)
+{
+	int editable_flag = theme_p -> ht_metadata_editable_flag;
+	const char *edit_param_s = GetParameterValue (params_p, "edit", pool_p);
+
+	/*
+	 * Allow editing to be turned off by the request but not turned on
+	 * as we don't people being able to overwrite values when the
+	 * config value for editing metadata is set to false.
+	 */
+
+	if (editable_flag && edit_param_s)
+		{
+			if (strcmp (edit_param_s, "false") == 0)
+				{
+					editable_flag = false;
+				}
+		}
+
+	return editable_flag;
 }
 
 

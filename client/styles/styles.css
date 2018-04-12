@@ -77,9 +77,13 @@ img.button {
 }
 
 ul.metadata  {
-	display: none;
 	margin-top:  0px;
 	list-style-type: none;
+}
+
+
+#listings_table ul.metadata  {
+	display: none;
 }
 
 ul.metadata li:first-child {

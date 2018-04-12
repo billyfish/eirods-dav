@@ -37,6 +37,7 @@
 #include <ap_provider.h>
 
 #include "apr_buckets.h"
+#include "apr_escape.h"
 
 #include <irods/rodsClient.h>
 
@@ -390,3 +391,18 @@ apr_table_t *MergeAPRTables (apr_table_t *table1_p, apr_table_t *table2_p, apr_p
 	return merged_table_p;
 }
 
+
+const char *GetParameterValue (apr_table_t *params_p, const char * const param_s, apr_pool_t *pool_p)
+{
+	const char *value_s = NULL;
+	const char * const raw_value_s = apr_table_get (params_p, param_s);
+	const char *forbid_s = NULL;
+	const char *reserved_s = NULL;
+
+	if (raw_value_s)
+		{
+			value_s = apr_punescape_url (pool_p, raw_value_s, forbid_s, reserved_s, 1);
+		}
+
+	return value_s;
+}
