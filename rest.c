@@ -1,5 +1,5 @@
 /*
-** Copyright 2014-2016 The Earlham Institute
+** Copyright 2018 The Earlham Institute
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -33,7 +33,6 @@
 #include "http_protocol.h"
 
 
-#include "config.h"
 #include "meta.h"
 #include "auth.h"
 #include "common.h"
@@ -80,9 +79,6 @@ static int GetMatchingMetadataValues (const APICall *call_p, request_rec *req_p,
 
 
 static const char *GetIdParameter (apr_table_t *params_p, request_rec *req_p, rcComm_t *rods_connection_p, apr_pool_t *pool_p);
-
-
-static rcComm_t *GetIRODSConnectionForAPI (request_rec *req_p, davrods_dir_conf_t *config_p);
 
 
 static apr_status_t EasyModifyMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s, const char *command_s);
@@ -954,7 +950,7 @@ static const char *GetIdParameter (apr_table_t *params_p, request_rec *req_p, rc
 
 
 
-static rcComm_t *GetIRODSConnectionForAPI (request_rec *req_p, davrods_dir_conf_t *config_p)
+rcComm_t *GetIRODSConnectionForAPI (request_rec *req_p, davrods_dir_conf_t *config_p)
 {
 	rcComm_t *rods_connection_p = NULL;
 	apr_pool_t *davrods_pool_p = GetDavrodsMemoryPool (req_p);

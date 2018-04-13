@@ -69,6 +69,8 @@ function AddMetadataToggleButton (table_cell, callback_fn, closed_flag) {
   var container = $(table_cell).find ("div.metadata_toolbar ");
   var img_src = G_ROOT_URL_S + "images/show";
   var obj_name = null;
+	var button_src;
+
 
   $(table_row).find ("td.name:first a").each (function () {
     obj_name = $(this).html ();

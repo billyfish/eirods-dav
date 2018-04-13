@@ -58,6 +58,9 @@ apr_status_t PrintBasicStringToBucketBrigade (const char *value_s, apr_bucket_br
 
 apr_status_t PrintFileToBucketBrigade (const char *filename_s, apr_bucket_brigade *brigade_p, request_rec *req_p, const char *file_s, const int line);
 
+apr_status_t PrintWebResponseToBucketBrigade (const char *uri_s, const char * const current_id_s, apr_bucket_brigade *brigade_p, rcComm_t *connection_p, request_rec *req_p, const char *file_s, const int line);
+
+
 rcComm_t *GetIRODSConnectionFromPool (apr_pool_t *pool_p);
 
 rcComm_t *GetIRODSConnectionForPublicUser (request_rec *req_p, apr_pool_t *davrods_pool_p, davrods_dir_conf_t *conf_p);

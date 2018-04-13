@@ -27,12 +27,24 @@
 #include "common.h"
 #include "rest.h"
 
+#include <curl/curl.h>
+
 
 APLOG_USE_MODULE(davrods);
+
+
+
+static void EIRodsDavChildInit (apr_pool_t *pool_p, server_rec *server_p);
+
+static apr_status_t EIRodsDavChildFinalize (void *data_p);
+
+
 
 static void register_davrods_hooks(apr_pool_t *p) {
     davrods_auth_register(p);
     davrods_dav_register(p);
+
+    ap_hook_child_init (EIRodsDavChildInit, NULL, NULL, APR_HOOK_MIDDLE);
 
     ap_hook_handler (DavrodsRestHandler, NULL, NULL, APR_HOOK_FIRST);
 }
@@ -46,3 +58,29 @@ module AP_MODULE_DECLARE_DATA davrods_module = {
     davrods_directives,        // Command table.
 		register_davrods_hooks,            // Hook setup.
 };
+
+
+
+static void EIRodsDavChildInit (apr_pool_t *pool_p, server_rec *server_p)
+{
+	CURLcode res = curl_global_init (CURL_GLOBAL_DEFAULT);
+
+	if (res == CURLE_OK)
+		{
+			apr_pool_cleanup_register (pool_p, NULL, EIRodsDavChildFinalize, apr_pool_cleanup_null);
+		}
+	else
+		{
+			ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to initialise CURL library");
+		}
+}
+
+
+static apr_status_t EIRodsDavChildFinalize (void *data_p)
+{
+	curl_global_cleanup ();
+
+	return APR_SUCCESS;
+}
+
+

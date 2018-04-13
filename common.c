@@ -25,6 +25,9 @@
 #include "propdb.h"
 #include "repo.h"
 #include "auth.h"
+#include "curl_util.h"
+#include "meta.h"
+
 
 #ifdef DAVRODS_ENABLE_PROVIDER_LOCALLOCK
 #include "lock_local.h"
@@ -41,7 +44,14 @@
 
 #include <irods/rodsClient.h>
 
+
+
+
 APLOG_USE_MODULE(davrods);
+
+
+static char *ParseURIForVariables (const char *uri_s, const char * const current_id_s, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p);
+
 
 // Common utility functions {{{
 
@@ -107,6 +117,10 @@ void davrods_dav_register(apr_pool_t *p) {
     #error No DAV provider enabled. Please define one of the DAVRODS_ENABLE_PROVIDER_.* switches.
 #endif
 }
+
+
+
+
 
 
 void CloseBucketsStream (apr_bucket_brigade *bucket_brigade_p)
@@ -180,6 +194,157 @@ apr_status_t PrintFileToBucketBrigade (const char *filename_s, apr_bucket_brigad
 		}
 
 	return status;
+}
+
+
+
+apr_status_t PrintWebResponseToBucketBrigade (const char *uri_s, const char * const current_id_s, apr_bucket_brigade *brigade_p, rcComm_t *connection_p, request_rec *req_p, const char *file_s, const int line)
+{
+	apr_status_t status = APR_SUCCESS;
+	char *parsed_uri_s = ParseURIForVariables (uri_s, current_id_s, connection_p, req_p, req_p -> pool);
+
+	if (parsed_uri_s)
+		{
+			char *result_s = SimpleCallGetRequest (req_p, req_p -> pool, parsed_uri_s);
+
+			if (result_s)
+				{
+					PrintBasicStringToBucketBrigade (result_s, brigade_p, req_p, __FILE__, __LINE__);
+				}
+		}
+
+	return status;
+}
+
+
+
+static char *ParseURIForVariables (const char *uri_s, const char * const current_id_s, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p)
+{
+	apr_status_t status;
+	char *result_s = NULL;
+	char *current_var_start_p;
+	const char *prev_p = uri_s;
+	const char * const var_start_s = "@{";
+	const char * const var_end_s = "}";
+	const size_t start_length = strlen (var_start_s);
+	const size_t end_length = strlen (var_end_s);
+	const char *metadata_prefix_s = "metadata:";
+	const size_t metadata_prefix_length = strlen (metadata_prefix_s);
+	apr_bucket_brigade *buffer_p = apr_brigade_create (pool_p, req_p -> connection -> bucket_alloc);
+
+
+	if (buffer_p)
+		{
+			bool success_flag = true;
+			apr_array_header_t *metadata_array_p = NULL;
+
+			while (success_flag && ((current_var_start_p = strstr (prev_p, var_start_s)) != NULL))
+				{
+					char *current_var_end_p = strstr (current_var_start_p, var_end_s);
+
+					if (current_var_end_p)
+						{
+							char *current_var_s = NULL;
+
+							current_var_start_p += start_length;
+
+							current_var_s = apr_pstrndup (pool_p, current_var_start_p, current_var_end_p - current_var_start_p);
+
+							if (current_var_s)
+								{
+									status = apr_brigade_write (buffer_p, NULL, NULL, prev_p, current_var_start_p - start_length - prev_p);
+
+									if (status == APR_SUCCESS)
+										{
+											if (strcmp (current_var_s, "id") == 0)
+												{
+													if ((status = apr_brigade_puts (buffer_p, NULL, NULL, current_id_s)) != APR_SUCCESS)
+														{
+
+														}		/* if ((status = apr_brigade_puts (buffer_p, NULL, NULL, current_id_s)) != APR_SUCCESS) */
+
+												}		/*( if (strcmp (current_var_s, "id") == 0) */
+											else if (strncmp (current_var_s, metadata_prefix_s, metadata_prefix_length) == 0)
+												{
+													char *metadata_key_s = current_var_s + metadata_prefix_length;
+
+													if (metadata_key_s)
+														{
+															/* We have a metadata key to search for */
+															if (!metadata_array_p)
+																{
+																	metadata_array_p = GetMetadataForId (current_id_s, connection_p, req_p, pool_p);
+																}
+
+															if (metadata_array_p)
+																{
+																	const int last_index = metadata_array_p -> nelts;
+
+																	if (last_index >= 0)
+																		{
+																			int i;
+
+																			for (i = 0; i < last_index; ++ i)
+																				{
+																					const IrodsMetadata *metadata_p = APR_ARRAY_IDX (metadata_array_p, i, IrodsMetadata *);
+
+																					if (strcmp (metadata_key_s, metadata_p -> im_key_s) == 0)
+																						{
+																							status = apr_brigade_puts (buffer_p, NULL, NULL, metadata_p -> im_value_s);
+																						}
+
+																				}		/* for (i = 0; i < last_index; ++ i */
+
+																		}		/* if (size > 0) */
+
+																}		/* if (metadata_array_p) */
+
+														}		/* if (metadata_key_s) */
+
+												}		/* else if (strncmp (current_var_s, metadata_prefix_s, metadata_prefix_length) == 0) */
+											else
+												{
+
+												}
+
+
+											success_flag = (status == APR_SUCCESS);
+										}		/* if (status == APR_SUCCESS) */
+
+
+								}		/* if (current_var_s) */
+
+							prev_p = current_var_end_p + end_length;
+						}		/* if (current_var_end_p) */
+
+				}		/* while (success_flag && ((current_var_start_p = strstr (prev_p, var_start_s)) != NULL)) */
+
+
+			if (success_flag)
+				{
+					size_t length;
+
+					status = apr_brigade_puts (buffer_p, NULL, NULL, prev_p);
+
+					CloseBucketsStream (buffer_p);
+
+					apr_brigade_pflatten (buffer_p, &result_s, &length, pool_p);
+
+					/*
+					 * Sometimes there is garbage at the end of this, and I don't know which apr_brigade_...
+					 * method I need to get the terminating '\0' so have to do it explicitly.
+					 */
+					if (* (result_s + length) != '\0')
+						{
+							* (result_s + length) = '\0';
+						}
+
+				}
+
+		}		/* if (buffer_p) */
+
+
+	return result_s;
 }
 
 

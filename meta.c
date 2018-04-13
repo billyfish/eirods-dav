@@ -585,7 +585,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 	char *relative_uri_s = apr_pstrcat (pool_p, "the search results for ", key_s, " = ", value_s, NULL);
 	char *marked_up_relative_uri_s = apr_pstrcat (pool_p, "the search results for <strong>", key_s, "</strong> = <strong>", value_s, "</strong>", NULL);
 
-	apr_status_t apr_status = PrintAllHTMLBeforeListing (NULL, relative_uri_s, marked_up_relative_uri_s, username_s, conf_p, req_p, bucket_brigade_p, pool_p);
+	apr_status_t apr_status = PrintAllHTMLBeforeListing (NULL, relative_uri_s, marked_up_relative_uri_s, NULL, username_s, conf_p, req_p, bucket_brigade_p, pool_p);
 
 	/*
 	 * SELECT meta_id FROM r_meta_main WHERE meta_attr_name = ' ' AND meta_attr_value = ' ';
@@ -853,7 +853,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 		}		/* if (meta_id_results_p) */
 
 
-	apr_status = PrintAllHTMLAfterListing (conf_p -> theme_p, req_p, bucket_brigade_p, pool_p);
+	apr_status = PrintAllHTMLAfterListing (conf_p -> theme_p, NULL, connection_p, req_p, bucket_brigade_p, pool_p);
 
 
 	CloseBucketsStream (bucket_brigade_p);
@@ -878,6 +878,48 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 apr_status_t GetMetadataTableForId (char *id_s, davrods_dir_conf_t *config_p, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p, apr_bucket_brigade *bucket_brigade_p, OutputFormat format, const int editable_flag)
 {
 	apr_status_t status = APR_EGENERAL;
+	apr_array_header_t *metadata_array_p = GetMetadataForId (id_s, connection_p, req_p, pool_p);
+
+	if (metadata_array_p)
+		{
+			switch (format)
+				{
+					case OF_JSON:
+						status = GetMetadataArryaAsJSON (metadata_array_p, bucket_brigade_p);
+						break;
+
+					case OF_TSV:
+						status = GetMetadataArryaAsColumnData (metadata_array_p, bucket_brigade_p, "\t");
+						break;
+
+					case OF_CSV:
+						status = GetMetadataArryaAsColumnData (metadata_array_p, bucket_brigade_p, ", ");
+						break;
+
+					case OF_HTML:
+					default:
+						{
+							char *metadata_link_s = GetDavrodsAPIPath (NULL, config_p, req_p);
+
+							status = PrintMetadata (id_s, metadata_array_p, config_p -> theme_p, editable_flag, bucket_brigade_p, metadata_link_s, pool_p);
+						}
+						break;
+				}
+		}
+	else
+		{
+			ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_ENOMEM, pool_p, "Failed to get metadata array for id \"%s\"", id_s);
+		}
+
+	return status;
+}
+
+
+
+apr_array_header_t *GetMetadataForId (const char *id_s, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p)
+{
+	apr_array_header_t *metadata_array_p = NULL;
+	apr_status_t status = APR_EGENERAL;
 	objType_t obj_type = UNKNOWN_OBJ_T;
 
 	char *child_id_s = GetId (id_s, &obj_type, pool_p);
@@ -889,35 +931,9 @@ apr_status_t GetMetadataTableForId (char *id_s, davrods_dir_conf_t *config_p, rc
 
 			if (minor_id_s)
 				{
-					apr_array_header_t *metadata_array_p = GetMetadata (connection_p, obj_type, minor_id_s, NULL, zone_s, pool_p);
+					metadata_array_p = GetMetadata (connection_p, obj_type, minor_id_s, NULL, zone_s, pool_p);
 
-					if (metadata_array_p)
-						{
-							switch (format)
-								{
-									case OF_JSON:
-										status = GetMetadataArryaAsJSON (metadata_array_p, bucket_brigade_p);
-										break;
-
-									case OF_TSV:
-										status = GetMetadataArryaAsColumnData (metadata_array_p, bucket_brigade_p, "\t");
-										break;
-
-									case OF_CSV:
-										status = GetMetadataArryaAsColumnData (metadata_array_p, bucket_brigade_p, ", ");
-										break;
-
-									case OF_HTML:
-									default:
-										{
-											char *metadata_link_s = GetDavrodsAPIPath (NULL, config_p, req_p);
-
-											status = PrintMetadata (id_s, metadata_array_p, config_p -> theme_p, editable_flag, bucket_brigade_p, metadata_link_s, pool_p);
-										}
-										break;
-								}
-						}
-					else
+					if (!metadata_array_p)
 						{
 							ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_ENOMEM, pool_p, "Failed to get metadata array for minor id \"%s\"", child_id_s);
 						}
@@ -934,8 +950,10 @@ apr_status_t GetMetadataTableForId (char *id_s, davrods_dir_conf_t *config_p, rc
 			ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_BADARG, pool_p, "Failed to create id value for \"%s\"", req_p -> unparsed_uri);
 		}
 
-	return status;
+	return metadata_array_p;
 }
+
+
 
 
 static apr_status_t GetMetadataArryaAsJSON (apr_array_header_t *metadata_array_p, apr_bucket_brigade *bucket_brigade_p)
@@ -1767,7 +1785,7 @@ char *GetCollectionId (const char *collection_s, rcComm_t *connection_p, apr_poo
 		{
 			if (results_p -> rowCnt == 1)
 				{
-					id_s = apr_pstrdup (pool_p, results_p -> sqlResult [0].value);
+					id_s = apr_pstrcat (pool_p, results_p -> sqlResult [0].value, NULL);
 				}
 
 			freeGenQueryOut (&results_p);

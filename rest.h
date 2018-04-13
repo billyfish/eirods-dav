@@ -23,6 +23,9 @@
 #ifndef REST_H_
 #define REST_H_
 
+#include "config.h"
+
+#include "irods/rcConnect.h"
 
 #include "httpd.h"
 
@@ -59,5 +62,10 @@ typedef enum OutputFormat
 int DavrodsRestHandler (request_rec *req_p);
 
 const char *GetMinorId (const char *id_s);
+
+
+rcComm_t *GetIRODSConnectionForAPI (request_rec *req_p, davrods_dir_conf_t *config_p);
+
+
 
 #endif /* REST_H_ */

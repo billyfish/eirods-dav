@@ -32,6 +32,8 @@
 #include "listing.h"
 
 static const char *S_FILE_PREFIX_S = "file:";
+static const char *S_HTTPS_PREFIX_S = "https:";
+static const char *S_HTTP_PREFIX_S = "http:";
 
 static const char *S_DEFAULT_NAME_HEADING_S = "Name";
 static const char *S_DEFAULT_DATE_HEADING_S = "Last Modified";
@@ -55,7 +57,7 @@ static int PrintTableEntryToOption (void *data_p, const char *key_s, const char 
 
 static apr_status_t PrintMetadataEditor (struct HtmlTheme *theme_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p);
 
-static apr_status_t PrintSection (const char *value_s, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p);
+static apr_status_t PrintSection (const char *value_s, const char * const current_id_s, rcComm_t *connection_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p);
 
 static apr_status_t PrintBreadcrumbs (struct dav_resource_private *davrods_resource_p, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p);
 
@@ -88,6 +90,7 @@ struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 		  theme_p -> ht_download_metadata_icon_s = NULL;
 		  theme_p -> ht_download_metadata_as_csv_icon_s = NULL;
 		  theme_p -> ht_download_metadata_as_json_icon_s = NULL;
+		  theme_p -> ht_view_metadata_icon_s = NULL;
 
 		  theme_p -> ht_show_download_metadata_links_flag = 0;
 
@@ -136,10 +139,21 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 	const char * const user_s = davrods_resource_p -> rods_conn -> clientUser.userName;
 
+	char *current_id_s = GetCollectionId (davrods_resource_p -> rods_path, davrods_resource_p -> rods_conn, pool_p);
+
+
 	// Make brigade.
-	apr_bucket_brigade *bucket_brigade_p = apr_brigade_create (pool_p, output_p -> c -> bucket_alloc);
+	apr_bucket_brigade *bucket_brigade_p = NULL;
 	apr_status_t apr_status = APR_EGENERAL;
 
+	/*
+		The current id is only the minor the id so we need to add
+		the prefix. Since this is a collection we know it's "2."
+	*/
+	if (current_id_s)
+		{
+			current_id_s = apr_pstrcat (pool_p, "2.", current_id_s, NULL);
+		}
 
 	strcpy (coll_inp.collName, davrods_resource_p -> rods_path);
 
@@ -156,7 +170,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 	// Make brigade.
 	bucket_brigade_p = apr_brigade_create (pool_p, output_p -> c -> bucket_alloc);
-	apr_status = PrintAllHTMLBeforeListing (davrods_resource_p, NULL, NULL, user_s, conf_p, req_p, bucket_brigade_p, pool_p);
+	apr_status = PrintAllHTMLBeforeListing (davrods_resource_p, NULL, NULL, current_id_s, user_s, conf_p, req_p, bucket_brigade_p, pool_p);
 
 
 	if (apr_status == APR_SUCCESS)
@@ -270,7 +284,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "PrintAllHTMLBeforeListing failed");
 		}
 
-	apr_status = PrintAllHTMLAfterListing (conf_p -> theme_p, req_p, bucket_brigade_p, pool_p);
+	apr_status = PrintAllHTMLAfterListing (conf_p -> theme_p, current_id_s, davrods_resource_p -> rods_conn, req_p, bucket_brigade_p, pool_p);
 	if (apr_status != APR_SUCCESS)
 		{
 			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "PrintAllHTMLAfterListing failed");
@@ -291,7 +305,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 }
 
 
-apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
+apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, const char *current_id_s, rcComm_t *connection_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
 {
 	const char * const table_end_s = "</tbody>\n</table>\n</main>\n";
 
@@ -311,7 +325,7 @@ apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, request_rec *r
 
 			if (theme_p -> ht_bottom_s)
 				{
-					apr_status = PrintSection (theme_p -> ht_bottom_s, req_p, bucket_brigade_p);
+					apr_status = PrintSection (theme_p -> ht_bottom_s, current_id_s, connection_p, req_p, bucket_brigade_p);
 
 					if (apr_status != APR_SUCCESS)
 						{
@@ -410,7 +424,7 @@ char *GetLocationPath (request_rec *req_p, davrods_dir_conf_t *conf_p, apr_pool_
 }
 
 
-static apr_status_t PrintSection (const char *value_s, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p)
+static apr_status_t PrintSection (const char *value_s, const char * const current_id_s, rcComm_t *connection_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p)
 {
 	apr_status_t status = APR_SUCCESS;
 
@@ -421,6 +435,10 @@ static apr_status_t PrintSection (const char *value_s, request_rec *req_p, apr_b
 			if (strncmp (S_FILE_PREFIX_S, value_s, l) == 0)
 				{
 					status = PrintFileToBucketBrigade (value_s + l, bucket_brigade_p, req_p, __FILE__, __LINE__);
+				}
+			else if ((strncmp (S_HTTP_PREFIX_S, value_s, l) == 0) || (strncmp (S_HTTPS_PREFIX_S, value_s, l) == 0))
+				{
+					status = PrintWebResponseToBucketBrigade (value_s, current_id_s, bucket_brigade_p, connection_p, req_p, __FILE__, __LINE__);
 				}
 			else
 				{
@@ -507,7 +525,7 @@ char *GetDavrodsAPIPath (struct dav_resource_private *davrods_resource_p, davrod
 }
 
 
-apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_resource_p, const char * const page_title_s, const char * const marked_up_page_title_s, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
+apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_resource_p, const char * const page_title_s, const char * const marked_up_page_title_s, const char *current_id_s, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
 {
 	// Send start of HTML document.
 	const char *escaped_page_title_s = "";
@@ -517,6 +535,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 	const char *davrods_path_s = NULL;
 	rcComm_t *connection_p = NULL;
 	apr_status_t apr_status;
+
 
 	if (davrods_pool_p)
 		{
@@ -549,7 +568,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 	 */
 	if (theme_p -> ht_head_s)
 		{
-			apr_status = PrintSection (theme_p -> ht_head_s, req_p, bucket_brigade_p);
+			apr_status = PrintSection (theme_p -> ht_head_s, current_id_s, connection_p, req_p, bucket_brigade_p);
 
 			if (apr_status != APR_SUCCESS)
 				{
@@ -566,20 +585,11 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 
 	if ((apr_status = PrintBasicStringToBucketBrigade ("<body", bucket_brigade_p, req_p, __FILE__, __LINE__)) == APR_SUCCESS)
 		{
-			if (connection_p)
+
+			if (current_id_s)
 				{
-					/* If we are listing some search results, then davrods_resource_p will be NULL */
-					if (davrods_resource_p)
-						{
-							char *current_id_s = GetCollectionId (davrods_resource_p -> rods_path, connection_p, pool_p);
-
-							if (current_id_s)
-								{
-									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, " id=\"2.%s\"", current_id_s);
-								}
-						}
+					apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, " id=\"%s\"", current_id_s);
 				}
-
 
 
 			if (apr_status == APR_SUCCESS)
@@ -603,7 +613,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 	 */
 	if (theme_p -> ht_top_s)
 		{
-			apr_status = PrintSection (theme_p -> ht_top_s, req_p, bucket_brigade_p);
+			apr_status = PrintSection (theme_p -> ht_top_s, current_id_s, connection_p, req_p, bucket_brigade_p);
 
 			if (apr_status != APR_SUCCESS)
 				{
@@ -613,7 +623,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 		}		/* if (theme_p -> ht_top_s) */
 
 
-	apr_status = PrintBasicStringToBucketBrigade ("<main><div id=\"info\">", bucket_brigade_p, req_p, __FILE__, __LINE__);
+	apr_status = PrintBasicStringToBucketBrigade ("<main><div id=\"tools\">", bucket_brigade_p, req_p, __FILE__, __LINE__);
 
 	apr_status = PrintUserSection (user_s, escaped_zone_s, req_p, conf_p, bucket_brigade_p);
 
