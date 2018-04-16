@@ -95,7 +95,7 @@ char *GetParentCollectionId (const char *child_id_s, const objType_t object_type
 
 apr_status_t GetMetadataTableForId (char *id_s, davrods_dir_conf_t *config_p, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p, apr_bucket_brigade *bucket_brigade_p, OutputFormat format, const int editable_flag);
 
-apr_array_header_t *GetMetadataForId (const char *id_s, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p);
+apr_array_header_t *GetMetadataForId (char *id_s, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p);
 
 apr_status_t PrintDownloadMetadataObjectAsLinks (const struct HtmlTheme *theme_p, apr_bucket_brigade *bb_p, const char *api_root_url_s, const IRodsObject *irods_obj_p);
 

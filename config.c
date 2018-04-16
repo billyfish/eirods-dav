@@ -50,11 +50,6 @@ static const char * const S_DEFAULT_PUBLIC_PASSWORD_S = NULL;
 static const int S_DEFAULT_THEMED_LISTINGS = 0;
 
 
-
-static const char *cmd_davrods_default_username(cmd_parms *cmd_p, void *config_p, const char *arg_p);
-
-static const char *cmd_davrods_default_password (cmd_parms *cmd_p, void *config_p, const char *arg_p);
-
 static const char *MergeConfigStrings (const char *parent_s, const char *child_s, const char *default_s);
 
 static int MergeConfigInts (const int parent_value, const int child_value, const int default_value);
@@ -328,406 +323,6 @@ static const char *cmd_davrodslockdb(
 
 
 
-
-static const char *cmd_davrods_html_header (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-	conf_p -> theme_p -> ht_head_s = arg_p;
-
-	return NULL;
-}
-
-
-
-static const char *cmd_davrods_html_top (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-    conf_p -> theme_p -> ht_top_s = arg_p;
-
-    return NULL;
-}
-
-
-
-static const char *cmd_davrods_html_bottom (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-    conf_p -> theme_p -> ht_bottom_s = arg_p;
-
-    return NULL;
-}
-
-
-
-static const char *cmd_davrods_html_collection_icon (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-    conf_p -> theme_p -> ht_collection_icon_s = arg_p;
-
-    return NULL;
-}
-
-
-
-static const char *cmd_davrods_html_object_icon (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-    conf_p -> theme_p -> ht_object_icon_s = arg_p;
-
-    return NULL;
-}
-
-
-static const char *cmd_davrods_html_listing_class (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-    conf_p -> theme_p -> ht_listing_class_s = arg_p;
-
-    return NULL;
-}
-
-
-static const char *cmd_davrods_html_themed_listings (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-    if (!strcasecmp (arg_p, "true"))
-    	{
-    		conf_p -> themed_listings = 1;
-    	}
-
-    return NULL;
-}
-
-
-static const char *cmd_davrods_html_resource (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-    if (!strcasecmp (arg_p, "true"))
-    	{
-    		conf_p -> theme_p -> ht_show_resource_flag = 1;
-    	}
-
-    return NULL;
-}
-
-
-static const char *cmd_davrods_html_show_selected_resources_only (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-	const char *res_s = NULL;
-	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-	char **args_ss = NULL;
-	apr_status_t status = apr_tokenize_to_argv 	(arg_p, &args_ss, cmd_p -> pool);
-
-	if (status == APR_SUCCESS)
-		{
-			conf_p -> theme_p -> ht_resources_ss = args_ss;
-		}
-	else
-		{
-			res_s = apr_psprintf (cmd_p -> pool, "Failed to tokenize \"%s\" error %d", arg_p, status);
-		}
-
-	return res_s;
-}
-
-
-
-static const char *cmd_davrods_html_metadata (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-    if (!strcasecmp (arg_p, "none"))
-    	{
-    		conf_p -> theme_p -> ht_show_metadata_flag = MD_NONE;
-    	}
-    else if (!strcasecmp (arg_p, "full"))
-    	{
-    		conf_p -> theme_p -> ht_show_metadata_flag = MD_FULL;
-    	}
-    else if (!strcasecmp (arg_p, "on_demand"))
-    	{
-    		conf_p -> theme_p -> ht_show_metadata_flag = MD_ON_DEMAND;
-    	}
-
-    return NULL;
-}
-
-
-static const char *cmd_davrods_html_metadata_editable (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-    if (!strcasecmp (arg_p, "true"))
-    	{
-    		conf_p -> theme_p -> ht_metadata_editable_flag = 1;
-    	}
-
-    return NULL;
-}
-
-
-
-static const char *cmd_davrods_html_ids (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-    if (!strcasecmp (arg_p, "true"))
-    	{
-    		conf_p -> theme_p -> ht_show_ids_flag = 1;
-    	}
-
-    return NULL;
-}
-
-
-static const char *cmd_davrods_login_address (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-		conf_p -> theme_p -> ht_login_url_s = arg_p;
-
-    return NULL;
-}
-
-
-static const char *cmd_davrods_logout_address (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-		conf_p -> theme_p -> ht_logout_url_s = arg_p;
-
-    return NULL;
-}
-
-
-static const char *cmd_davrods_user_image (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-		conf_p -> theme_p -> ht_user_icon_s = arg_p;
-
-    return NULL;
-}
-
-static const char *cmd_davrods_add_metadata_image (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-		conf_p -> theme_p -> ht_add_metadata_icon_s = arg_p;
-
-    return NULL;
-}
-
-static const char *cmd_davrods_download_metadata_image (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-		conf_p -> theme_p -> ht_download_metadata_icon_s = arg_p;
-
-    return NULL;
-}
-
-
-static const char *cmd_davrods_download_metadata_image_json (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-		conf_p -> theme_p -> ht_download_metadata_as_json_icon_s = arg_p;
-
-    return NULL;
-}
-
-
-
-static const char *cmd_davrods_download_metadata_image_csv (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-		conf_p -> theme_p -> ht_download_metadata_as_csv_icon_s = arg_p;
-
-    return NULL;
-}
-
-
-
-
-static const char *cmd_davrods_delete_metadata_image (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-		conf_p -> theme_p -> ht_delete_metadata_icon_s = arg_p;
-
-    return NULL;
-}
-
-static const char *cmd_davrods_edit_metadata_image (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-		conf_p -> theme_p -> ht_edit_metadata_icon_s = arg_p;
-
-    return NULL;
-}
-
-
-static const char *cmd_davrods_ok_image (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-		conf_p -> theme_p -> ht_ok_icon_s = arg_p;
-
-    return NULL;
-}
-
-static const char *cmd_davrods_cancel_image (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-		conf_p -> theme_p -> ht_cancel_icon_s = arg_p;
-
-    return NULL;
-}
-
-static const char *cmd_davrods_api_path (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-		conf_p -> davrods_api_path_s = arg_p;
-
-    return NULL;
-}
-
-static const char *cmd_davrods_default_username(cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-		conf_p -> davrods_public_username_s = arg_p;
-
-    return NULL;
-}
-
-static const char *cmd_davrods_default_password (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-		conf_p -> davrods_public_password_s = arg_p;
-
-    return NULL;
-}
-
-static const char *cmd_davrods_html_add_icon (cmd_parms *cmd_p, void *config_p, const char *icon_s, const char *suffix_s)
-{
-  davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-  if (! (conf_p -> theme_p -> ht_icons_map_p))
-  	{
-  		const int INITIAL_TABLE_SIZE = 16;
-  		conf_p -> theme_p -> ht_icons_map_p = apr_table_make (cmd_p -> pool, INITIAL_TABLE_SIZE);
-  	}
-
-  apr_table_set (conf_p -> theme_p -> ht_icons_map_p, suffix_s, icon_s);
-
-  return NULL;
-}
-
-static const char *cmd_davrods_add_exposed_root (cmd_parms *cmd_p, void *config_p, const char *username_s, const char *exposed_root_s)
-{
-  davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-  apr_table_set (conf_p -> exposed_roots_per_user_p, username_s, exposed_root_s);
-
-  return NULL;
-}
-
-
-static const char *cmd_davrods_show_metadata_search_form (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-    if (strcasecmp (arg_p, "true") == 0)
-			{
-				conf_p -> theme_p -> ht_add_search_form_flag = 1;
-			}
-    else if (strcasecmp (arg_p, "false") == 0)
-			{
-    		conf_p -> theme_p -> ht_add_search_form_flag = 0;
-			}
-
-    return NULL;
-}
-
-
-static const char *cmd_davrods_show_metadata_download_links (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-    if (strcasecmp (arg_p, "true") == 0)
-			{
-				conf_p -> theme_p -> ht_show_download_metadata_links_flag = 1;
-			}
-    else if (strcasecmp (arg_p, "false") == 0)
-			{
-				conf_p -> theme_p -> ht_show_download_metadata_links_flag = 0;
-			}
-
-    return NULL;
-}
-
-
-static const char *cmd_davrods_name_heading (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-	conf_p -> theme_p -> ht_name_heading_s = arg_p;
-
-	return NULL;
-}
-
-static const char *cmd_davrods_size_heading (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-	conf_p -> theme_p -> ht_size_heading_s = arg_p;
-
-	return NULL;
-}
-
-static const char *cmd_davrods_owner_heading (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-	conf_p -> theme_p -> ht_owner_heading_s = arg_p;
-
-	return NULL;
-}
-
-static const char *cmd_davrods_date_heading (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-	conf_p -> theme_p -> ht_date_heading_s = arg_p;
-
-	return NULL;
-}
-
-static const char *cmd_davrods_properties_heading (cmd_parms *cmd_p, void *config_p, const char *arg_p)
-{
-	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
-
-	conf_p -> theme_p -> ht_properties_heading_s = arg_p;
-
-	return NULL;
-}
-
-
 static const char *MergeConfigStrings (const char *parent_s, const char *child_s, const char *default_s)
 {
 	const char *res_s = default_s;
@@ -765,6 +360,7 @@ static int MergeConfigInts (const int parent_value, const int child_value, const
 
 	return res;
 }
+
 
 
 // }}}
@@ -816,177 +412,195 @@ const command_rec davrods_directives[] = {
     ),
 
     AP_INIT_TAKE1(
-        DAVRODS_CONFIG_PREFIX "ThemedListings", cmd_davrods_html_themed_listings,
+        DAVRODS_CONFIG_PREFIX "ThemedListings", SetShowThemedListings,
         NULL, ACCESS_CONF, "Set to true for themed listings, default is false"
     ),
 
     AP_INIT_TAKE1(
-        DAVRODS_CONFIG_PREFIX "ShowResource", cmd_davrods_html_resource,
+        DAVRODS_CONFIG_PREFIX "ShowResource", SetShowResources,
         NULL, ACCESS_CONF, "Show the resource, default is false"
     ),
 
 
 		AP_INIT_RAW_ARGS(
-	        DAVRODS_CONFIG_PREFIX "SelectedResources", cmd_davrods_html_show_selected_resources_only,
+	        DAVRODS_CONFIG_PREFIX "SelectedResources", SetShowSelectedResourcesOnly,
 	        NULL, ACCESS_CONF, "List of resources to show with each entry separated by spaces"
 	    ),
 
 	AP_INIT_RAW_ARGS(
-        DAVRODS_CONFIG_PREFIX "HTMLHead", cmd_davrods_html_header,
+        DAVRODS_CONFIG_PREFIX "HTMLHead", SetHeadHTML,
         NULL, ACCESS_CONF, "Extra HTML to place within the <head> tag"
     ),
 
 	AP_INIT_RAW_ARGS(
-        DAVRODS_CONFIG_PREFIX "HTMLTop", cmd_davrods_html_top,
+        DAVRODS_CONFIG_PREFIX "HTMLTop", SetTopHTML,
         NULL, ACCESS_CONF, "HTML to put before the collection listing"
     ),
 
 	AP_INIT_RAW_ARGS(
-        DAVRODS_CONFIG_PREFIX "HTMLBottom", cmd_davrods_html_bottom,
+        DAVRODS_CONFIG_PREFIX "HTMLBottom", SetBottomHTML,
         NULL, ACCESS_CONF, "HTML to put after the collection listingg"
     ),
 
     AP_INIT_TAKE1(
-        DAVRODS_CONFIG_PREFIX "HTMLCollectionIcon", cmd_davrods_html_collection_icon,
+        DAVRODS_CONFIG_PREFIX "HTMLCollectionIcon", SetCollectionImage,
         NULL, ACCESS_CONF, "Icon to use for collections"
     ),
 
     AP_INIT_TAKE1(
-        DAVRODS_CONFIG_PREFIX "HTMLObjectIcon", cmd_davrods_html_object_icon,
+        DAVRODS_CONFIG_PREFIX "HTMLObjectIcon", SetObjectImage,
         NULL, ACCESS_CONF, "Icon to use for data objects"
     ),
 
 		AP_INIT_RAW_ARGS(
-        DAVRODS_CONFIG_PREFIX "HTMLListingClass", cmd_davrods_html_listing_class,
+        DAVRODS_CONFIG_PREFIX "HTMLListingClass", SetTableListingClass,
         NULL, ACCESS_CONF, "CSS class to use for the listing <table> element"
     ),
 
     AP_INIT_TAKE1(
-        DAVRODS_CONFIG_PREFIX "HTMLMetadata", cmd_davrods_html_metadata,
+        DAVRODS_CONFIG_PREFIX "HTMLMetadata", SetMetadataDisplay,
         NULL, ACCESS_CONF, "Options for displaying metadata"
     ),
 
     AP_INIT_TAKE1(
-        DAVRODS_CONFIG_PREFIX "HTMLMetadataEditable", cmd_davrods_html_metadata_editable,
+        DAVRODS_CONFIG_PREFIX "HTMLMetadataEditable", SetMetadataIsEditable,
         NULL, ACCESS_CONF, "Options for editing metadata"
     ),
 
     AP_INIT_TAKE1(
-        DAVRODS_CONFIG_PREFIX "HTMLDeleteMetadataImage", cmd_davrods_delete_metadata_image,
+        DAVRODS_CONFIG_PREFIX "HTMLDeleteMetadataImage", SetDeleteMetadataImage,
         NULL, ACCESS_CONF, "Image for the delete metadata button"
     ),
 
     AP_INIT_TAKE1(
-        DAVRODS_CONFIG_PREFIX "HTMLEditMetadataImage", cmd_davrods_edit_metadata_image,
+        DAVRODS_CONFIG_PREFIX "HTMLEditMetadataImage", SetEditMetadataImage,
         NULL, ACCESS_CONF, "Image for the edit metadata button"
     ),
 
     AP_INIT_TAKE1(
-        DAVRODS_CONFIG_PREFIX "HTMLAddMetadataImage", cmd_davrods_add_metadata_image,
+        DAVRODS_CONFIG_PREFIX "HTMLAddMetadataImage", SetAddMetadataImage,
         NULL, ACCESS_CONF, "Image for the add metadata button"
     ),
 
     AP_INIT_TAKE1(
-        DAVRODS_CONFIG_PREFIX "HTMLDownloadMetadataImage", cmd_davrods_download_metadata_image,
+        DAVRODS_CONFIG_PREFIX "HTMLDownloadMetadataImage", SetDownloadMetadataImage,
         NULL, ACCESS_CONF, "Image for the download metadata button"
     ),
 
 
     AP_INIT_TAKE1(
-        DAVRODS_CONFIG_PREFIX "HTMLDownloadMetadataAsJSONImage", cmd_davrods_download_metadata_image_json,
+        DAVRODS_CONFIG_PREFIX "HTMLDownloadMetadataAsJSONImage", SetDownloadMetadataImageAsJSON,
         NULL, ACCESS_CONF, "Image for the download metadata as JSON button"
     ),
 
     AP_INIT_TAKE1(
-        DAVRODS_CONFIG_PREFIX "HTMLDownloadMetadataAsCSVImage", cmd_davrods_download_metadata_image_csv,
+        DAVRODS_CONFIG_PREFIX "HTMLDownloadMetadataAsCSVImage", SetDownloadMetadataImageAsCSV,
         NULL, ACCESS_CONF, "Image for the download metadata as CSV button"
     ),
 
     AP_INIT_TAKE1(
-        DAVRODS_CONFIG_PREFIX "HTMLShowDownloadMetadataAsLinks", cmd_davrods_show_metadata_download_links,
+        DAVRODS_CONFIG_PREFIX "HTMLShowDownloadMetadataAsLinks", SetShowMetadataDownloadLinks,
         NULL, ACCESS_CONF, "Show the download metadata functionality as links rather than as a form "
     ),
 
 
 
     AP_INIT_TAKE1(
-        DAVRODS_CONFIG_PREFIX "HTMLOkImage", cmd_davrods_ok_image,
+        DAVRODS_CONFIG_PREFIX "HTMLOkImage", SetOkImage,
         NULL, ACCESS_CONF, "Image for the OK button"
     ),
 
     AP_INIT_TAKE1(
-        DAVRODS_CONFIG_PREFIX "HTMLCancelImage", cmd_davrods_cancel_image,
+        DAVRODS_CONFIG_PREFIX "HTMLCancelImage", SetCancelImage,
         NULL, ACCESS_CONF, "Image for the Cancel button"
     ),
 
     AP_INIT_TAKE1(
-        DAVRODS_CONFIG_PREFIX "HTMLShowMetadataSearch", cmd_davrods_show_metadata_search_form,
+        DAVRODS_CONFIG_PREFIX "HTMLShowMetadataSearch", SetShowMetadataSearchForm,
         NULL, ACCESS_CONF, "Show the metadata search form"
     ),
 
-    AP_INIT_ITERATE2 (DAVRODS_CONFIG_PREFIX "AddIcon", cmd_davrods_html_add_icon, NULL, ACCESS_CONF, "an icon URL followed by one or more filenames"),
+    AP_INIT_ITERATE2 (DAVRODS_CONFIG_PREFIX "AddIcon", SetIconForSuffix, NULL, ACCESS_CONF, "an icon URL followed by one or more filenames"),
 
-    AP_INIT_TAKE2 (DAVRODS_CONFIG_PREFIX "AddExposedRoot", cmd_davrods_add_exposed_root, NULL, ACCESS_CONF, "a username followed by their default root path"),
+    AP_INIT_TAKE2 (DAVRODS_CONFIG_PREFIX "AddExposedRoot", SetExposedRootForSpecifiedUser, NULL, ACCESS_CONF, "a username followed by their default root path"),
 
     AP_INIT_TAKE1(
-        DAVRODS_CONFIG_PREFIX "HTMLShowIds", cmd_davrods_html_ids,
+        DAVRODS_CONFIG_PREFIX "HTMLShowIds", SetShowIds,
         NULL, ACCESS_CONF, "Options for displaying irods ids"
     ),
 
     AP_INIT_TAKE1(
-        DAVRODS_CONFIG_PREFIX "Login", cmd_davrods_login_address,
+        DAVRODS_CONFIG_PREFIX "Login", SetLoginURL,
         NULL, ACCESS_CONF, "Address to use for login procedure"
     ),
 
     AP_INIT_TAKE1(
-        DAVRODS_CONFIG_PREFIX "Logout", cmd_davrods_logout_address,
+        DAVRODS_CONFIG_PREFIX "Logout", SetLogoutURL,
         NULL, ACCESS_CONF, "Address to use for logout procedure"
     ),
 
     AP_INIT_TAKE1(
-        DAVRODS_CONFIG_PREFIX "HTMLUserImage", cmd_davrods_user_image,
+        DAVRODS_CONFIG_PREFIX "HTMLUserImage", SetUserImage,
         NULL, ACCESS_CONF, "Image for the user icon"
     ),
 
 		AP_INIT_TAKE1(
-				DAVRODS_CONFIG_PREFIX "APIPath", cmd_davrods_api_path,
+				DAVRODS_CONFIG_PREFIX "APIPath", SetAPIPath,
 				NULL, ACCESS_CONF, "Set the location used for the Rest API. This is relative to the <Location> that davrods is hosted on."
 		),
 
 		AP_INIT_TAKE1(
-				DAVRODS_CONFIG_PREFIX "DefaultUsername", cmd_davrods_default_username,
+				DAVRODS_CONFIG_PREFIX "DefaultUsername", SetDefaultUsername,
 				NULL, ACCESS_CONF, "Set the default username to use if none is provided."
 		),
 
 		AP_INIT_TAKE1(
-				DAVRODS_CONFIG_PREFIX "DefaultPassword", cmd_davrods_default_password,
+				DAVRODS_CONFIG_PREFIX "DefaultPassword", SetDefaultPassword,
 				NULL, ACCESS_CONF, "Set the default password to use if none is provided."
 		),
 
 		AP_INIT_TAKE1(
-				DAVRODS_CONFIG_PREFIX "NameHeading", cmd_davrods_name_heading,
+				DAVRODS_CONFIG_PREFIX "NameHeading", SetNameHeading,
 				NULL, ACCESS_CONF, "Set the heading for the Name column in directory listings"
 		),
 
 		AP_INIT_TAKE1(
-				DAVRODS_CONFIG_PREFIX "SizeHeading", cmd_davrods_size_heading,
+				DAVRODS_CONFIG_PREFIX "SizeHeading", SetSizeHeading,
 				NULL, ACCESS_CONF, "Set the heading for the Size column in directory listings"
 		),
 
 		AP_INIT_TAKE1(
-				DAVRODS_CONFIG_PREFIX "OwnerHeading", cmd_davrods_owner_heading,
+				DAVRODS_CONFIG_PREFIX "OwnerHeading", SetOwnerHeading,
 				NULL, ACCESS_CONF, "Set the heading for the Owner column in directory listings"
 		),
 
 		AP_INIT_TAKE1(
-				DAVRODS_CONFIG_PREFIX "DateHeading", cmd_davrods_date_heading,
+				DAVRODS_CONFIG_PREFIX "DateHeading", SetDateHeading,
 				NULL, ACCESS_CONF, "Set the heading for the date column in directory listings"
 		),
 
 		AP_INIT_TAKE1(
-				DAVRODS_CONFIG_PREFIX "PropertiesHeading", cmd_davrods_properties_heading,
+				DAVRODS_CONFIG_PREFIX "PropertiesHeading", SetPropertiesHeading,
 				NULL, ACCESS_CONF, "Set the heading for the Properties column in directory listings"
 		),
+
+		AP_INIT_TAKE1(
+				DAVRODS_CONFIG_PREFIX "ZoneLabel", SetZoneLabel,
+				NULL, ACCESS_CONF, "Set the value to display instead of the zone name"
+		),
+
+
+		AP_INIT_TAKE1(
+				DAVRODS_CONFIG_PREFIX "PreListingsHtml", SetPreListingsHTML,
+				NULL, ACCESS_CONF, "Set any html you you want before the directory listings"
+		),
+
+
+		AP_INIT_TAKE1(
+				DAVRODS_CONFIG_PREFIX "PostListingsHtml", SetPostListingsHTML,
+				NULL, ACCESS_CONF, "Set any html you you want after the directory listings"
+		),
+
 
 		{ NULL }
 };

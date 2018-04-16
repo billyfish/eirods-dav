@@ -916,7 +916,7 @@ apr_status_t GetMetadataTableForId (char *id_s, davrods_dir_conf_t *config_p, rc
 
 
 
-apr_array_header_t *GetMetadataForId (const char *id_s, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p)
+apr_array_header_t *GetMetadataForId (char *id_s, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p)
 {
 	apr_array_header_t *metadata_array_p = NULL;
 	apr_status_t status = APR_EGENERAL;

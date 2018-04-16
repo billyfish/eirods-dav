@@ -119,6 +119,12 @@ struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 		  theme_p -> ht_date_heading_s = NULL;
 
 		  theme_p -> ht_properties_heading_s = NULL;
+
+		  theme_p -> ht_zone_label_s = NULL;
+
+		  theme_p -> ht_pre_table_html_s = NULL;
+
+		  theme_p -> ht_post_table_html_s = NULL;
 		}
 
 	return theme_p;
@@ -307,12 +313,19 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, const char *current_id_s, rcComm_t *connection_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
 {
-	const char * const table_end_s = "</tbody>\n</table>\n</main>\n";
+	const char * const table_end_s = "</tbody>\n</table>\n";
 
 	apr_status_t apr_status = PrintBasicStringToBucketBrigade (table_end_s, bucket_brigade_p, req_p, __FILE__, __LINE__);
 
 	if (apr_status == APR_SUCCESS)
 		{
+			if (theme_p -> ht_post_table_html_s)
+				{
+					apr_status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, theme_p -> ht_pre_table_html_s);
+				}
+
+			apr_status = PrintBasicStringToBucketBrigade ("</main>\n", bucket_brigade_p, req_p, __FILE__, __LINE__);
+
 			if (theme_p -> ht_metadata_editable_flag)
 				{
 					apr_status = PrintMetadataEditor (theme_p, req_p, bucket_brigade_p);
@@ -529,8 +542,8 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 {
 	// Send start of HTML document.
 	const char *escaped_page_title_s = "";
-	const char *escaped_zone_s = ap_escape_html (pool_p, conf_p -> rods_zone);
 	const struct HtmlTheme *theme_p = conf_p -> theme_p;
+	const char *escaped_zone_s = theme_p -> ht_zone_label_s ? theme_p -> ht_zone_label_s : ap_escape_html (pool_p, conf_p -> rods_zone);
 	apr_pool_t *davrods_pool_p = GetDavrodsMemoryPool (req_p);
 	const char *davrods_path_s = NULL;
 	rcComm_t *connection_p = NULL;
@@ -703,6 +716,12 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 	/*
 	 * Add the listing class
 	 */
+
+	if (theme_p -> ht_pre_table_html_s)
+		{
+			apr_status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, theme_p -> ht_pre_table_html_s);
+		}
+
 	apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<table id=\"listings_table\" class=\"%s%s\">\n<thead>\n<tr>", conf_p -> theme_p -> ht_listing_class_s ? conf_p -> theme_p -> ht_listing_class_s : "listing", conf_p -> theme_p -> ht_show_metadata_flag == MD_ON_DEMAND ? " ajax" : "");
 	if (apr_status != APR_SUCCESS)
 		{
@@ -1060,6 +1079,453 @@ int GetEditableFlag (const struct HtmlTheme  * const theme_p, apr_table_t *param
 }
 
 
+
+const char *SetHeadHTML (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+	conf_p -> theme_p -> ht_head_s = arg_p;
+
+	return NULL;
+}
+
+
+
+
+const char *SetTopHTML (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    conf_p -> theme_p -> ht_top_s = arg_p;
+
+    return NULL;
+}
+
+
+
+const char *SetBottomHTML (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    conf_p -> theme_p -> ht_bottom_s = arg_p;
+
+    return NULL;
+}
+
+
+
+const char *SetCollectionImage (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    conf_p -> theme_p -> ht_collection_icon_s = arg_p;
+
+    return NULL;
+}
+
+
+
+const char *SetObjectImage (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    conf_p -> theme_p -> ht_object_icon_s = arg_p;
+
+    return NULL;
+}
+
+
+const char *SetTableListingClass (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    conf_p -> theme_p -> ht_listing_class_s = arg_p;
+
+    return NULL;
+}
+
+
+const char *SetShowThemedListings (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    if (!strcasecmp (arg_p, "true"))
+    	{
+    		conf_p -> themed_listings = 1;
+    	}
+
+    return NULL;
+}
+
+
+const char *SetShowResources (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    if (!strcasecmp (arg_p, "true"))
+    	{
+    		conf_p -> theme_p -> ht_show_resource_flag = 1;
+    	}
+
+    return NULL;
+}
+
+
+const char *SetShowSelectedResourcesOnly (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	const char *res_s = NULL;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	char **args_ss = NULL;
+	apr_status_t status = apr_tokenize_to_argv 	(arg_p, &args_ss, cmd_p -> pool);
+
+	if (status == APR_SUCCESS)
+		{
+			conf_p -> theme_p -> ht_resources_ss = args_ss;
+		}
+	else
+		{
+			res_s = apr_psprintf (cmd_p -> pool, "Failed to tokenize \"%s\" error %d", arg_p, status);
+		}
+
+	return res_s;
+}
+
+
+
+const char *SetMetadataDisplay (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    if (!strcasecmp (arg_p, "none"))
+    	{
+    		conf_p -> theme_p -> ht_show_metadata_flag = MD_NONE;
+    	}
+    else if (!strcasecmp (arg_p, "full"))
+    	{
+    		conf_p -> theme_p -> ht_show_metadata_flag = MD_FULL;
+    	}
+    else if (!strcasecmp (arg_p, "on_demand"))
+    	{
+    		conf_p -> theme_p -> ht_show_metadata_flag = MD_ON_DEMAND;
+    	}
+
+    return NULL;
+}
+
+
+const char *SetMetadataIsEditable (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    if (!strcasecmp (arg_p, "true"))
+    	{
+    		conf_p -> theme_p -> ht_metadata_editable_flag = 1;
+    	}
+
+    return NULL;
+}
+
+
+
+const char *SetShowIds (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    if (!strcasecmp (arg_p, "true"))
+    	{
+    		conf_p -> theme_p -> ht_show_ids_flag = 1;
+    	}
+
+    return NULL;
+}
+
+
+const char *SetLoginURL (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> theme_p -> ht_login_url_s = arg_p;
+
+    return NULL;
+}
+
+
+const char *SetLogoutURL (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> theme_p -> ht_logout_url_s = arg_p;
+
+    return NULL;
+}
+
+
+const char *SetUserImage (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> theme_p -> ht_user_icon_s = arg_p;
+
+    return NULL;
+}
+
+const char *SetAddMetadataImage (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> theme_p -> ht_add_metadata_icon_s = arg_p;
+
+    return NULL;
+}
+
+
+const char *SetDownloadMetadataImage (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> theme_p -> ht_download_metadata_icon_s = arg_p;
+
+    return NULL;
+}
+
+
+const char *SetDownloadMetadataImageAsJSON (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> theme_p -> ht_download_metadata_as_json_icon_s = arg_p;
+
+    return NULL;
+}
+
+
+
+const char *SetDownloadMetadataImageAsCSV (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> theme_p -> ht_download_metadata_as_csv_icon_s = arg_p;
+
+    return NULL;
+}
+
+
+
+
+const char *SetDeleteMetadataImage (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> theme_p -> ht_delete_metadata_icon_s = arg_p;
+
+    return NULL;
+}
+
+const char *SetEditMetadataImage (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> theme_p -> ht_edit_metadata_icon_s = arg_p;
+
+    return NULL;
+}
+
+
+
+
+const char *SetOkImage (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> theme_p -> ht_ok_icon_s = arg_p;
+
+    return NULL;
+}
+
+
+const char *SetCancelImage (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> theme_p -> ht_cancel_icon_s = arg_p;
+
+    return NULL;
+}
+
+
+const char *SetAPIPath (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> davrods_api_path_s = arg_p;
+
+    return NULL;
+}
+
+
+const char *SetDefaultUsername (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> davrods_public_username_s = arg_p;
+
+    return NULL;
+}
+
+
+const char *SetDefaultPassword (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+		conf_p -> davrods_public_password_s = arg_p;
+
+    return NULL;
+}
+
+
+const char *SetIconForSuffix (cmd_parms *cmd_p, void *config_p, const char *icon_s, const char *suffix_s)
+{
+  davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+  if (! (conf_p -> theme_p -> ht_icons_map_p))
+  	{
+  		const int INITIAL_TABLE_SIZE = 16;
+  		conf_p -> theme_p -> ht_icons_map_p = apr_table_make (cmd_p -> pool, INITIAL_TABLE_SIZE);
+  	}
+
+  apr_table_set (conf_p -> theme_p -> ht_icons_map_p, suffix_s, icon_s);
+
+  return NULL;
+}
+
+
+const char *SetExposedRootForSpecifiedUser (cmd_parms *cmd_p, void *config_p, const char *username_s, const char *exposed_root_s)
+{
+  davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+  apr_table_set (conf_p -> exposed_roots_per_user_p, username_s, exposed_root_s);
+
+  return NULL;
+}
+
+
+const char *SetShowMetadataSearchForm (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    if (strcasecmp (arg_p, "true") == 0)
+			{
+				conf_p -> theme_p -> ht_add_search_form_flag = 1;
+			}
+    else if (strcasecmp (arg_p, "false") == 0)
+			{
+    		conf_p -> theme_p -> ht_add_search_form_flag = 0;
+			}
+
+    return NULL;
+}
+
+
+const char *SetShowMetadataDownloadLinks (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+    if (strcasecmp (arg_p, "true") == 0)
+			{
+				conf_p -> theme_p -> ht_show_download_metadata_links_flag = 1;
+			}
+    else if (strcasecmp (arg_p, "false") == 0)
+			{
+				conf_p -> theme_p -> ht_show_download_metadata_links_flag = 0;
+			}
+
+    return NULL;
+}
+
+
+const char *SetNameHeading (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+	conf_p -> theme_p -> ht_name_heading_s = arg_p;
+
+	return NULL;
+}
+
+
+const char *SetSizeHeading (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+	conf_p -> theme_p -> ht_size_heading_s = arg_p;
+
+	return NULL;
+}
+
+
+const char *SetOwnerHeading (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+	conf_p -> theme_p -> ht_owner_heading_s = arg_p;
+
+	return NULL;
+}
+
+
+const char *SetDateHeading (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+	conf_p -> theme_p -> ht_date_heading_s = arg_p;
+
+	return NULL;
+}
+
+
+const char *SetPropertiesHeading (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+	conf_p -> theme_p -> ht_properties_heading_s = arg_p;
+
+	return NULL;
+}
+
+
+const char *SetZoneLabel (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+	conf_p -> theme_p -> ht_zone_label_s = arg_p;
+
+	return NULL;
+}
+
+
+const char *SetPreListingsHTML (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+	conf_p -> theme_p -> ht_pre_table_html_s = arg_p;
+
+	return NULL;
+}
+
+const char *SetPostListingsHTML (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+	conf_p -> theme_p -> ht_post_table_html_s = arg_p;
+
+	return NULL;
+}
+
+
+
+
+
+
 void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p, davrods_dir_conf_t *child_p, apr_pool_t *pool_p)
 {
 	DAVRODS_PROP_MERGE(theme_p -> ht_head_s);
@@ -1092,6 +1558,10 @@ void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p
 	DAVRODS_PROP_MERGE(theme_p -> ht_owner_heading_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_date_heading_s);
 	DAVRODS_PROP_MERGE(theme_p -> ht_properties_heading_s);
+
+	DAVRODS_PROP_MERGE(theme_p -> ht_zone_label_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_pre_table_html_s);
+	DAVRODS_PROP_MERGE(theme_p -> ht_post_table_html_s);
 
 	conf_p -> theme_p -> ht_icons_map_p = MergeAPRTables (parent_p -> theme_p -> ht_icons_map_p, child_p -> theme_p -> ht_icons_map_p, pool_p);
 

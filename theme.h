@@ -113,6 +113,13 @@ struct HtmlTheme
 	const char *ht_date_heading_s;
 
 	const char *ht_properties_heading_s;
+
+	const char *ht_zone_label_s;
+
+	const char *ht_pre_table_html_s;
+
+	const char *ht_post_table_html_s;
+
 };
 
 
@@ -161,6 +168,121 @@ char *GetLocationPath (request_rec *req_p, davrods_dir_conf_t *conf_p, apr_pool_
 char *GetDavrodsAPIPath (struct dav_resource_private *davrods_resource_p, davrods_dir_conf_t *conf_p, request_rec *req_p);
 
 int GetEditableFlag (const struct HtmlTheme  * const theme_p, apr_table_t *params_p, apr_pool_t *pool_p);
+
+
+
+const char *SetHeadHTML (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+const char *SetTopHTML (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+const char *SetBottomHTML (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+
+const char *SetCollectionImage (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+
+const char *SetObjectImage (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+const char *SetTableListingClass (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+const char *SetShowThemedListings (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+const char *SetShowResources (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+const char *SetShowSelectedResourcesOnly (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+const char *SetMetadataDisplay (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+const char *SetMetadataIsEditable (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+const char *SetShowIds (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+const char *SetLoginURL (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+const char *SetLogoutURL (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+const char *SetUserImage (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+const char *SetAddMetadataImage (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+const char *SetDownloadMetadataImage (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+
+const char *SetDownloadMetadataImageAsJSON (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+const char *SetDownloadMetadataImageAsCSV (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+const char *SetDeleteMetadataImage (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+const char *SetEditMetadataImage (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+
+const char *SetOkImage (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+const char *SetCancelImage (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+const char *SetAPIPath (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+const char *SetDefaultUsername (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+const char *SetDefaultPassword (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+const char *SetIconForSuffix (cmd_parms *cmd_p, void *config_p, const char *icon_s, const char *suffix_s);
+
+
+const char *SetExposedRootForSpecifiedUser (cmd_parms *cmd_p, void *config_p, const char *username_s, const char *exposed_root_s);
+
+
+
+const char *SetShowMetadataSearchForm (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+const char *SetShowMetadataDownloadLinks (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+
+const char *SetNameHeading (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+
+const char *SetSizeHeading (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+const char *SetOwnerHeading (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+
+const char *SetDateHeading (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+
+const char *SetPropertiesHeading (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+const char *SetZoneLabel (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+const char *SetPreListingsHTML (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+const char *SetPostListingsHTML (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
 
 #ifdef __cplusplus

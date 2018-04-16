@@ -48,6 +48,7 @@ static dav_error *dav_repo_get_resource (request_rec *r, const char *root_dir, c
 
 static dav_error *DeliverFile (const dav_resource *resource_p, ap_filter_t *output_p);
 static void LogFilters (const ap_filter_t *filter_p, request_rec *req_p);
+static void LogConnection (const rcComm_t * const connection_p, request_rec *req_p);
 
 APLOG_USE_MODULE (davrods);
 
@@ -1298,6 +1299,12 @@ static void LogFilters (const ap_filter_t *filter_p, request_rec *req_p)
 }
 
 
+static void LogConnection (const rcComm_t * const connection_p, request_rec *req_p)
+{
+
+}
+
+
 static dav_error *DeliverFile (const dav_resource *resource_p, ap_filter_t *output_p)
 {
 	dav_error *error_p = NULL;
@@ -1391,6 +1398,9 @@ static dav_error *DeliverFile (const dav_resource *resource_p, ap_filter_t *outp
 									free (read_buffer.buf);
 									read_buffer.buf = NULL;
 								}
+
+
+							LogConnection (connection_p, req_p);
 						}
 					while (((size_t) current_bytes_read == buffer_size) && (!error_s));
 
