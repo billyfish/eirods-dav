@@ -321,7 +321,7 @@ apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, const char *cu
 		{
 			if (theme_p -> ht_post_table_html_s)
 				{
-					apr_status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, theme_p -> ht_post_table_html_s);
+					apr_status = PrintSection (theme_p -> ht_post_table_html_s, current_id_s, connection_p, req_p, bucket_brigade_p);
 				}
 
 			apr_status = PrintBasicStringToBucketBrigade ("</main>\n", bucket_brigade_p, req_p, __FILE__, __LINE__);
@@ -719,7 +719,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 
 	if (theme_p -> ht_pre_table_html_s)
 		{
-			apr_status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, theme_p -> ht_pre_table_html_s);
+			apr_status = PrintSection (theme_p -> ht_pre_table_html_s, current_id_s, connection_p, req_p, bucket_brigade_p);
 		}
 
 	apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<table id=\"listings_table\" class=\"%s%s\">\n<thead>\n<tr>", conf_p -> theme_p -> ht_listing_class_s ? conf_p -> theme_p -> ht_listing_class_s : "listing", conf_p -> theme_p -> ht_show_metadata_flag == MD_ON_DEMAND ? " ajax" : "");
@@ -870,7 +870,7 @@ static apr_status_t PrintBreadcrumbs (struct dav_resource_private *davrods_resou
 			while (slash_s && (status == APR_SUCCESS))
 				{
 					*slash_s = '\0';
-					status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, " %c <a href=\"%s%s%s\">%s</a>", breadcrumb_sep, davrods_resource_p -> root_dir, sep_s, path_s, old_slash_s);
+					status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, " %c <a href=\"%s%s%s/\">%s</a>", breadcrumb_sep, davrods_resource_p -> root_dir, sep_s, path_s, old_slash_s);
 					*slash_s = '/';
 
 					old_slash_s = ++ slash_s;
