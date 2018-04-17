@@ -321,7 +321,7 @@ apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, const char *cu
 		{
 			if (theme_p -> ht_post_table_html_s)
 				{
-					apr_status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, theme_p -> ht_pre_table_html_s);
+					apr_status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, theme_p -> ht_post_table_html_s);
 				}
 
 			apr_status = PrintBasicStringToBucketBrigade ("</main>\n", bucket_brigade_p, req_p, __FILE__, __LINE__);
