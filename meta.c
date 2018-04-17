@@ -585,7 +585,9 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 	char *relative_uri_s = apr_pstrcat (pool_p, "the search results for ", key_s, " = ", value_s, NULL);
 	char *marked_up_relative_uri_s = apr_pstrcat (pool_p, "the search results for <strong>", key_s, "</strong> = <strong>", value_s, "</strong>", NULL);
 
-	apr_status_t apr_status = PrintAllHTMLBeforeListing (NULL, relative_uri_s, marked_up_relative_uri_s, NULL, username_s, conf_p, req_p, bucket_brigade_p, pool_p);
+	const char *escaped_zone_s = conf_p -> theme_p -> ht_zone_label_s ? conf_p -> theme_p -> ht_zone_label_s : ap_escape_html (pool_p, conf_p -> rods_zone);
+
+	apr_status_t apr_status = PrintAllHTMLBeforeListing (NULL, escaped_zone_s, relative_uri_s, davrods_path_s, marked_up_relative_uri_s, NULL, username_s, conf_p, req_p, bucket_brigade_p, pool_p);
 
 	/*
 	 * SELECT meta_id FROM r_meta_main WHERE meta_attr_name = ' ' AND meta_attr_value = ' ';
@@ -852,8 +854,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 			freeGenQueryOut (&meta_id_results_p);
 		}		/* if (meta_id_results_p) */
 
-
-	apr_status = PrintAllHTMLAfterListing (conf_p -> theme_p, NULL, connection_p, req_p, bucket_brigade_p, pool_p);
+	apr_status = PrintAllHTMLAfterListing (connection_p -> clientUser.userName, escaped_zone_s, davrods_path_s, conf_p, NULL, connection_p, req_p, bucket_brigade_p, pool_p);
 
 
 	CloseBucketsStream (bucket_brigade_p);

@@ -62,7 +62,7 @@ static apr_status_t PrintSection (const char *value_s, const char * const curren
 static apr_status_t PrintBreadcrumbs (struct dav_resource_private *davrods_resource_p, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p);
 
 
-static apr_status_t PrintUserSection (const char *user_s, const char *escaped_zone_s, request_rec *req_p, const davrods_dir_conf_t *conf_p, apr_bucket_brigade *bb_p);
+static apr_status_t PrintUserSection (const char *user_s, const char *escaped_zone_s, const char *davrods_path_s, request_rec *req_p, const davrods_dir_conf_t *conf_p, apr_bucket_brigade *bb_p);
 
 static apr_status_t PrintTableHeader (const char *heading_s, const char *default_heading_s, const char *class_s, apr_bucket_brigade *bucket_brigade_p);
 
@@ -125,6 +125,8 @@ struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 		  theme_p -> ht_pre_table_html_s = NULL;
 
 		  theme_p -> ht_post_table_html_s = NULL;
+
+		  theme_p -> ht_tools_placement = PL_IN_HEADER;
 		}
 
 	return theme_p;
@@ -146,7 +148,8 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 	const char * const user_s = davrods_resource_p -> rods_conn -> clientUser.userName;
 
 	char *current_id_s = GetCollectionId (davrods_resource_p -> rods_path, davrods_resource_p -> rods_conn, pool_p);
-
+	const char *escaped_zone_s = conf_p -> theme_p -> ht_zone_label_s ? conf_p -> theme_p -> ht_zone_label_s : ap_escape_html (pool_p, conf_p -> rods_zone);
+	const char *davrods_path_s = GetDavrodsAPIPath (davrods_resource_p, conf_p, req_p);
 
 	// Make brigade.
 	apr_bucket_brigade *bucket_brigade_p = NULL;
@@ -176,7 +179,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 	// Make brigade.
 	bucket_brigade_p = apr_brigade_create (pool_p, output_p -> c -> bucket_alloc);
-	apr_status = PrintAllHTMLBeforeListing (davrods_resource_p, NULL, NULL, current_id_s, user_s, conf_p, req_p, bucket_brigade_p, pool_p);
+	apr_status = PrintAllHTMLBeforeListing (davrods_resource_p, escaped_zone_s, NULL, davrods_path_s, NULL, current_id_s, user_s, conf_p, req_p, bucket_brigade_p, pool_p);
 
 
 	if (apr_status == APR_SUCCESS)
@@ -290,7 +293,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "PrintAllHTMLBeforeListing failed");
 		}
 
-	apr_status = PrintAllHTMLAfterListing (conf_p -> theme_p, current_id_s, davrods_resource_p -> rods_conn, req_p, bucket_brigade_p, pool_p);
+	apr_status = PrintAllHTMLAfterListing (user_s, escaped_zone_s, davrods_path_s, conf_p, current_id_s, davrods_resource_p -> rods_conn, req_p, bucket_brigade_p, pool_p);
 	if (apr_status != APR_SUCCESS)
 		{
 			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "PrintAllHTMLAfterListing failed");
@@ -311,9 +314,10 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 }
 
 
-apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, const char *current_id_s, rcComm_t *connection_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
+apr_status_t PrintAllHTMLAfterListing (const char *user_s, const char *escaped_zone_s, const char *davrods_path_s, const davrods_dir_conf_t *conf_p, const char *current_id_s, rcComm_t *connection_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
 {
 	const char * const table_end_s = "</tbody>\n</table>\n";
+	struct HtmlTheme *theme_p = conf_p -> theme_p;
 
 	apr_status_t apr_status = PrintBasicStringToBucketBrigade (table_end_s, bucket_brigade_p, req_p, __FILE__, __LINE__);
 
@@ -324,7 +328,7 @@ apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, const char *cu
 					apr_status = PrintSection (theme_p -> ht_post_table_html_s, current_id_s, connection_p, req_p, bucket_brigade_p);
 				}
 
-			apr_status = PrintBasicStringToBucketBrigade ("</main>\n", bucket_brigade_p, req_p, __FILE__, __LINE__);
+			apr_status = PrintBasicStringToBucketBrigade ("</main><footer>\n", bucket_brigade_p, req_p, __FILE__, __LINE__);
 
 			if (theme_p -> ht_metadata_editable_flag)
 				{
@@ -334,6 +338,12 @@ apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, const char *cu
 						{
 							return apr_status;
 						} /* if (apr_status != APR_SUCCESS) */
+				}
+
+			if (theme_p -> ht_tools_placement == PL_IN_FOOTER)
+				{
+
+					apr_status = PrintUserSection (user_s, escaped_zone_s, davrods_path_s, req_p, conf_p, bucket_brigade_p);
 				}
 
 			if (theme_p -> ht_bottom_s)
@@ -349,7 +359,7 @@ apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, const char *cu
 
 
 
-			apr_status =  PrintBasicStringToBucketBrigade ("\n</body>\n</html>\n", bucket_brigade_p, req_p, __FILE__, __LINE__);
+			apr_status =  PrintBasicStringToBucketBrigade ("</footer>\n</body>\n</html>\n", bucket_brigade_p, req_p, __FILE__, __LINE__);
 		}
 	else
 		{
@@ -538,14 +548,12 @@ char *GetDavrodsAPIPath (struct dav_resource_private *davrods_resource_p, davrod
 }
 
 
-apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_resource_p, const char * const page_title_s, const char * const marked_up_page_title_s, const char *current_id_s, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
+apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_resource_p, const char *escaped_zone_s, const char * const page_title_s, const char *davrods_path_s, const char * const marked_up_page_title_s, const char *current_id_s, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
 {
 	// Send start of HTML document.
 	const char *escaped_page_title_s = "";
 	const struct HtmlTheme *theme_p = conf_p -> theme_p;
-	const char *escaped_zone_s = theme_p -> ht_zone_label_s ? theme_p -> ht_zone_label_s : ap_escape_html (pool_p, conf_p -> rods_zone);
 	apr_pool_t *davrods_pool_p = GetDavrodsMemoryPool (req_p);
-	const char *davrods_path_s = NULL;
 	rcComm_t *connection_p = NULL;
 	apr_status_t apr_status;
 
@@ -611,7 +619,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 							"<!-- Warning: Do not parse this directory listing programmatically,\n"
 							"              the format may change without notice!\n"
 							"              If you want to script access to these WebDAV collections,\n"
-							"              please use the PROPFIND method instead. -->\n\n", bucket_brigade_p, req_p, __FILE__, __LINE__);
+							"              you can use the eirods-dav REST API or use the PROPFIND method instead. -->\n\n<header>", bucket_brigade_p, req_p, __FILE__, __LINE__);
 				}
 		}
 
@@ -636,9 +644,12 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 		}		/* if (theme_p -> ht_top_s) */
 
 
-	apr_status = PrintBasicStringToBucketBrigade ("<main><div id=\"tools\">", bucket_brigade_p, req_p, __FILE__, __LINE__);
+	if (theme_p -> ht_tools_placement == PL_IN_HEADER)
+		{
+			apr_status = PrintUserSection (user_s, escaped_zone_s, davrods_path_s, req_p, conf_p, bucket_brigade_p);
+		}
 
-	apr_status = PrintUserSection (user_s, escaped_zone_s, req_p, conf_p, bucket_brigade_p);
+	apr_status = PrintBasicStringToBucketBrigade ("</header><main>", bucket_brigade_p, req_p, __FILE__, __LINE__);
 
 	if (apr_status != APR_SUCCESS)
 		{
@@ -650,42 +661,11 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 	davrods_path_s = GetDavrodsAPIPath (davrods_resource_p, conf_p, req_p);
 	if (davrods_path_s)
 		{
-			if (theme_p -> ht_add_search_form_flag)
-				{
-					if (connection_p)
-						{
-							/* Get the Location path where davrods is hosted */
 
-							/* int i = 0; */
-
-							apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL,
-								"<form action=\"%s%s\" class=\"search_form\">\n<fieldset><legend>Search:</legend>\n<label for=\"search_key\">Attribute:</label><input name=\"key\" type=\"text\" id=\"search_key\">\n", davrods_path_s, REST_METADATA_SEARCH_S);
-							apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<ul id=\"search_keys_autocomplete_list\" class=\"autocomplete\"></ul>\n");
-
-							/*
-							for (i = 0; i < keys_p -> nelts; ++ i)
-								{
-									char *value_s = ((char **) keys_p -> elts) [i];
-									apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<option>%s</option>\n", value_s);
-
-									if (apr_status != APR_SUCCESS)
-										{
-											break;
-										}
-								}
-							*/
-
-							apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "\n<label for=\"search_value\">Value:</label><input type=\"text\" id=\"search_value\" name=\"value\" />");
-							apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<ul id=\"search_values_autocomplete_list\" class=\"autocomplete\"></ul>\n");
-							apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "\n<input type=\"submit\" name=\"Search\" /></fieldset></form>");
-						}
-
-				}		/* if (theme_p -> ht_add_search_form_flag) */
 
 
 		}		/* if (davrods_path_s) */
 
-	PrintBasicStringToBucketBrigade ("</div>", bucket_brigade_p, req_p, __FILE__, __LINE__);
 
 	if (davrods_resource_p)
 		{
@@ -1521,47 +1501,82 @@ const char *SetPostListingsHTML (cmd_parms *cmd_p, void *config_p, const char *a
 	return NULL;
 }
 
+/*
+PL_HEAD,
+PL_IN_HEADER,
+PL_PRE_LISTINGS,
+PL_POST_LISTINGS,
+PL_IN_FOOTER,
+PL_NUM_ENTRIES
+*/
 
+const char *SetToolsPlacement (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	const char *res_s = NULL;
+ 	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	Placement p = PL_NUM_ENTRIES;
+
+	if (strcasecmp (arg_p, "in_header") == 0) {
+			p = PL_IN_HEADER;
+	} else if (strcasecmp (arg_p, "in_footer") == 0) {
+			p = PL_IN_FOOTER;
+	}
+
+
+	if (p != PL_NUM_ENTRIES)
+		{
+			conf_p -> theme_p -> ht_tools_placement = p;
+		}
+	else
+		{
+			res_s = apr_psprintf (cmd_p -> pool, "Failed to set tools placement for \"%s\"", arg_p);
+		}
+
+	return res_s;
+}
 
 
 
 
 void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p, davrods_dir_conf_t *child_p, apr_pool_t *pool_p)
 {
-	DAVRODS_PROP_MERGE(theme_p -> ht_head_s);
-	DAVRODS_PROP_MERGE(theme_p -> ht_top_s);
-	DAVRODS_PROP_MERGE(theme_p -> ht_bottom_s);
-	DAVRODS_PROP_MERGE(theme_p -> ht_collection_icon_s);
-	DAVRODS_PROP_MERGE(theme_p -> ht_object_icon_s);
-	DAVRODS_PROP_MERGE(theme_p -> ht_listing_class_s);
-	DAVRODS_PROP_MERGE(theme_p -> ht_metadata_editable_flag);
-	DAVRODS_PROP_MERGE(theme_p -> ht_add_metadata_icon_s);
-	DAVRODS_PROP_MERGE(theme_p -> ht_edit_metadata_icon_s);
-	DAVRODS_PROP_MERGE(theme_p -> ht_delete_metadata_icon_s);
-	DAVRODS_PROP_MERGE(theme_p -> ht_download_metadata_icon_s);
-	DAVRODS_PROP_MERGE(theme_p -> ht_download_metadata_as_csv_icon_s);
-	DAVRODS_PROP_MERGE(theme_p -> ht_download_metadata_as_json_icon_s);
-	DAVRODS_PROP_MERGE(theme_p -> ht_show_download_metadata_links_flag);
-	DAVRODS_PROP_MERGE(theme_p -> ht_ok_icon_s);
-	DAVRODS_PROP_MERGE(theme_p -> ht_cancel_icon_s);
-	DAVRODS_PROP_MERGE(theme_p -> ht_rest_api_s);
-	DAVRODS_PROP_MERGE(theme_p -> ht_show_resource_flag);
-	DAVRODS_PROP_MERGE(theme_p -> ht_show_ids_flag);
-	DAVRODS_PROP_MERGE(theme_p -> ht_add_search_form_flag);
-	DAVRODS_PROP_MERGE(theme_p -> ht_active_flag);
-	DAVRODS_PROP_MERGE(theme_p -> ht_login_url_s);
-	DAVRODS_PROP_MERGE(theme_p -> ht_logout_url_s);
-	DAVRODS_PROP_MERGE(theme_p -> ht_user_icon_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_head_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_top_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_bottom_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_collection_icon_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_object_icon_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_listing_class_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_metadata_editable_flag);
+	DAVRODS_PROP_MERGE (theme_p -> ht_add_metadata_icon_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_edit_metadata_icon_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_delete_metadata_icon_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_download_metadata_icon_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_download_metadata_as_csv_icon_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_download_metadata_as_json_icon_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_show_download_metadata_links_flag);
+	DAVRODS_PROP_MERGE (theme_p -> ht_ok_icon_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_cancel_icon_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_rest_api_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_show_resource_flag);
+	DAVRODS_PROP_MERGE (theme_p -> ht_show_ids_flag);
+	DAVRODS_PROP_MERGE (theme_p -> ht_add_search_form_flag);
+	DAVRODS_PROP_MERGE (theme_p -> ht_active_flag);
+	DAVRODS_PROP_MERGE (theme_p -> ht_login_url_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_logout_url_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_user_icon_s);
 
-	DAVRODS_PROP_MERGE(theme_p -> ht_name_heading_s);
-	DAVRODS_PROP_MERGE(theme_p -> ht_size_heading_s);
-	DAVRODS_PROP_MERGE(theme_p -> ht_owner_heading_s);
-	DAVRODS_PROP_MERGE(theme_p -> ht_date_heading_s);
-	DAVRODS_PROP_MERGE(theme_p -> ht_properties_heading_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_name_heading_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_size_heading_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_owner_heading_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_date_heading_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_properties_heading_s);
 
-	DAVRODS_PROP_MERGE(theme_p -> ht_zone_label_s);
-	DAVRODS_PROP_MERGE(theme_p -> ht_pre_table_html_s);
-	DAVRODS_PROP_MERGE(theme_p -> ht_post_table_html_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_zone_label_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_pre_table_html_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_post_table_html_s);
+
+
+	DAVRODS_PROP_MERGE (theme_p -> ht_tools_placement);
 
 	conf_p -> theme_p -> ht_icons_map_p = MergeAPRTables (parent_p -> theme_p -> ht_icons_map_p, child_p -> theme_p -> ht_icons_map_p, pool_p);
 
@@ -1652,10 +1667,38 @@ void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p
 }
 
 
-static apr_status_t PrintUserSection (const char *user_s, const char *escaped_zone_s, request_rec *req_p, const davrods_dir_conf_t *conf_p, apr_bucket_brigade *bb_p)
+static apr_status_t PrintUserSection (const char *user_s, const char *escaped_zone_s, const char *davrods_path_s, request_rec *req_p, const davrods_dir_conf_t *conf_p, apr_bucket_brigade *bb_p)
 {
-	apr_status_t status = PrintBasicStringToBucketBrigade ("<section class=\"user\"><h2>User details</h2>\n", bb_p, req_p, __FILE__, __LINE__);
+	apr_status_t status = PrintBasicStringToBucketBrigade ("<div id=\"tools\">\n", bb_p, req_p, __FILE__, __LINE__);
 	const struct HtmlTheme * const theme_p = conf_p -> theme_p;
+
+
+	if (theme_p -> ht_add_search_form_flag)
+		{
+			status = apr_brigade_printf (bb_p, NULL, NULL,
+						"<form action=\"%s%s\" class=\"search_form\" id=\"search_form\">\n<fieldset><legend>Search:</legend>\n<label for=\"search_key\">Attribute:</label><input name=\"key\" type=\"text\" id=\"search_key\">\n", davrods_path_s, REST_METADATA_SEARCH_S);
+			status = apr_brigade_printf (bb_p, NULL, NULL, "<ul id=\"search_keys_autocomplete_list\" class=\"autocomplete\"></ul>\n");
+
+					/*
+					for (i = 0; i < keys_p -> nelts; ++ i)
+						{
+							char *value_s = ((char **) keys_p -> elts) [i];
+							apr_status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<option>%s</option>\n", value_s);
+
+							if (apr_status != APR_SUCCESS)
+								{
+									break;
+								}
+						}
+					*/
+
+			status = apr_brigade_printf (bb_p, NULL, NULL, "\n<label for=\"search_value\">Value:</label><input type=\"text\" id=\"search_value\" name=\"value\" />");
+			status = apr_brigade_printf (bb_p, NULL, NULL, "<ul id=\"search_values_autocomplete_list\" class=\"autocomplete\"></ul>\n");
+			status = apr_brigade_printf (bb_p, NULL, NULL, "\n<input type=\"submit\" name=\"Search\" /></fieldset></form>");
+		}		/* if (theme_p -> ht_add_search_form_flag) */
+
+	status = PrintBasicStringToBucketBrigade ("<section class=\"user\"><h2>User details</h2>\n", bb_p, req_p, __FILE__, __LINE__);
+
 
 	if (status == APR_SUCCESS)
 		{
@@ -1716,6 +1759,8 @@ static apr_status_t PrintUserSection (const char *user_s, const char *escaped_zo
 						}
 				}
 
+
+			status = PrintBasicStringToBucketBrigade ("</div>\n", bb_p, req_p, __FILE__, __LINE__);
 		}
 
 

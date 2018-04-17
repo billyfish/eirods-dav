@@ -601,6 +601,12 @@ const command_rec davrods_directives[] = {
 				NULL, ACCESS_CONF, "Set any html you you want after the directory listings"
 		),
 
+		AP_INIT_TAKE1(
+				DAVRODS_CONFIG_PREFIX "ToolsPlacemnt", SetToolsPlacement,
+				NULL, ACCESS_CONF, "Set where you want the user and search sections to appear"
+		),
+
+
 
 		{ NULL }
 };

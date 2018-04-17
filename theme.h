@@ -45,6 +45,19 @@ enum MetadataDisplay
 };
 
 
+
+typedef enum Placement
+{
+	PL_HEAD,
+	PL_IN_HEADER,
+	PL_PRE_LISTINGS,
+	PL_POST_LISTINGS,
+	PL_IN_FOOTER,
+	PL_NUM_ENTRIES
+} Placement;
+
+
+
 struct HtmlTheme
 {
 	const char *ht_head_s;
@@ -120,6 +133,7 @@ struct HtmlTheme
 
 	const char *ht_post_table_html_s;
 
+	Placement ht_tools_placement;
 };
 
 
@@ -154,10 +168,9 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_p, const IRodsConfig *config_p, unsigned int row_index, apr_bucket_brigade *bb_p, apr_pool_t *pool_p, rcComm_t *connection_p, request_rec *req_p);
 
 
-apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_resource_p, const char * const page_title_s, const char * const marked_up_page_title_s, const char *current_id_s, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p);
+apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_resource_p, const char *escaped_zone_s, const char * const page_title_s, const char *davrods_path_s, const char * const marked_up_page_title_s, const char *current_id_s, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p);
 
-
-apr_status_t PrintAllHTMLAfterListing (struct HtmlTheme *theme_p, const char *current_id_s, rcComm_t *connection_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p);
+apr_status_t PrintAllHTMLAfterListing (const char *user_s, const char *escaped_zone_s, const char *davrods_path_s, const davrods_dir_conf_t *conf_p, const char *current_id_s, rcComm_t *connection_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p);
 
 
 void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p, davrods_dir_conf_t *child_p, apr_pool_t *pool_p);
@@ -284,6 +297,8 @@ const char *SetPreListingsHTML (cmd_parms *cmd_p, void *config_p, const char *ar
 
 const char *SetPostListingsHTML (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
+
+const char *SetToolsPlacement (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
 #ifdef __cplusplus
 }
