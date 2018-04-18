@@ -558,7 +558,7 @@ static size_t WriteToMemoryCallback (char *response_data_s, size_t block_size, s
 
 	if (status != APR_SUCCESS)
 		{
-			result = 0;;
+			result = 0;
 		}
 
 	return result;

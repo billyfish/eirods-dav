@@ -610,53 +610,58 @@ apr_status_t GetAndPrintMetadataRestLinkForIRodsObject (const IRodsObject *irods
 char *GetId (char *value_s, objType_t *type_p, apr_pool_t *pool_p)
 {
 	char *id_s = NULL;
-	char *sep_s = strchr (value_s, '.');
 
-	if (sep_s)
+	if (value_s)
 		{
-			objType_t obj_type = UNKNOWN_OBJ_T;
-			long l = -1;
+			char *sep_s = strchr (value_s, '.');
 
-			*sep_s = '\0';
-			l = strtol (value_s, NULL, 10);
-			*sep_s = '.';
-
-			switch (l)
+			if (sep_s)
 				{
-					case DATA_OBJ_T:
-					case COLL_OBJ_T:
-						obj_type = l;
-						break;
+					objType_t obj_type = UNKNOWN_OBJ_T;
+					long l = -1;
 
-					default:
-						break;
+					*sep_s = '\0';
+					l = strtol (value_s, NULL, 10);
+					*sep_s = '.';
 
-				}
-
-			if (obj_type != UNKNOWN_OBJ_T)
-				{
-					if (type_p)
+					switch (l)
 						{
-							*type_p = obj_type;
+							case DATA_OBJ_T:
+							case COLL_OBJ_T:
+								obj_type = l;
+								break;
+
+							default:
+								break;
+
 						}
 
-					sep_s = strpbrk (value_s, " \t\n\r\v\f");
-
-					if (sep_s)
+					if (obj_type != UNKNOWN_OBJ_T)
 						{
-							char c = *sep_s;
+							if (type_p)
+								{
+									*type_p = obj_type;
+								}
 
-							*sep_s = '\0';
-							id_s = apr_pstrdup (pool_p, value_s);
-							*sep_s = c;
-						}
-					else
-						{
-							id_s = apr_pstrdup (pool_p, value_s);
-						}
-				}
+							sep_s = strpbrk (value_s, " \t\n\r\v\f");
 
-		}
+							if (sep_s)
+								{
+									char c = *sep_s;
+
+									*sep_s = '\0';
+									id_s = apr_pstrdup (pool_p, value_s);
+									*sep_s = c;
+								}
+							else
+								{
+									id_s = apr_pstrdup (pool_p, value_s);
+								}
+						}
+
+				}		/* if (sep_s) */
+
+		}		/* if (value_s) */
 
 	return id_s;
 }

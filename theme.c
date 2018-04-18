@@ -1,18 +1,18 @@
 /*
-** Copyright 2014-2016 The Earlham Institute
-**
-** Licensed under the Apache License, Version 2.0 (the "License");
-** you may not use this file except in compliance with the License.
-** You may obtain a copy of the License at
-**
-**     http://www.apache.org/licenses/LICENSE-2.0
-**
-** Unless required by applicable law or agreed to in writing, software
-** distributed under the License is distributed on an "AS IS" BASIS,
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-** See the License for the specific language governing permissions and
-** limitations under the License.
-*/
+ ** Copyright 2014-2016 The Earlham Institute
+ **
+ ** Licensed under the Apache License, Version 2.0 (the "License");
+ ** you may not use this file except in compliance with the License.
+ ** You may obtain a copy of the License at
+ **
+ **     http://www.apache.org/licenses/LICENSE-2.0
+ **
+ ** Unless required by applicable law or agreed to in writing, software
+ ** distributed under the License is distributed on an "AS IS" BASIS,
+ ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ ** See the License for the specific language governing permissions and
+ ** limitations under the License.
+ */
 /*
  * theme.c
  *
@@ -57,7 +57,7 @@ static int PrintTableEntryToOption (void *data_p, const char *key_s, const char 
 
 static apr_status_t PrintMetadataEditor (struct HtmlTheme *theme_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p);
 
-static apr_status_t PrintSection (const char *value_s, const char * const current_id_s, rcComm_t *connection_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p);
+static apr_status_t PrintSection (const char *value_s, char *current_id_s, rcComm_t *connection_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p);
 
 static apr_status_t PrintBreadcrumbs (struct dav_resource_private *davrods_resource_p, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p);
 
@@ -78,55 +78,55 @@ struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 
 	if (theme_p)
 		{
-		  theme_p -> ht_head_s = NULL;
-		  theme_p -> ht_top_s = NULL;
-		  theme_p -> ht_bottom_s = NULL;
-		  theme_p -> ht_collection_icon_s = NULL;
-		  theme_p -> ht_object_icon_s = NULL;
-		  theme_p -> ht_listing_class_s = NULL;
-		  theme_p -> ht_add_metadata_icon_s = NULL;
-		  theme_p -> ht_edit_metadata_icon_s = NULL;
-		  theme_p -> ht_delete_metadata_icon_s = NULL;
-		  theme_p -> ht_download_metadata_icon_s = NULL;
-		  theme_p -> ht_download_metadata_as_csv_icon_s = NULL;
-		  theme_p -> ht_download_metadata_as_json_icon_s = NULL;
-		  theme_p -> ht_view_metadata_icon_s = NULL;
+			theme_p -> ht_head_s = NULL;
+			theme_p -> ht_top_s = NULL;
+			theme_p -> ht_bottom_s = NULL;
+			theme_p -> ht_collection_icon_s = NULL;
+			theme_p -> ht_object_icon_s = NULL;
+			theme_p -> ht_listing_class_s = NULL;
+			theme_p -> ht_add_metadata_icon_s = NULL;
+			theme_p -> ht_edit_metadata_icon_s = NULL;
+			theme_p -> ht_delete_metadata_icon_s = NULL;
+			theme_p -> ht_download_metadata_icon_s = NULL;
+			theme_p -> ht_download_metadata_as_csv_icon_s = NULL;
+			theme_p -> ht_download_metadata_as_json_icon_s = NULL;
+			theme_p -> ht_view_metadata_icon_s = NULL;
 
-		  theme_p -> ht_show_download_metadata_links_flag = 0;
+			theme_p -> ht_show_download_metadata_links_flag = 0;
 
-		  theme_p -> ht_show_metadata_flag = MD_UNSET;
-		  theme_p -> ht_metadata_editable_flag = 0;
-		  theme_p -> ht_rest_api_s = NULL;
+			theme_p -> ht_show_metadata_flag = MD_UNSET;
+			theme_p -> ht_metadata_editable_flag = 0;
+			theme_p -> ht_rest_api_s = NULL;
 
-		  theme_p -> ht_ok_icon_s = NULL;
-		  theme_p -> ht_cancel_icon_s = NULL;
+			theme_p -> ht_ok_icon_s = NULL;
+			theme_p -> ht_cancel_icon_s = NULL;
 
-		  theme_p -> ht_show_resource_flag = 0;
-		  theme_p -> ht_show_ids_flag = 0;
-		  theme_p -> ht_login_url_s = NULL;
-		  theme_p -> ht_logout_url_s = NULL;
-		  theme_p -> ht_user_icon_s = NULL;
+			theme_p -> ht_show_resource_flag = 0;
+			theme_p -> ht_show_ids_flag = 0;
+			theme_p -> ht_login_url_s = NULL;
+			theme_p -> ht_logout_url_s = NULL;
+			theme_p -> ht_user_icon_s = NULL;
 
-		  theme_p -> ht_add_search_form_flag = 0;
-		  theme_p -> ht_icons_map_p = NULL;
+			theme_p -> ht_add_search_form_flag = 0;
+			theme_p -> ht_icons_map_p = NULL;
 
-		  theme_p -> ht_name_heading_s = NULL;
+			theme_p -> ht_name_heading_s = NULL;
 
-		  theme_p -> ht_size_heading_s = NULL;
+			theme_p -> ht_size_heading_s = NULL;
 
-		  theme_p -> ht_owner_heading_s = NULL;
+			theme_p -> ht_owner_heading_s = NULL;
 
-		  theme_p -> ht_date_heading_s = NULL;
+			theme_p -> ht_date_heading_s = NULL;
 
-		  theme_p -> ht_properties_heading_s = NULL;
+			theme_p -> ht_properties_heading_s = NULL;
 
-		  theme_p -> ht_zone_label_s = NULL;
+			theme_p -> ht_zone_label_s = NULL;
 
-		  theme_p -> ht_pre_table_html_s = NULL;
+			theme_p -> ht_pre_table_html_s = NULL;
 
-		  theme_p -> ht_post_table_html_s = NULL;
+			theme_p -> ht_post_table_html_s = NULL;
 
-		  theme_p -> ht_tools_placement = PL_IN_HEADER;
+			theme_p -> ht_tools_placement = PL_IN_HEADER;
 		}
 
 	return theme_p;
@@ -158,7 +158,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 	/*
 		The current id is only the minor the id so we need to add
 		the prefix. Since this is a collection we know it's "2."
-	*/
+	 */
 	if (current_id_s)
 		{
 			current_id_s = apr_pstrcat (pool_p, "2.", current_id_s, NULL);
@@ -245,14 +245,14 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 												{
 													ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to PrintItem for \"%s\":\"%s\"",
 																				 coll_entry.collName ? coll_entry.collName : "",
-																				 coll_entry.dataName ? coll_entry.dataName : "");
+																						 coll_entry.dataName ? coll_entry.dataName : "");
 												}
 										}
 									else
 										{
 											ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to SetIRodsObjectFromCollEntry for \"%s\":\"%s\"",
 																		 coll_entry.collName ? coll_entry.collName : "",
-																		 coll_entry.dataName ? coll_entry.dataName : "");
+																				 coll_entry.dataName ? coll_entry.dataName : "");
 										}
 
 									//clearCollEnt (&coll_entry);
@@ -266,14 +266,14 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 									else
 										{
 											ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_SUCCESS,
-													req_p,
-													"rcReadCollection failed for collection <%s> with error <%s>",
-													davrods_resource_p->rods_path, get_rods_error_msg(status));
+																		req_p,
+																		"rcReadCollection failed for collection <%s> with error <%s>",
+																		davrods_resource_p->rods_path, get_rods_error_msg(status));
 
 											apr_brigade_destroy(bucket_brigade_p);
 
 											return dav_new_error(pool_p, HTTP_INTERNAL_SERVER_ERROR,
-													0, 0, "Could not read a collection entry from a collection.");
+																					 0, 0, "Could not read a collection entry from a collection.");
 										}
 								}
 						}
@@ -284,7 +284,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 				{
 					ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "SetIRodsConfig failed for exposed_root_s:\"%s\" davrods_root_path_s:\"%s\"",
 												 exposed_root_s ? exposed_root_s : "<NULL>",
-												 davrods_root_path_s ? davrods_root_path_s: "<NULL>");
+														 davrods_root_path_s ? davrods_root_path_s: "<NULL>");
 				}
 
 		}		/* if (apr_status == APR_SUCCESS) */
@@ -306,7 +306,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 		{
 			apr_brigade_destroy (bucket_brigade_p);
 			return dav_new_error(pool_p, HTTP_INTERNAL_SERVER_ERROR, 0, status,
-					"Could not write content to filter.");
+													 "Could not write content to filter.");
 		}
 	apr_brigade_destroy(bucket_brigade_p);
 
@@ -314,7 +314,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 }
 
 
-apr_status_t PrintAllHTMLAfterListing (const char *user_s, const char *escaped_zone_s, const char *davrods_path_s, const davrods_dir_conf_t *conf_p, const char *current_id_s, rcComm_t *connection_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
+apr_status_t PrintAllHTMLAfterListing (const char *user_s, const char *escaped_zone_s, const char *davrods_path_s, const davrods_dir_conf_t *conf_p, char *current_id_s, rcComm_t *connection_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
 {
 	const char * const table_end_s = "</tbody>\n</table>\n";
 	struct HtmlTheme *theme_p = conf_p -> theme_p;
@@ -375,22 +375,22 @@ static apr_status_t PrintMetadataEditor (struct HtmlTheme *theme_p, request_rec 
 	apr_status_t status;
 
 	const char * const form_s = "<div id=\"edit_metadata_pop_up\">\n"
-		"<form method=\"get\" id=\"metadata_editor\" action=\"/davrods/api/metadata/add\">\n"
-		"<fieldset>\n"
-		"<legend id=\"metadata_editor_title\">Edit Metadata</legend>\n"
-		"<div class=\"add_group\">\n"
-		"<div class=\"row\"><label for=\"attribute_editor\">Attribute:</label><input type=\"text\" name=\"key\" id=\"attribute_editor\" /></div>\n"
-		"<div class=\"row\"><label for=\"value_editor\">Value:</label><input type=\"text\" name=\"value\" id=\"value_editor\" /></div>\n"
-		"<div class=\"row\"><label for=\"units_editor\">Units:</label><input type=\"text\" name=\"units\" id=\"units_editor\" /></div>\n"
-		"</div>\n"
-		"<div class=\"edit_group\">\n"
-		"<div class=\"row\"><label for=\"new_attribute_editor\">Attribute:</label><input type=\"text\" name=\"new_key\" id=\"new_attribute_editor\" /></div>\n"
-		"<div class=\"row\"><label for=\"new_value_editor\">Value:</label><input type=\"text\" name=\"new_value\" id=\"new_value_editor\" /></div>\n"
-		"<div class=\"row\"><label for=\"new_units_editor\">Units:</label><input type=\"text\" name=\"new_units\" id=\"new_units_editor\" /></div>\n"
-		"</div>\n"
-		"<input type=\"hidden\" name=\"id\" id=\"id_editor\" />\n"
-		"</fieldset>\n"
-		"<div class=\"toolbar\">";
+			"<form method=\"get\" id=\"metadata_editor\" action=\"/davrods/api/metadata/add\">\n"
+			"<fieldset>\n"
+			"<legend id=\"metadata_editor_title\">Edit Metadata</legend>\n"
+			"<div class=\"add_group\">\n"
+			"<div class=\"row\"><label for=\"attribute_editor\">Attribute:</label><input type=\"text\" name=\"key\" id=\"attribute_editor\" /></div>\n"
+			"<div class=\"row\"><label for=\"value_editor\">Value:</label><input type=\"text\" name=\"value\" id=\"value_editor\" /></div>\n"
+			"<div class=\"row\"><label for=\"units_editor\">Units:</label><input type=\"text\" name=\"units\" id=\"units_editor\" /></div>\n"
+			"</div>\n"
+			"<div class=\"edit_group\">\n"
+			"<div class=\"row\"><label for=\"new_attribute_editor\">Attribute:</label><input type=\"text\" name=\"new_key\" id=\"new_attribute_editor\" /></div>\n"
+			"<div class=\"row\"><label for=\"new_value_editor\">Value:</label><input type=\"text\" name=\"new_value\" id=\"new_value_editor\" /></div>\n"
+			"<div class=\"row\"><label for=\"new_units_editor\">Units:</label><input type=\"text\" name=\"new_units\" id=\"new_units_editor\" /></div>\n"
+			"</div>\n"
+			"<input type=\"hidden\" name=\"id\" id=\"id_editor\" />\n"
+			"</fieldset>\n"
+			"<div class=\"toolbar\">";
 
 	status = PrintBasicStringToBucketBrigade (form_s, bucket_brigade_p, req_p, __FILE__, __LINE__);
 
@@ -447,7 +447,7 @@ char *GetLocationPath (request_rec *req_p, davrods_dir_conf_t *conf_p, apr_pool_
 }
 
 
-static apr_status_t PrintSection (const char *value_s, const char * const current_id_s, rcComm_t *connection_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p)
+static apr_status_t PrintSection (const char *value_s, char *current_id_s, rcComm_t *connection_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p)
 {
 	apr_status_t status = APR_SUCCESS;
 
@@ -548,7 +548,7 @@ char *GetDavrodsAPIPath (struct dav_resource_private *davrods_resource_p, davrod
 }
 
 
-apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_resource_p, const char *escaped_zone_s, const char * const page_title_s, const char *davrods_path_s, const char * const marked_up_page_title_s, const char *current_id_s, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
+apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_resource_p, const char *escaped_zone_s, const char * const page_title_s, const char *davrods_path_s, const char * const marked_up_page_title_s, char *current_id_s, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p)
 {
 	// Send start of HTML document.
 	const char *escaped_page_title_s = "";
@@ -817,7 +817,7 @@ static int PrintTableEntryToOption (void *data_p, const char *key_s, const char 
 	apr_status_t status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<option>%s</option>\n", key_s);
 
 	/* TRUE:continue iteration. FALSE:stop iteration */
-	return (status == APR_SUCCESS) ? TRUE : 0;
+	return (status == APR_SUCCESS) ? TRUE : FALSE;
 }
 
 
@@ -927,10 +927,10 @@ apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_
 			if (IsColumnDisplayed (theme_p -> ht_name_heading_s))
 				{
 					apr_brigade_printf(bb_p, NULL, NULL,
-							"<td class=\"name\"><a href=\"%s\">%s%s</a></td>",
-							relative_link_s,
-							ap_escape_html (pool_p, name_s),
-							link_suffix_s ? link_suffix_s : "");
+														 "<td class=\"name\"><a href=\"%s\">%s%s</a></td>",
+														 relative_link_s,
+														 ap_escape_html (pool_p, name_s),
+														 link_suffix_s ? link_suffix_s : "");
 				}
 		}		/* if (name_s) */
 
@@ -990,38 +990,38 @@ apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_
 		}
 
 	switch (theme_p -> ht_show_metadata_flag)
-		{
-			case MD_FULL:
-				{
-					const char *zone_s = NULL;
+	{
+		case MD_FULL:
+			{
+				const char *zone_s = NULL;
 
-					status = GetAndPrintMetadataForIRodsObject (irods_obj_p, config_p -> ic_metadata_root_link_s, zone_s, theme_p, bb_p, connection_p, req_p, pool_p);
+				status = GetAndPrintMetadataForIRodsObject (irods_obj_p, config_p -> ic_metadata_root_link_s, zone_s, theme_p, bb_p, connection_p, req_p, pool_p);
 
-					if (status == APR_SUCCESS)
-						{
+				if (status == APR_SUCCESS)
+					{
 
-						}
-				}
-				break;
+					}
+			}
+			break;
 
-			case MD_ON_DEMAND:
-				{
-					const char *zone_s = NULL;
+		case MD_ON_DEMAND:
+			{
+				const char *zone_s = NULL;
 
-					status = GetAndPrintMetadataRestLinkForIRodsObject (irods_obj_p, config_p -> ic_metadata_root_link_s, zone_s, theme_p, bb_p, connection_p, pool_p);
+				status = GetAndPrintMetadataRestLinkForIRodsObject (irods_obj_p, config_p -> ic_metadata_root_link_s, zone_s, theme_p, bb_p, connection_p, pool_p);
 
-					if (status == APR_SUCCESS)
-						{
+				if (status == APR_SUCCESS)
+					{
 
-						}
+					}
 
-				}
+			}
 
-				break;
+			break;
 
-			default:
-				break;
-		}
+		default:
+			break;
+	}
 
 
 
@@ -1074,80 +1074,80 @@ const char *SetHeadHTML (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 
 const char *SetTopHTML (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-    conf_p -> theme_p -> ht_top_s = arg_p;
+	conf_p -> theme_p -> ht_top_s = arg_p;
 
-    return NULL;
+	return NULL;
 }
 
 
 
 const char *SetBottomHTML (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-    conf_p -> theme_p -> ht_bottom_s = arg_p;
+	conf_p -> theme_p -> ht_bottom_s = arg_p;
 
-    return NULL;
+	return NULL;
 }
 
 
 
 const char *SetCollectionImage (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-    conf_p -> theme_p -> ht_collection_icon_s = arg_p;
+	conf_p -> theme_p -> ht_collection_icon_s = arg_p;
 
-    return NULL;
+	return NULL;
 }
 
 
 
 const char *SetObjectImage (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-    conf_p -> theme_p -> ht_object_icon_s = arg_p;
+	conf_p -> theme_p -> ht_object_icon_s = arg_p;
 
-    return NULL;
+	return NULL;
 }
 
 
 const char *SetTableListingClass (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-    conf_p -> theme_p -> ht_listing_class_s = arg_p;
+	conf_p -> theme_p -> ht_listing_class_s = arg_p;
 
-    return NULL;
+	return NULL;
 }
 
 
 const char *SetShowThemedListings (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-    if (!strcasecmp (arg_p, "true"))
-    	{
-    		conf_p -> themed_listings = 1;
-    	}
+	if (!strcasecmp (arg_p, "true"))
+		{
+			conf_p -> themed_listings = 1;
+		}
 
-    return NULL;
+	return NULL;
 }
 
 
 const char *SetShowResources (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-    if (!strcasecmp (arg_p, "true"))
-    	{
-    		conf_p -> theme_p -> ht_show_resource_flag = 1;
-    	}
+	if (!strcasecmp (arg_p, "true"))
+		{
+			conf_p -> theme_p -> ht_show_resource_flag = 1;
+		}
 
-    return NULL;
+	return NULL;
 }
 
 
@@ -1174,119 +1174,119 @@ const char *SetShowSelectedResourcesOnly (cmd_parms *cmd_p, void *config_p, cons
 
 const char *SetMetadataDisplay (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-    if (!strcasecmp (arg_p, "none"))
-    	{
-    		conf_p -> theme_p -> ht_show_metadata_flag = MD_NONE;
-    	}
-    else if (!strcasecmp (arg_p, "full"))
-    	{
-    		conf_p -> theme_p -> ht_show_metadata_flag = MD_FULL;
-    	}
-    else if (!strcasecmp (arg_p, "on_demand"))
-    	{
-    		conf_p -> theme_p -> ht_show_metadata_flag = MD_ON_DEMAND;
-    	}
+	if (!strcasecmp (arg_p, "none"))
+		{
+			conf_p -> theme_p -> ht_show_metadata_flag = MD_NONE;
+		}
+	else if (!strcasecmp (arg_p, "full"))
+		{
+			conf_p -> theme_p -> ht_show_metadata_flag = MD_FULL;
+		}
+	else if (!strcasecmp (arg_p, "on_demand"))
+		{
+			conf_p -> theme_p -> ht_show_metadata_flag = MD_ON_DEMAND;
+		}
 
-    return NULL;
+	return NULL;
 }
 
 
 const char *SetMetadataIsEditable (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-    if (!strcasecmp (arg_p, "true"))
-    	{
-    		conf_p -> theme_p -> ht_metadata_editable_flag = 1;
-    	}
+	if (!strcasecmp (arg_p, "true"))
+		{
+			conf_p -> theme_p -> ht_metadata_editable_flag = 1;
+		}
 
-    return NULL;
+	return NULL;
 }
 
 
 
 const char *SetShowIds (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-    if (!strcasecmp (arg_p, "true"))
-    	{
-    		conf_p -> theme_p -> ht_show_ids_flag = 1;
-    	}
+	if (!strcasecmp (arg_p, "true"))
+		{
+			conf_p -> theme_p -> ht_show_ids_flag = 1;
+		}
 
-    return NULL;
+	return NULL;
 }
 
 
 const char *SetLoginURL (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-		conf_p -> theme_p -> ht_login_url_s = arg_p;
+	conf_p -> theme_p -> ht_login_url_s = arg_p;
 
-    return NULL;
+	return NULL;
 }
 
 
 const char *SetLogoutURL (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-		conf_p -> theme_p -> ht_logout_url_s = arg_p;
+	conf_p -> theme_p -> ht_logout_url_s = arg_p;
 
-    return NULL;
+	return NULL;
 }
 
 
 const char *SetUserImage (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-		conf_p -> theme_p -> ht_user_icon_s = arg_p;
+	conf_p -> theme_p -> ht_user_icon_s = arg_p;
 
-    return NULL;
+	return NULL;
 }
 
 const char *SetAddMetadataImage (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-		conf_p -> theme_p -> ht_add_metadata_icon_s = arg_p;
+	conf_p -> theme_p -> ht_add_metadata_icon_s = arg_p;
 
-    return NULL;
+	return NULL;
 }
 
 
 const char *SetDownloadMetadataImage (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-		conf_p -> theme_p -> ht_download_metadata_icon_s = arg_p;
+	conf_p -> theme_p -> ht_download_metadata_icon_s = arg_p;
 
-    return NULL;
+	return NULL;
 }
 
 
 const char *SetDownloadMetadataImageAsJSON (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-		conf_p -> theme_p -> ht_download_metadata_as_json_icon_s = arg_p;
+	conf_p -> theme_p -> ht_download_metadata_as_json_icon_s = arg_p;
 
-    return NULL;
+	return NULL;
 }
 
 
 
 const char *SetDownloadMetadataImageAsCSV (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-		conf_p -> theme_p -> ht_download_metadata_as_csv_icon_s = arg_p;
+	conf_p -> theme_p -> ht_download_metadata_as_csv_icon_s = arg_p;
 
-    return NULL;
+	return NULL;
 }
 
 
@@ -1294,20 +1294,20 @@ const char *SetDownloadMetadataImageAsCSV (cmd_parms *cmd_p, void *config_p, con
 
 const char *SetDeleteMetadataImage (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-		conf_p -> theme_p -> ht_delete_metadata_icon_s = arg_p;
+	conf_p -> theme_p -> ht_delete_metadata_icon_s = arg_p;
 
-    return NULL;
+	return NULL;
 }
 
 const char *SetEditMetadataImage (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-		conf_p -> theme_p -> ht_edit_metadata_icon_s = arg_p;
+	conf_p -> theme_p -> ht_edit_metadata_icon_s = arg_p;
 
-    return NULL;
+	return NULL;
 }
 
 
@@ -1315,111 +1315,111 @@ const char *SetEditMetadataImage (cmd_parms *cmd_p, void *config_p, const char *
 
 const char *SetOkImage (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-		conf_p -> theme_p -> ht_ok_icon_s = arg_p;
+	conf_p -> theme_p -> ht_ok_icon_s = arg_p;
 
-    return NULL;
+	return NULL;
 }
 
 
 const char *SetCancelImage (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-		conf_p -> theme_p -> ht_cancel_icon_s = arg_p;
+	conf_p -> theme_p -> ht_cancel_icon_s = arg_p;
 
-    return NULL;
+	return NULL;
 }
 
 
 const char *SetAPIPath (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-		conf_p -> davrods_api_path_s = arg_p;
+	conf_p -> davrods_api_path_s = arg_p;
 
-    return NULL;
+	return NULL;
 }
 
 
 const char *SetDefaultUsername (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-		conf_p -> davrods_public_username_s = arg_p;
+	conf_p -> davrods_public_username_s = arg_p;
 
-    return NULL;
+	return NULL;
 }
 
 
 const char *SetDefaultPassword (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-		conf_p -> davrods_public_password_s = arg_p;
+	conf_p -> davrods_public_password_s = arg_p;
 
-    return NULL;
+	return NULL;
 }
 
 
 const char *SetIconForSuffix (cmd_parms *cmd_p, void *config_p, const char *icon_s, const char *suffix_s)
 {
-  davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-  if (! (conf_p -> theme_p -> ht_icons_map_p))
-  	{
-  		const int INITIAL_TABLE_SIZE = 16;
-  		conf_p -> theme_p -> ht_icons_map_p = apr_table_make (cmd_p -> pool, INITIAL_TABLE_SIZE);
-  	}
+	if (! (conf_p -> theme_p -> ht_icons_map_p))
+		{
+			const int INITIAL_TABLE_SIZE = 16;
+			conf_p -> theme_p -> ht_icons_map_p = apr_table_make (cmd_p -> pool, INITIAL_TABLE_SIZE);
+		}
 
-  apr_table_set (conf_p -> theme_p -> ht_icons_map_p, suffix_s, icon_s);
+	apr_table_set (conf_p -> theme_p -> ht_icons_map_p, suffix_s, icon_s);
 
-  return NULL;
+	return NULL;
 }
 
 
 const char *SetExposedRootForSpecifiedUser (cmd_parms *cmd_p, void *config_p, const char *username_s, const char *exposed_root_s)
 {
-  davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-  apr_table_set (conf_p -> exposed_roots_per_user_p, username_s, exposed_root_s);
+	apr_table_set (conf_p -> exposed_roots_per_user_p, username_s, exposed_root_s);
 
-  return NULL;
+	return NULL;
 }
 
 
 const char *SetShowMetadataSearchForm (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-    if (strcasecmp (arg_p, "true") == 0)
-			{
-				conf_p -> theme_p -> ht_add_search_form_flag = 1;
-			}
-    else if (strcasecmp (arg_p, "false") == 0)
-			{
-    		conf_p -> theme_p -> ht_add_search_form_flag = 0;
-			}
+	if (strcasecmp (arg_p, "true") == 0)
+		{
+			conf_p -> theme_p -> ht_add_search_form_flag = 1;
+		}
+	else if (strcasecmp (arg_p, "false") == 0)
+		{
+			conf_p -> theme_p -> ht_add_search_form_flag = 0;
+		}
 
-    return NULL;
+	return NULL;
 }
 
 
 const char *SetShowMetadataDownloadLinks (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
-    davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-    if (strcasecmp (arg_p, "true") == 0)
-			{
-				conf_p -> theme_p -> ht_show_download_metadata_links_flag = 1;
-			}
-    else if (strcasecmp (arg_p, "false") == 0)
-			{
-				conf_p -> theme_p -> ht_show_download_metadata_links_flag = 0;
-			}
+	if (strcasecmp (arg_p, "true") == 0)
+		{
+			conf_p -> theme_p -> ht_show_download_metadata_links_flag = 1;
+		}
+	else if (strcasecmp (arg_p, "false") == 0)
+		{
+			conf_p -> theme_p -> ht_show_download_metadata_links_flag = 0;
+		}
 
-    return NULL;
+	return NULL;
 }
 
 
@@ -1508,12 +1508,12 @@ PL_PRE_LISTINGS,
 PL_POST_LISTINGS,
 PL_IN_FOOTER,
 PL_NUM_ENTRIES
-*/
+ */
 
 const char *SetToolsPlacement (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
 	const char *res_s = NULL;
- 	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 	Placement p = PL_NUM_ENTRIES;
 
 	if (strcasecmp (arg_p, "in_header") == 0) {
@@ -1676,10 +1676,10 @@ static apr_status_t PrintUserSection (const char *user_s, const char *escaped_zo
 	if (theme_p -> ht_add_search_form_flag)
 		{
 			status = apr_brigade_printf (bb_p, NULL, NULL,
-						"<form action=\"%s%s\" class=\"search_form\" id=\"search_form\">\n<fieldset><legend>Search:</legend>\n<label for=\"search_key\">Attribute:</label><input name=\"key\" type=\"text\" id=\"search_key\">\n", davrods_path_s, REST_METADATA_SEARCH_S);
+																	 "<form action=\"%s%s\" class=\"search_form\" id=\"search_form\">\n<fieldset><legend>Search:</legend>\n<label for=\"search_key\">Attribute:</label><input name=\"key\" type=\"text\" id=\"search_key\">\n", davrods_path_s, REST_METADATA_SEARCH_S);
 			status = apr_brigade_printf (bb_p, NULL, NULL, "<ul id=\"search_keys_autocomplete_list\" class=\"autocomplete\"></ul>\n");
 
-					/*
+			/*
 					for (i = 0; i < keys_p -> nelts; ++ i)
 						{
 							char *value_s = ((char **) keys_p -> elts) [i];
@@ -1690,7 +1690,7 @@ static apr_status_t PrintUserSection (const char *user_s, const char *escaped_zo
 									break;
 								}
 						}
-					*/
+			 */
 
 			status = apr_brigade_printf (bb_p, NULL, NULL, "\n<label for=\"search_value\">Value:</label><input type=\"text\" id=\"search_value\" name=\"value\" />");
 			status = apr_brigade_printf (bb_p, NULL, NULL, "<ul id=\"search_values_autocomplete_list\" class=\"autocomplete\"></ul>\n");
@@ -1723,7 +1723,7 @@ static apr_status_t PrintUserSection (const char *user_s, const char *escaped_zo
 							/* Is the user logged in or is public access? */
 							if (public_user_flag)
 								{
-									if ((status = apr_brigade_printf (bb_p, NULL, NULL, "<br /><a href=\"%s\">", conf_p -> theme_p -> ht_login_url_s)) == APR_SUCCESS)
+									if ((status = apr_brigade_printf (bb_p, NULL, NULL, "<br /><a id=\"login_link\" href=\"%s\">", conf_p -> theme_p -> ht_login_url_s)) == APR_SUCCESS)
 										{
 											if (theme_p -> ht_user_icon_s)
 												{
@@ -1738,7 +1738,7 @@ static apr_status_t PrintUserSection (const char *user_s, const char *escaped_zo
 								}
 							else
 								{
-									if ((status = apr_brigade_printf (bb_p, NULL, NULL, "<br /><a href=\"%s\">", conf_p -> theme_p -> ht_logout_url_s)) == APR_SUCCESS)
+									if ((status = apr_brigade_printf (bb_p, NULL, NULL, "<br /><a id=\"logout_link\" ref=\"%s\">", conf_p -> theme_p -> ht_logout_url_s)) == APR_SUCCESS)
 										{
 											if (theme_p -> ht_user_icon_s)
 												{

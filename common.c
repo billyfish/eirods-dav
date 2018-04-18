@@ -50,7 +50,7 @@
 APLOG_USE_MODULE(davrods);
 
 
-static char *ParseURIForVariables (const char *uri_s, const char * const current_id_s, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p);
+static char *ParseURIForVariables (const char *uri_s, char *current_id_s, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p);
 
 
 // Common utility functions {{{
@@ -198,7 +198,7 @@ apr_status_t PrintFileToBucketBrigade (const char *filename_s, apr_bucket_brigad
 
 
 
-apr_status_t PrintWebResponseToBucketBrigade (const char *uri_s, const char * const current_id_s, apr_bucket_brigade *brigade_p, rcComm_t *connection_p, request_rec *req_p, const char *file_s, const int line)
+apr_status_t PrintWebResponseToBucketBrigade (const char *uri_s, char *current_id_s, apr_bucket_brigade *brigade_p, rcComm_t *connection_p, request_rec *req_p, const char *file_s, const int line)
 {
 	apr_status_t status = APR_SUCCESS;
 	char *parsed_uri_s = ParseURIForVariables (uri_s, current_id_s, connection_p, req_p, req_p -> pool);
@@ -218,7 +218,7 @@ apr_status_t PrintWebResponseToBucketBrigade (const char *uri_s, const char * co
 
 
 
-static char *ParseURIForVariables (const char *uri_s, const char * const current_id_s, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p)
+static char *ParseURIForVariables (const char *uri_s, char *current_id_s, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p)
 {
 	apr_status_t status;
 	char *result_s = NULL;
