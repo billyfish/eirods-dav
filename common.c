@@ -258,11 +258,13 @@ static char *ParseURIForVariables (const char *uri_s, char *current_id_s, rcComm
 										{
 											if (strcmp (current_var_s, "id") == 0)
 												{
-													if ((status = apr_brigade_puts (buffer_p, NULL, NULL, current_id_s)) != APR_SUCCESS)
+													if (current_id_s)
 														{
+															if ((status = apr_brigade_puts (buffer_p, NULL, NULL, current_id_s)) != APR_SUCCESS)
+																{
 
-														}		/* if ((status = apr_brigade_puts (buffer_p, NULL, NULL, current_id_s)) != APR_SUCCESS) */
-
+																}		/* if ((status = apr_brigade_puts (buffer_p, NULL, NULL, current_id_s)) != APR_SUCCESS) */
+														}
 												}		/*( if (strcmp (current_var_s, "id") == 0) */
 											else if (strncmp (current_var_s, metadata_prefix_s, metadata_prefix_length) == 0)
 												{
