@@ -538,8 +538,6 @@ char *GetCurlUtilData (CurlUtil *tool_p)
 			* (result_s + result_length) = '\0';
 		}
 
-	result_s = apr_pstrdup (tool_p, result_s);
-
 	return result_s;
 }
 
