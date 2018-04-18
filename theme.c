@@ -1697,7 +1697,7 @@ static apr_status_t PrintUserSection (const char *user_s, const char *escaped_zo
 			status = apr_brigade_printf (bb_p, NULL, NULL, "\n<input type=\"submit\" name=\"Search\" /></fieldset></form>");
 		}		/* if (theme_p -> ht_add_search_form_flag) */
 
-	status = PrintBasicStringToBucketBrigade ("<section class=\"user\"><h2>User details</h2>\n", bb_p, req_p, __FILE__, __LINE__);
+	status = PrintBasicStringToBucketBrigade ("<section id=\"user\"><h2>User details</h2>\n", bb_p, req_p, __FILE__, __LINE__);
 
 
 	if (status == APR_SUCCESS)
@@ -1709,11 +1709,11 @@ static apr_status_t PrintUserSection (const char *user_s, const char *escaped_zo
 			 */
 			if (public_user_flag)
 				{
-					status = apr_brigade_printf (bb_p, NULL, NULL, "<strong>You are browsing the public view on the %s zone</strong>\n", escaped_zone_s);
+					status = apr_brigade_printf (bb_p, NULL, NULL, "<strong>You are browsing the public view on the <span class=\"zone_name\">%s</span> zone</strong>\n", escaped_zone_s);
 				}
 			else
 				{
-					status = apr_brigade_printf (bb_p, NULL, NULL, "<strong>You are logged in as %s and on the %s zone</strong>\n", user_s, escaped_zone_s);
+					status = apr_brigade_printf (bb_p, NULL, NULL, "<strong>You are logged in as <span class=\"user_name\">%s</span> and on the <span class=\"zone_name\">%s</span> zone</strong>\n", user_s, escaped_zone_s);
 				}
 
 			if (status == APR_SUCCESS)
