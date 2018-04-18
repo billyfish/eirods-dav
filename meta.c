@@ -88,9 +88,9 @@ static apr_status_t PrintAddMetadataObject (const struct HtmlTheme *theme_p, apr
 
 static apr_status_t PrintDownloadMetadataObject (const struct HtmlTheme *theme_p, apr_bucket_brigade *bb_p, const char *api_root_url_s, const char *id_s);
 
-static apr_status_t GetMetadataArryaAsColumnData (apr_array_header_t *metadata_array_p, apr_bucket_brigade *bucket_brigade_p, const char * const sep_s);
+static apr_status_t GetMetadataArrayAsColumnData (apr_array_header_t *metadata_array_p, apr_bucket_brigade *bucket_brigade_p, const char * const sep_s);
 
-static apr_status_t GetMetadataArryaAsJSON (apr_array_header_t *metadata_array_p, apr_bucket_brigade *bucket_brigade_p);
+static apr_status_t GetMetadataArrayAsJSON (apr_array_header_t *metadata_array_p, apr_bucket_brigade *bucket_brigade_p);
 
 static apr_status_t PrintDownloadMetadataObjectLink (const IRodsObject *irods_obj_p, const char *icon_s, const char *label_s, const char *type_s, const char *api_root_url_s, apr_bucket_brigade *bb_p);
 
@@ -883,18 +883,21 @@ apr_status_t GetMetadataTableForId (char *id_s, davrods_dir_conf_t *config_p, rc
 
 	if (metadata_array_p)
 		{
+			const char *content_type_s = "text/html";
+
 			switch (format)
 				{
 					case OF_JSON:
-						status = GetMetadataArryaAsJSON (metadata_array_p, bucket_brigade_p);
+						status = GetMetadataArrayAsJSON (metadata_array_p, bucket_brigade_p);
+						content_type_s = "application/json";
 						break;
 
 					case OF_TSV:
-						status = GetMetadataArryaAsColumnData (metadata_array_p, bucket_brigade_p, "\t");
+						status = GetMetadataArrayAsColumnData (metadata_array_p, bucket_brigade_p, "\t");
 						break;
 
 					case OF_CSV:
-						status = GetMetadataArryaAsColumnData (metadata_array_p, bucket_brigade_p, ", ");
+						status = GetMetadataArrayAsColumnData (metadata_array_p, bucket_brigade_p, ", ");
 						break;
 
 					case OF_HTML:
@@ -906,6 +909,8 @@ apr_status_t GetMetadataTableForId (char *id_s, davrods_dir_conf_t *config_p, rc
 						}
 						break;
 				}
+
+			ap_set_content_type (req_p, content_type_s);
 		}
 	else
 		{
@@ -957,7 +962,7 @@ apr_array_header_t *GetMetadataForId (char *id_s, rcComm_t *connection_p, reques
 
 
 
-static apr_status_t GetMetadataArryaAsJSON (apr_array_header_t *metadata_array_p, apr_bucket_brigade *bucket_brigade_p)
+static apr_status_t GetMetadataArrayAsJSON (apr_array_header_t *metadata_array_p, apr_bucket_brigade *bucket_brigade_p)
 {
 	apr_status_t status = APR_SUCCESS;
 	const int last_index = metadata_array_p -> nelts - 1;
@@ -1016,7 +1021,7 @@ static apr_status_t GetMetadataArryaAsJSON (apr_array_header_t *metadata_array_p
 }
 
 
-static apr_status_t GetMetadataArryaAsColumnData (apr_array_header_t *metadata_array_p, apr_bucket_brigade *bucket_brigade_p, const char * const sep_s)
+static apr_status_t GetMetadataArrayAsColumnData (apr_array_header_t *metadata_array_p, apr_bucket_brigade *bucket_brigade_p, const char * const sep_s)
 {
 	apr_status_t status = APR_SUCCESS;
 	const int last_index = metadata_array_p -> nelts;
