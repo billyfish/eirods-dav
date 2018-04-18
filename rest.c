@@ -192,6 +192,8 @@ int DavrodsRestHandler (request_rec *req_p)
 				}
 		}
 
+
+
   return res;
 }
 
@@ -304,6 +306,7 @@ static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_
 									ap_rputs (result_s, req_p);
 								}
 
+							ap_set_content_type (req_p, "text/html; charset=utf-8");
 							res = OK;
 						}		/* if (rods_connection_p) */
 
