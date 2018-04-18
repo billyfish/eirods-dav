@@ -277,6 +277,9 @@ static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_
 	apr_pool_t *pool_p = req_p -> pool;
 	const char * const key_s = GetParameterValue (params_p, "key", pool_p);
 
+	ap_set_content_type (req_p, "text/html; charset=utf-8");
+
+
 	if (key_s)
 		{
 			const char * const value_s = GetParameterValue (params_p, "value", pool_p);
@@ -306,7 +309,6 @@ static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_
 									ap_rputs (result_s, req_p);
 								}
 
-							ap_set_content_type (req_p, "text/html; charset=utf-8");
 							res = OK;
 						}		/* if (rods_connection_p) */
 

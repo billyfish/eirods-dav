@@ -870,7 +870,7 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 			* (result_s + result_length) = '\0';
 		}
 
-	apr_brigade_destroy(bucket_brigade_p);
+	apr_brigade_destroy (bucket_brigade_p);
 
 	return result_s;
 }
