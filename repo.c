@@ -23,6 +23,7 @@
 
 #include <http_request.h>
 #include <http_protocol.h>
+#include "util_script.h"
 
 #include "theme.h"
 #include "auth.h"
@@ -45,6 +46,7 @@ typedef struct walker_seen_resource_t
 static const char *get_rods_root (apr_pool_t *davrods_pool, request_rec *r);
 static int walker_push_seen_path (apr_pool_t *p, walker_seen_resource_t **seen, const char *rods_path);
 static dav_error *dav_repo_get_resource (request_rec *r, const char *root_dir, const char *label, int use_checked_in, dav_resource **result_resource);
+static const char *dav_repo_getetag (const dav_resource *resource);
 
 static dav_error *DeliverFile (const dav_resource *resource_p, ap_filter_t *output_p);
 static void LogFilters (const ap_filter_t *filter_p, request_rec *req_p);
@@ -1130,10 +1132,8 @@ static dav_error *dav_repo_seek_stream (dav_stream *stream, apr_off_t abs_pos)
 		}
 }
 
-static const char *dav_repo_getetag (const dav_resource *resource);
 
-static dav_error *dav_repo_set_headers (request_rec *r,
-		const dav_resource *resource)
+static dav_error *dav_repo_set_headers (request_rec *r, const dav_resource *resource)
 {
 	// Set response headers for GET requests.
 
@@ -1148,8 +1148,10 @@ static dav_error *dav_repo_set_headers (request_rec *r,
 		}
 	else
 		{
+			apr_table_t *req_params_p = NULL;
 			const char *etag = dav_repo_getetag (resource);
 			char *date_str = apr_pcalloc(r->pool, APR_RFC822_DATE_LEN);
+			bool set_length_flag = true;
 
 			if (date_str)
 				{
@@ -1165,7 +1167,23 @@ static dav_error *dav_repo_set_headers (request_rec *r,
 					apr_table_setn (r->headers_out, "ETag", etag);
 				}
 
-			ap_set_content_length (r, resource->info->stat->objSize);
+
+			ap_args_to_table (r, &req_params_p);
+
+			if (req_params_p)
+				{
+					const char *value_s = apr_table_get (req_params_p, "ignore-content-length");
+
+					if (value_s && (strcasecmp (value_s, "true") == 0))
+						{
+							set_length_flag = false;
+						}
+				}
+
+			if (set_length_flag)
+				{
+					ap_set_content_length (r, resource->info->stat->objSize);
+				}
 		}
 
 	return 0;
