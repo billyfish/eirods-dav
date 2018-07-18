@@ -1619,6 +1619,7 @@ void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p
 	DAVRODS_PROP_MERGE (theme_p -> ht_zone_label_s);
 	DAVRODS_PROP_MERGE (theme_p -> ht_pre_table_html_s);
 	DAVRODS_PROP_MERGE (theme_p -> ht_post_table_html_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_post_body_html_s);
 
 
 	DAVRODS_PROP_MERGE (theme_p -> ht_tools_placement);
