@@ -606,7 +606,10 @@ const command_rec davrods_directives[] = {
 				NULL, ACCESS_CONF, "Set where you want the user and search sections to appear"
 		),
 
-
+		AP_INIT_TAKE1(
+				DAVRODS_CONFIG_PREFIX "PostBodyHtml", SetPostBodyHTML,
+				NULL, ACCESS_CONF, "Set any html you you want between the closing body and html tags"
+		),
 
 		{ NULL }
 };

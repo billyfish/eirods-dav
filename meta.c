@@ -25,6 +25,8 @@
 
 #include "apr_strings.h"
 
+#include "http_protocol.h"
+
 #include "irods/objStat.h"
 #include "irods/rodsGenQueryNames.h"
 

@@ -1165,6 +1165,7 @@ static dav_error *dav_repo_set_headers (request_rec *r,
 					apr_table_setn (r->headers_out, "ETag", etag);
 				}
 
+			ap_set_accept_ranges (r);
 			ap_set_content_length (r, resource->info->stat->objSize);
 		}
 

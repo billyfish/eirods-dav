@@ -126,6 +126,8 @@ struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 
 			theme_p -> ht_post_table_html_s = NULL;
 
+			theme_p -> ht_post_body_html_s = NULL;
+
 			theme_p -> ht_tools_placement = PL_IN_HEADER;
 		}
 
@@ -325,41 +327,69 @@ apr_status_t PrintAllHTMLAfterListing (const char *user_s, const char *escaped_z
 		{
 			if (theme_p -> ht_post_table_html_s)
 				{
-					apr_status = PrintSection (theme_p -> ht_post_table_html_s, current_id_s, connection_p, req_p, bucket_brigade_p);
+					if ((apr_status = PrintSection (theme_p -> ht_post_table_html_s, current_id_s, connection_p, req_p, bucket_brigade_p)) != APR_SUCCESS)
+						{
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "PrintBasicStringToBucketBrigade failed for \"%s\"", theme_p -> ht_post_table_html_s);
+							return apr_status;
+						}
 				}
 
-			apr_status = PrintBasicStringToBucketBrigade ("</main><footer>\n", bucket_brigade_p, req_p, __FILE__, __LINE__);
+			if ((apr_status = PrintBasicStringToBucketBrigade ("</main><footer>\n", bucket_brigade_p, req_p, __FILE__, __LINE__)) != APR_SUCCESS)
+				{
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "PrintBasicStringToBucketBrigade failed for \"</main><footer>\"");
+					return apr_status;
+				}
 
 			if (theme_p -> ht_metadata_editable_flag)
 				{
-					apr_status = PrintMetadataEditor (theme_p, req_p, bucket_brigade_p);
-
-					if (apr_status != APR_SUCCESS)
+					if ((apr_status = PrintMetadataEditor (theme_p, req_p, bucket_brigade_p)) != APR_SUCCESS)
 						{
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "PrintMetadataEditor failed");
 							return apr_status;
 						} /* if (apr_status != APR_SUCCESS) */
 				}
 
 			if (theme_p -> ht_tools_placement == PL_IN_FOOTER)
 				{
-
-					apr_status = PrintUserSection (user_s, escaped_zone_s, davrods_path_s, req_p, conf_p, bucket_brigade_p);
+					if ((apr_status = PrintUserSection (user_s, escaped_zone_s, davrods_path_s, req_p, conf_p, bucket_brigade_p)) != APR_SUCCESS)
+						{
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "PrintUserSection in footer failed");
+							return apr_status;
+						}
 				}
 
 			if (theme_p -> ht_bottom_s)
 				{
-					apr_status = PrintSection (theme_p -> ht_bottom_s, current_id_s, connection_p, req_p, bucket_brigade_p);
-
-					if (apr_status != APR_SUCCESS)
+					if ((apr_status = PrintSection (theme_p -> ht_bottom_s, current_id_s, connection_p, req_p, bucket_brigade_p)) != APR_SUCCESS)
 						{
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "PrintUserSection failed for \"%s\"", theme_p -> ht_bottom_s);
 							return apr_status;
-						} /* if (apr_ret != APR_SUCCESS) */
+						} 	/* if ((apr_status = PrintSection (theme_p -> ht_bottom_s, current_id_s, connection_p, req_p, bucket_brigade_p)) != APR_SUCCESS) */
 
 				}		/* if (theme_p -> ht_bottom_s) */
 
 
 
-			apr_status =  PrintBasicStringToBucketBrigade ("</footer>\n</body>\n</html>\n", bucket_brigade_p, req_p, __FILE__, __LINE__);
+			if ((apr_status = PrintBasicStringToBucketBrigade ("</footer>\n</body>\n", bucket_brigade_p, req_p, __FILE__, __LINE__)) != APR_SUCCESS)
+				{
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "PrintBasicStringToBucketBrigade failed for \"</footer>\n</body>\"");
+					return apr_status;
+				}
+
+
+			if (theme_p -> ht_post_body_html_s)
+				{
+					if ((apr_status = PrintSection (theme_p -> ht_post_body_html_s, current_id_s, connection_p, req_p, bucket_brigade_p)) != APR_SUCCESS)
+						{
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "PrintUserSection failed for \"%s\"", theme_p -> ht_post_body_html_s);
+							return apr_status;
+						}
+				}
+
+			if ((apr_status = PrintBasicStringToBucketBrigade ("</html>\n", bucket_brigade_p, req_p, __FILE__, __LINE__)) != APR_SUCCESS)
+				{
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "PrintBasicStringToBucketBrigade failed for \"</html>\"");
+				}
 		}
 	else
 		{
@@ -1501,6 +1531,18 @@ const char *SetPostListingsHTML (cmd_parms *cmd_p, void *config_p, const char *a
 	return NULL;
 }
 
+
+const char *SetPostBodyHTML (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+	conf_p -> theme_p -> ht_post_body_html_s = arg_p;
+
+	return NULL;
+}
+
+
+
 /*
 PL_HEAD,
 PL_IN_HEADER,
@@ -1509,6 +1551,9 @@ PL_POST_LISTINGS,
 PL_IN_FOOTER,
 PL_NUM_ENTRIES
  */
+
+
+
 
 const char *SetToolsPlacement (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {

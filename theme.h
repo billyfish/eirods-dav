@@ -133,6 +133,8 @@ struct HtmlTheme
 
 	const char *ht_post_table_html_s;
 
+	const char *ht_post_body_html_s;
+
 	Placement ht_tools_placement;
 };
 
@@ -297,6 +299,7 @@ const char *SetPreListingsHTML (cmd_parms *cmd_p, void *config_p, const char *ar
 
 const char *SetPostListingsHTML (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
+const char *SetPostBodyHTML (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
 const char *SetToolsPlacement (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
