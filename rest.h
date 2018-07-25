@@ -59,7 +59,7 @@ typedef enum OutputFormat
 
 
 
-int DavrodsRestHandler (request_rec *req_p);
+int EIRodsDavAPIHandler (request_rec *req_p);
 
 const char *GetMinorId (const char *id_s);
 

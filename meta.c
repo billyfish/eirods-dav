@@ -558,6 +558,12 @@ static int AddWhereClausesToQuery (genQueryInp_t *query_p, const int *where_colu
 }
 
 
+int DisplaySearchResults ()
+{
+
+}
+
+
 char *DoMetadataSearch (const char * const key_s, const char *value_s, const SearchOperator op, const char * const username_s, apr_pool_t *pool_p, rcComm_t *connection_p, struct apr_bucket_alloc_t *bucket_allocator_p, davrods_dir_conf_t *conf_p, request_rec *req_p, const char *davrods_path_s)
 {
     /*

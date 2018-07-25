@@ -50,6 +50,19 @@ typedef struct IRodsObject
 } IRodsObject;
 
 
+
+struct IRodsObjectNode;
+
+
+typedef struct IRodsObjectNode
+{
+	IRodsObject *ion_object_p;
+	struct IRodsObjectNode *ion_next_p;
+} IRodsObjectNode;
+
+
+
+
 typedef struct IRodsConfig
 {
 	const char *ic_exposed_root_s;
@@ -69,10 +82,21 @@ extern "C"
 void InitIRodsObject (IRodsObject *obj_p);
 
 
+
+
 apr_status_t SetIRodsConfig (IRodsConfig *config_p, const char *exposed_root_s, const char *root_path_s, const char *metadata_root_link_s);
 
 
 apr_status_t SetIRodsObject (IRodsObject *obj_p, const objType_t obj_type, const char *id_s, const char *data_s, const char *collection_s, const char *owner_name_s, const char *resource_s, const char *last_modified_time_s, const rodsLong_t size);
+
+
+IRodsObjectNode *AllocateIRodsObjectNode (const objType_t obj_type, const char *id_s, const char *data_s, const char *collection_s, const char *owner_name_s, const char *resource_s, const char *last_modified_time_s, const rodsLong_t size);
+
+void FreeIRodsObjectNode (IRodsObjectNode *node_p);
+
+
+void FreeIRodsObjectNodeList (IRodsObjectNode *root_node_p);
+
 
 
 apr_status_t SetIRodsObjectFromCollEntry (IRodsObject *obj_p, const collEnt_t *coll_entry_p, rcComm_t *connection_p, apr_pool_t *pool_p);
@@ -153,6 +177,10 @@ rodsObjStat_t *GetObjectStat (const char * const path_s, rcComm_t *connection_p,
 
 
 char *GetIRodsObjectFullPath (const IRodsObject *obj_p, apr_pool_t *pool_p);
+
+
+apr_status_t PrintIRodsObjectNodesToJSON (IRodsObjectNode *node_p, const IRodsConfig *config_p, request_rec *req_p);
+
 
 #ifdef __cplusplus
 }

@@ -45,6 +45,7 @@ static const char * const S_DEFAULT_LOCK_DBPATH_S = "/var/lib/davrods/lockdb_loc
 static const int S_DEFAULT_AUTH_TTL = 1;
 
 static const char * const S_DEFAULT_API_PATH_S = "/api/";
+static const char * const S_DEFAULT_SEARCH_PATH_S = "/search";
 static const char * const S_DEFAULT_PUBLIC_USERNAME_S = NULL;
 static const char * const S_DEFAULT_PUBLIC_PASSWORD_S = NULL;
 static const int S_DEFAULT_THEMED_LISTINGS = 0;
@@ -138,7 +139,10 @@ void *davrods_merge_dir_config(apr_pool_t *p, void *_parent, void *_child) {
     conf_p -> themed_listings = MergeConfigInts (parent_p -> themed_listings, child_p -> themed_listings, S_DEFAULT_THEMED_LISTINGS);
 
 
-    MergeThemeConfigs (conf_p, parent_p, child_p, p);
+    conf_p -> rods_host = MergeConfigStrings (parent_p -> rods_host, child_p -> rods_host, S_DEFAULT_HOST_S);
+
+
+    conf_p -> davrods_search_path_s = MergeConfigStrings (parent_p -> davrods_search_path_s, child_p -> davrods_search_path_s, S_DEFAULT_SEARCH_PATH_S);
 
 
   	conf_p -> exposed_roots_per_user_p = MergeAPRTables (parent_p -> exposed_roots_per_user_p, child_p -> exposed_roots_per_user_p, p);
@@ -548,6 +552,13 @@ const command_rec davrods_directives[] = {
 				DAVRODS_CONFIG_PREFIX "APIPath", SetAPIPath,
 				NULL, ACCESS_CONF, "Set the location used for the Rest API. This is relative to the <Location> that davrods is hosted on."
 		),
+
+		AP_INIT_TAKE1(
+				DAVRODS_CONFIG_PREFIX "SearchPath", SetSearchPath,
+				NULL, ACCESS_CONF, "Set the location used for the Web-based search. This is relative to the <Location> that davrods is hosted on."
+		),
+
+
 
 		AP_INIT_TAKE1(
 				DAVRODS_CONFIG_PREFIX "DefaultUsername", SetDefaultUsername,

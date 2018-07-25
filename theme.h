@@ -256,6 +256,8 @@ const char *SetCancelImage (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 
 const char *SetAPIPath (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
+const char *SetSearchPath (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
 const char *SetDefaultUsername (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
 

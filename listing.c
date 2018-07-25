@@ -30,11 +30,17 @@
 
 #include "apr_strings.h"
 #include "apr_time.h"
+#include "http_protocol.h"
 #include "util_script.h"
+
+#include "jansson.h"
+
 
 #define S_LISTING_DEBUG (0)
 
 static void PrintCollEntry (const collEnt_t *coll_entry_p, apr_pool_t *pool_p);
+
+static json_t *GetIRodsObjectAsJSON (const IRodsObject *irods_obj_p, const IRodsConfig *config_p, apr_pool_t *pool_p);
 
 
 
@@ -226,6 +232,151 @@ apr_status_t SetIRodsObjectFromIdString (IRodsObject *obj_p, const char *id_s, r
 		}		/* if (results_p) */
 
 	return status;
+}
+
+
+IRodsObjectNode *AllocateIRodsObjectNode (const objType_t obj_type, const char *id_s, const char *data_s, const char *collection_s, const char *owner_name_s, const char *resource_s, const char *last_modified_time_s, const rodsLong_t size)
+{
+	IRodsObject *obj_p = (IRodsObject *) malloc (sizeof (IRodsObject));
+
+	if (obj_p)
+		{
+			IRodsObjectNode *node_p = (IRodsObjectNode *) malloc (sizeof (IRodsObjectNode));
+
+			if (node_p)
+				{
+					if (SetIRodsObject (obj_p, obj_type, id_s, data_s, collection_s, owner_name_s, resource_s, last_modified_time_s, size) == APR_SUCCESS)
+						{
+							node_p -> ion_object_p = obj_p;
+							node_p -> ion_next_p = NULL;
+
+							return node_p;
+						}
+
+					free (node_p);
+				}
+
+			free (obj_p);
+		}
+
+	return NULL;
+}
+
+
+void FreeIRodsObjectNode (IRodsObjectNode *node_p)
+{
+	free (node_p -> ion_object_p);
+	free (node_p);
+}
+
+
+void FreeIRodsObjectNodeList (IRodsObjectNode *root_node_p)
+{
+	while (root_node_p)
+		{
+			IRodsObjectNode *next_node_p = root_node_p -> ion_next_p;
+
+			FreeIRodsObjectNode (root_node_p);
+
+			root_node_p = next_node_p;
+		}
+}
+
+
+
+apr_status_t PrintIRodsObjectNodesToJSON (IRodsObjectNode *node_p, const IRodsConfig *config_p, request_rec *req_p)
+{
+	apr_status_t status = APR_EGENERAL;
+	apr_pool_t *pool_p = req_p -> pool;
+
+	json_t *values_p = json_array ();
+
+	if (values_p)
+		{
+			bool success_flag = true;
+
+			while (node_p && success_flag)
+				{
+					json_t *obj_json_p = GetIRodsObjectAsJSON (node_p -> ion_object_p, config_p, pool_p);
+
+					if (obj_json_p)
+						{
+							if (json_array_append_new (values_p, obj_json_p) == 0)
+								{
+									node_p = node_p -> ion_next_p;
+								}
+							else
+								{
+									success_flag = false;
+								}
+						}
+					else
+						{
+							success_flag = false;
+						}
+				}
+
+			if (success_flag)
+				{
+					char *data_s = json_dumps (values_p, JSON_INDENT (2));
+
+					if (data_s)
+						{
+							ap_rputs (data_s, req_p);
+							free (data_s);
+						}
+				}
+
+			json_decref (values_p);
+		}
+	else
+		{
+
+		}
+
+	return status;
+}
+
+
+static json_t *GetIRodsObjectAsJSON (const IRodsObject *irods_obj_p, const IRodsConfig *config_p, apr_pool_t *pool_p)
+{
+	json_t *irods_json_p = json_object ();
+
+	if (irods_json_p)
+		{
+			char *relative_link_s = GetIRodsObjectRelativeLink (irods_obj_p, config_p, pool_p);
+
+			if (relative_link_s)
+				{
+					if (json_object_set_new (irods_json_p, "path", json_string (relative_link_s)) == 0)
+						{
+							if (json_object_set_new (irods_json_p, "id", json_string (irods_obj_p -> io_id_s)) == 0)
+								{
+									return irods_json_p;
+								}
+							else
+								{
+									ap_log_perror (APLOG_MARK, APLOG_ERR, APR_ENOSTAT, pool_p, "Failed to set \"id\": \"%s\"", irods_obj_p -> io_id_s);
+								}
+						}
+					else
+						{
+							ap_log_perror (APLOG_MARK, APLOG_ERR, APR_ENOSTAT, pool_p, "Failed to set \"path\": \"%s\"", relative_link_s);
+						}
+				}
+			else
+				{
+					ap_log_perror (APLOG_MARK, APLOG_ERR, APR_ENOSTAT, pool_p, "Failed to create relative link for \"%s\"", irods_obj_p -> io_data_s);
+				}
+
+			json_decref (irods_json_p);
+		}
+	else
+		{
+			ap_log_perror (APLOG_MARK, APLOG_ERR, APR_ENOSTAT, pool_p, "Failed to create JSON object");
+		}
+
+	return NULL;
 }
 
 
