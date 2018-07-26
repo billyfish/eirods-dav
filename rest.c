@@ -103,25 +103,41 @@ static apr_status_t ReadRequestBody (request_rec *req_p, apr_bucket_brigade *buc
 
 static apr_status_t RunMetadataQuery (const int *where_columns_p, const char **where_values_ss, const SearchOperator *ops_p, const size_t num_where_columns, const int *select_columns_p, json_t *res_array_p, request_rec *req_p, davrods_dir_conf_t *config_p);
 
-static IRodsObjectNode *GetMetadataHits (const char * const key_s, const char * const value_s, SearchOperator op, rcComm_t *rods_connection_p, apr_pool_t *pool_p);
+
+static bool GetSearchParameters (const char **key_ss, const char **value_ss, SearchOperator *op_p, apr_table_t *params_p, request_rec *req_p);
+
+
+static int GetVirtualListingAsHTML (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s);
+
+static int GetSearchMetadataAsHTML (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s);
 
 
 /*
  * STATIC VARIABLES
  */
 
-static APICall S_API_ACTIONS_P [] =
-		{
-				{ REST_METADATA_SEARCH_S, SearchMetadata },
-				{ REST_METADATA_GET_S, GetMetadataForEntry },
-				{ REST_METADATA_ADD_S, AddMetadataForEntry },
-				{ REST_METADATA_DELETE_S, DeleteMetadataForEntry },
-				{ REST_METADATA_EDIT_S, EditMetadataForEntry },
-				{ REST_METADATA_MATCHING_KEYS_S, GetMatchingMetadataKeys },
-				{ REST_METADATA_MATCHING_VALUES_S, GetMatchingMetadataValues },
+static APICall S_REST_API_ACTIONS_P [] =
+{
+	{ REST_METADATA_SEARCH_S, SearchMetadata },
+	{ REST_METADATA_GET_S, GetMetadataForEntry },
+	{ REST_METADATA_ADD_S, AddMetadataForEntry },
+	{ REST_METADATA_DELETE_S, DeleteMetadataForEntry },
+	{ REST_METADATA_EDIT_S, EditMetadataForEntry },
+	{ REST_METADATA_MATCHING_KEYS_S, GetMatchingMetadataKeys },
+	{ REST_METADATA_MATCHING_VALUES_S, GetMatchingMetadataValues },
 
-				{ NULL, NULL }
-		};
+	{ NULL, NULL }
+};
+
+
+static APICall S_VIEW_ACTIONS_P [] =
+{
+	{ VIEW_LIST_S, GetVirtualListingAsHTML },
+	{ VIEW_SEARCH_S, GetSearchMetadataAsHTML },
+
+	{ NULL, NULL }
+};
+
 
 
 
@@ -145,69 +161,125 @@ int EIRodsDavAPIHandler (request_rec *req_p)
 	if ((req_p -> method_number == M_GET) || (req_p -> method_number == M_POST))
 		{
 			davrods_dir_conf_t *config_p = ap_get_module_config (req_p -> per_dir_config, &davrods_module);
+			apr_table_t *params_p = NULL;
+			char *davrods_path_s = NULL;
+			bool processed_flag = false;
 
-			if ((config_p -> davrods_api_path_s) && (req_p -> path_info))
+			ap_args_to_table (req_p, &params_p);
+
+			if (req_p -> path_info)
 				{
-					const size_t api_path_length = strlen (config_p -> davrods_api_path_s);
-
-					if (strncmp (config_p -> davrods_api_path_s, req_p -> path_info, api_path_length) == 0)
+					if (config_p -> davrods_api_path_s)
 						{
-							/*
-							 * Parse the uri from req_p -> path_info to get the API call
-							 */
-							const APICall *call_p = S_API_ACTIONS_P;
-							apr_table_t *params_p = NULL;
-							const char *path_s = (req_p -> path_info) + api_path_length;
-							char *davrods_path_s = NULL;
+							const size_t api_path_length = strlen (config_p -> davrods_api_path_s);
 
-							/* Get the Location path where davrods is hosted */
-							const char *ptr = strstr (req_p -> uri, config_p -> davrods_api_path_s);
-
-							if (ptr)
+							if (strncmp (config_p -> davrods_api_path_s, req_p -> path_info, api_path_length) == 0)
 								{
-									davrods_path_s = apr_pstrmemdup (req_p -> pool, req_p -> uri, ptr - (req_p -> uri));
-								}
+									/*
+									 * Parse the uri from req_p -> path_info to get the API call
+									 */
+									const APICall *call_p = S_REST_API_ACTIONS_P;
 
-							ap_args_to_table (req_p, &params_p);
+									const char *path_s = (req_p -> path_info) + api_path_length;
 
-							while ((call_p != NULL) && (call_p -> ac_action_s != NULL))
-								{
-									size_t l = strlen (call_p -> ac_action_s);
+									/* Get the Location path where davrods is hosted */
+									const char *ptr = strstr (req_p -> uri, config_p -> davrods_api_path_s);
 
-									if (strncmp (path_s, call_p -> ac_action_s, l) == 0)
+									if (ptr)
 										{
-											res = call_p -> ac_callback_fn (call_p, req_p, params_p, config_p, davrods_path_s);
-
-											/* force exit from loop */
-											call_p = NULL;
-										}
-									else
-										{
-											++ call_p;
+											davrods_path_s = apr_pstrmemdup (req_p -> pool, req_p -> uri, ptr - (req_p -> uri));
 										}
 
-								}		/* while (call_p -> ac_action_s != NULL) */
+									while ((call_p != NULL) && (call_p -> ac_action_s != NULL))
+										{
+											size_t l = strlen (call_p -> ac_action_s);
+
+											if (strncmp (path_s, call_p -> ac_action_s, l) == 0)
+												{
+													res = call_p -> ac_callback_fn (call_p, req_p, params_p, config_p, davrods_path_s);
+
+													if (res == OK)
+														{
+															ap_set_content_type (req_p, "application/json");
+														}
+
+													/* force exit from loop */
+													call_p = NULL;
+												}
+											else
+												{
+													++ call_p;
+												}
+
+										}		/* while (call_p -> ac_action_s != NULL) */
+
+									processed_flag = true;
+
+								}		/* if (strncmp (config_p -> davrods_api_path_s, req_p -> path_info, api_path_length) == 0) */
+
+						}		/* if (config_p -> davrods_api_path_s) */
 
 
-							if (!apr_is_empty_table (params_p))
-								{
-									apr_table_clear (params_p);
-								}
-
-						}		/* if (strncmp (config_p -> davrods_api_path_s, req_p -> path_info, api_path_length) == 0) */
-					else
+					if (!processed_flag)
 						{
-							const size_t search_path_length = strlen (config_p -> davrods_search_path_s);
-
-							if (strncmp (config_p -> davrods_search_path_s, req_p -> path_info, search_path_length) == 0)
+							if (config_p -> eirods_dav_views_path_s)
 								{
-									//static IRodsObjectNode *GetMetadataHits (const char * const key_s, const char * const value_s, SearchOperator op, rcComm_t *rods_connection_p, apr_pool_t *pool_p)
+									const size_t views_path_length = strlen (config_p -> eirods_dav_views_path_s);
 
-									//res = DisplaySearchResults ();
-								}		/* if (strncmp (config_p -> davrods_search_path_s, req_p -> path_info, search_path_length) == 0) */
-						}
+									if (strncmp (config_p -> eirods_dav_views_path_s, req_p -> path_info, views_path_length) == 0)
+										{
+											const APICall *call_p = S_VIEW_ACTIONS_P;
+											const char *path_s = (req_p -> path_info) + views_path_length;
 
+											/* Get the Location path where davrods is hosted */
+											const char *ptr = strstr (req_p -> uri, config_p -> eirods_dav_views_path_s);
+
+											if (ptr)
+												{
+													davrods_path_s = apr_pstrmemdup (req_p -> pool, req_p -> uri, ptr - (req_p -> uri));
+												}
+
+											while ((call_p != NULL) && (call_p -> ac_action_s != NULL))
+												{
+													size_t l = strlen (call_p -> ac_action_s);
+
+													if (strncmp (path_s, call_p -> ac_action_s, l) == 0)
+														{
+															res = call_p -> ac_callback_fn (call_p, req_p, params_p, config_p, davrods_path_s);
+
+															if (res == OK)
+																{
+																	ap_set_content_type (req_p, "text/html");
+																}
+
+															/* force exit from loop */
+															call_p = NULL;
+														}
+													else
+														{
+															++ call_p;
+														}
+
+												}		/* while (call_p -> ac_action_s != NULL) */
+
+
+										}		/* if (strncmp (config_p -> eirods_dav_views_path_s, req_p -> path_info, views_path_length) == 0) */
+
+								}		/* if (config_p -> eirods_dav_views_path_s) */
+
+						}		/* if (!processed_flag) */
+
+				}		/* if (req_p -> path_info) */
+
+
+
+
+			if (!apr_is_empty_table (params_p))
+				{
+					apr_table_clear (params_p);
 				}
+
+
 		}
 
 
@@ -238,6 +310,40 @@ const char *GetMinorId (const char *id_s)
 	return minor_id_s;
 }
 
+
+static int GetVirtualListingAsHTML (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s)
+{
+	int res = DECLINED;
+
+	return res;
+}
+
+
+static int GetSearchMetadataAsHTML (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s)
+{
+	int res = DECLINED;
+	const char *key_s = NULL;
+	const char *value_s = NULL;
+	SearchOperator op = SO_LIKE;
+
+	if (GetSearchParameters (&key_s, &value_s, &op, params_p, req_p))
+		{
+			rcComm_t *rods_connection_p = GetIRODSConnectionForAPI (req_p, config_p);
+
+			if (rods_connection_p)
+				{
+					char *res_s = DoMetadataSearch (key_s, value_s, op, rods_connection_p, config_p, req_p, davrods_path_s);
+
+					if (res_s)
+						{
+							ap_rputs (res_s, req_p);
+							res = OK;
+						}
+				}
+		}
+
+	return res;
+}
 
 
 static apr_status_t ReadRequestBody (request_rec *req_p, apr_bucket_brigade *bucket_brigade_p)
@@ -285,17 +391,11 @@ static apr_status_t ReadRequestBody (request_rec *req_p, apr_bucket_brigade *buc
 }
 
 
-/*
- * STATIC DEFINITIONS
- */
-
-static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s)
+static bool GetSearchParameters (const char **key_ss, const char **value_ss, SearchOperator *op_p, apr_table_t *params_p, request_rec *req_p)
 {
-	int res = DECLINED;
+	bool success_flag = false;
 	apr_pool_t *pool_p = req_p -> pool;
 	const char * const key_s = GetParameterValue (params_p, "key", pool_p);
-
-	ap_set_content_type (req_p, "application/json");
 
 	if (key_s)
 		{
@@ -305,45 +405,80 @@ static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_
 				{
 					SearchOperator op = SO_LIKE;
 					const char *op_s = apr_table_get (params_p, "op");
-					rcComm_t *rods_connection_p = GetIRODSConnectionForAPI (req_p, config_p);
+
+					*key_ss = key_s;
+					*value_ss = value_s;
 
 					if (op_s)
 						{
 							apr_status_t status = GetSearchOperatorFromString (op_s, &op);
 
-							if (status != APR_SUCCESS)
+							if (status == APR_SUCCESS)
+								{
+									success_flag = true;
+								}
+							else
 								{
 									ap_log_rerror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_BADARG, req_p, "error %d: Unknown operator \"%s\"", status, op_s);
 								}
 						}
-
-					if (rods_connection_p)
+					else
 						{
-							IRodsObjectNode *node_p = GetMetadataHits (key_s, value_s, op, rods_connection_p, pool_p);
+							success_flag = true;
+						}
 
-							if (node_p)
-								{
-									IRodsConfig irods_config;
-
-									char *metadata_root_link_s = apr_pstrcat (pool_p, davrods_path_s, config_p -> davrods_search_path_s, NULL);
-
-									const char *exposed_root_s = GetRodsExposedPath (req_p);
-
-
-									SetIRodsConfig (&irods_config, exposed_root_s, davrods_path_s, metadata_root_link_s);
-
-									PrintIRodsObjectNodesToJSON (node_p, &irods_config, req_p);
-									FreeIRodsObjectNodeList (node_p);
-								}
-							else
-								{
-									ap_rputs ("[]", req_p);
-								}
-
-							res = OK;
-						}		/* if (rods_connection_p) */
-
+					if (success_flag)
+						{
+							*op_p = op;
+						}
 				}
+		}
+
+	return success_flag;
+}
+
+/*
+ * STATIC DEFINITIONS
+ */
+
+static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s)
+{
+	int res = DECLINED;
+	apr_pool_t *pool_p = req_p -> pool;
+	const char *key_s = NULL;
+	const char *value_s = NULL;
+	SearchOperator op = SO_LIKE;
+
+
+	if (GetSearchParameters (&key_s, &value_s, &op, params_p, req_p))
+		{
+			rcComm_t *rods_connection_p = GetIRODSConnectionForAPI (req_p, config_p);
+
+			if (rods_connection_p)
+				{
+					IRodsObjectNode *node_p = GetMatchingMetadataHits (key_s, value_s, op, rods_connection_p, pool_p);
+
+					if (node_p)
+						{
+							IRodsConfig irods_config;
+
+							char *metadata_root_link_s = apr_pstrcat (pool_p, davrods_path_s, config_p -> eirods_dav_views_path_s, NULL);
+
+							const char *exposed_root_s = GetRodsExposedPath (req_p);
+
+
+							SetIRodsConfig (&irods_config, exposed_root_s, davrods_path_s, metadata_root_link_s);
+
+							PrintIRodsObjectNodesToJSON (node_p, &irods_config, req_p);
+							FreeIRodsObjectNodeList (node_p);
+						}
+					else
+						{
+							ap_rputs ("[]", req_p);
+						}
+
+					res = OK;
+				}		/* if (rods_connection_p) */
 
 		}
 
@@ -351,295 +486,6 @@ static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_
 }
 
 
-
-
-static IRodsObjectNode *GetMetadataHits (const char * const key_s, const char * const value_s, SearchOperator op, rcComm_t *rods_connection_p, apr_pool_t *pool_p)
-{
-	/*
-	 * SELECT meta_id FROM r_meta_main WHERE meta_attr_name = ' ' AND meta_attr_value = ' ';
-	 *
-	 * SELECT object_id FROM r_objt_metamap WHERE meta_id = ' ';
-	 *
-	 * object_id is for data object and collection
-	 *
-	 * Get the full path to the object and then use
-	 *
-	 * rcObjStat     (rcComm_t *conn, dataObjInp_t *dataObjInp, rodsObjStat_t **rodsObjStatOut)
-	 *
-	 * to get the info we need for a listing
-	 */
-	int num_where_columns = 2;
-	int where_columns_p [] =  { COL_META_DATA_ATTR_NAME, COL_META_DATA_ATTR_VALUE };
-	const char *where_values_ss [] = { key_s, value_s };
-	SearchOperator ops_p [] = { SO_EQUALS, op };
-	int select_columns_p [] =  { COL_META_DATA_ATTR_ID, -1, -1};
-	genQueryOut_t *meta_id_results_p = NULL;
-	IRodsObjectNode *root_node_p = NULL;
-	IRodsObjectNode *current_node_p = NULL;
-
-	/*
-	 * SELECT meta_id FROM r_meta_main WHERE meta_attr_name = ' ' AND meta_attr_value = ' ';
-	 */
-	meta_id_results_p = RunQuery (rods_connection_p, select_columns_p, where_columns_p, where_values_ss, ops_p, num_where_columns, 0, pool_p);
-
-	if (meta_id_results_p)
-		{
-
-			if (meta_id_results_p -> attriCnt == 1)
-				{
-					int i;
-					const int meta_results_inc = meta_id_results_p -> sqlResult [0].len;
-					const char *meta_id_s = meta_id_results_p -> sqlResult [0].value;
-
-					/*
-					 * SELECT object_id FROM r_objt_metamap WHERE meta_id = ' ';
-					 */
-
-					for (i = 0; i < meta_id_results_p -> rowCnt; ++ i, meta_id_s += meta_results_inc)
-						{
-							/*
-							 * Get all of the matching collections first
-							 */
-							int object_id_select_columns_p [] = { COL_COLL_ID, -1 };
-							genQueryOut_t *id_results_p;
-
-							where_columns_p [0] = COL_META_COLL_ATTR_ID;
-							where_values_ss [0] = meta_id_s;
-
-							/*
-							 * Get all of the matching collections
-							 *
-							 * SELECT object_id FROM r_objt_metamap WHERE meta_id = ' ';
-							 */
-
-							id_results_p = RunQuery (rods_connection_p, object_id_select_columns_p, where_columns_p, where_values_ss, NULL, 1, 0, pool_p);
-
-							if (id_results_p)
-								{
-									if (id_results_p -> rowCnt > 0)
-										{
-											int j;
-											int num_select_columns = 1;
-
-											/* we only searched for 1 attribute so we want the 1st result */
-											const char *id_s = id_results_p -> sqlResult[0].value;
-											const int inc = id_results_p -> sqlResult[0].len;
-											select_columns_p [0] = COL_COLL_NAME;
-											select_columns_p [1] = -1;
-
-											where_columns_p [0] = COL_COLL_ID;
-											num_where_columns = 1;
-
-											for (j = 0; j < id_results_p -> rowCnt; ++ j, id_s += inc)
-												{
-													/*
-													 *
-													 * The id can be the data id, coll id, etc. so we have to work
-													 * out what it is
-													 *
-													 * Start by testing if the id refers to a collection
-													 *
-													 * 		SELECT coll_name FROM r_coll_main WHERE coll_id = '10001';
-													 *
-													 */
-
-													genQueryOut_t *collection_name_results_p = NULL;
-
-													where_values_ss [0] = id_s;
-
-													collection_name_results_p = RunQuery (rods_connection_p, select_columns_p, where_columns_p, where_values_ss, NULL, num_where_columns, 0, pool_p);
-
-													if (collection_name_results_p)
-														{
-															if (collection_name_results_p -> rowCnt > 0)
-																{
-																	if (collection_name_results_p -> attriCnt == num_select_columns)
-																		{
-																			const char *collection_s = collection_name_results_p -> sqlResult [0].value;
-																			rodsObjStat_t *stat_p;
-
-																			stat_p = GetObjectStat (collection_s, rods_connection_p, pool_p);
-
-																			if (stat_p)
-																				{
-																					IRodsObjectNode *node_p = AllocateIRodsObjectNode (COLL_OBJ_T, id_s, NULL, collection_s, stat_p -> ownerName, NULL, stat_p -> modifyTime, stat_p -> objSize);
-
-																					if (node_p)
-																						{
-																							current_node_p = node_p;
-
-																							if (current_node_p)
-																								{
-																									current_node_p -> ion_next_p = node_p;
-																								}
-																							else
-																								{
-																									root_node_p = node_p;
-																								}
-																						}
-
-
-																					freeRodsObjStat (stat_p);
-																				}		/* if (stat_p) */
-
-																		}		/* if (collection_name_results_p -> attriCnt == num_select_columns) */
-
-																}		/* if (collection_name_results_p -> rowCnt > 0) */
-
-															freeGenQueryOut (&collection_name_results_p);
-														}		/* if (collection_name_results_p) */
-
-
-
-												}		/* for (j = 0; j < id_results_p -> rowCnt; ++ j) */
-
-										}		/* if (id_results_p -> rowCnt > 0) */
-
-									freeGenQueryOut (&id_results_p);
-								}		/* if (id_results_p) */
-
-
-							/*
-							 * Get all of the data objects
-							 */
-							object_id_select_columns_p [0] = COL_D_DATA_ID;
-
-							where_columns_p [0] = COL_META_DATA_ATTR_ID;
-							where_values_ss [0] = meta_id_s;
-
-							id_results_p = RunQuery (rods_connection_p, object_id_select_columns_p, where_columns_p, where_values_ss, NULL, 1, 0, pool_p);
-
-							if (id_results_p)
-								{
-									if (id_results_p -> rowCnt > 0)
-										{
-											int j;
-
-											/* we only searched for 1 attribute so we want the 1st result */
-											const char *id_s = id_results_p -> sqlResult [0].value;
-											const int inc = id_results_p -> sqlResult [0].len;
-											int num_select_columns = 2;
-
-											select_columns_p [0] = COL_DATA_NAME;
-											select_columns_p [1] = COL_D_COLL_ID;
-											select_columns_p [2] = -1;
-
-											where_columns_p [0] = COL_D_DATA_ID;
-
-											for (j = 0; j < id_results_p -> rowCnt; ++ j, id_s += inc)
-												{
-													genQueryOut_t *data_id_results_p = NULL;
-
-													where_values_ss [0] = id_s;
-
-													num_select_columns = 2;
-
-													/*
-													 * Testing as data object id.
-													 *
-													 * 		SELECT data_name, coll_id FROM r_data_main where data_id = 10001;
-													 *
-													 */
-													data_id_results_p = RunQuery (rods_connection_p, select_columns_p, where_columns_p, where_values_ss, NULL, 1, 0, pool_p);
-
-													if (data_id_results_p)
-														{
-															if (data_id_results_p -> rowCnt == 1)
-																{
-																	/* we have a data id match */
-																	if (data_id_results_p -> attriCnt == num_select_columns)
-																		{
-																			sqlResult_t *sql_p = data_id_results_p -> sqlResult;
-																			const char *data_name_s = sql_p -> value;
-																			const char *coll_id_s = (++ sql_p) -> value;
-																			genQueryOut_t *coll_id_results_p = NULL;
-																			int coll_id_select_columns_p [] = { COL_COLL_NAME, -1 };
-																			int num_coll_id_select_columns = 1;
-																			int coll_id_where_columns_p [] = { COL_COLL_ID };
-																			const char *coll_id_where_values_ss [] = { coll_id_s };
-																			int num_coll_id_where_columns = 1;
-
-																			/*
-																			 * We have the local data object name, we now need to get the collection name
-																			 * and join the two together
-																			 */
-																			coll_id_results_p = RunQuery (rods_connection_p, coll_id_select_columns_p, coll_id_where_columns_p, coll_id_where_values_ss, NULL, num_coll_id_where_columns, 0, pool_p);
-
-																			if (coll_id_results_p)
-																				{
-																					if (coll_id_results_p -> rowCnt == 1)
-																						{
-																							/* we have a coll id match */
-																							if (coll_id_results_p -> attriCnt == num_coll_id_select_columns)
-																								{
-																									const char *collection_s = coll_id_results_p -> sqlResult [0].value;
-																									char *irods_data_path_s = apr_pstrcat (pool_p, collection_s, "/", data_name_s, NULL);
-
-																									if (irods_data_path_s)
-																										{
-																											rodsObjStat_t *stat_p;
-
-																											stat_p = GetObjectStat (irods_data_path_s, rods_connection_p, pool_p);
-
-																											if (stat_p)
-																												{
-																													IRodsObjectNode *node_p = AllocateIRodsObjectNode (DATA_OBJ_T, id_s, data_name_s, collection_s, stat_p -> ownerName, stat_p -> rescHier, stat_p -> modifyTime, stat_p -> objSize);
-
-																													if (node_p)
-																														{
-																															current_node_p = node_p;
-
-																															if (current_node_p)
-																																{
-																																	current_node_p -> ion_next_p = node_p;
-																																}
-																															else
-																																{
-																																	root_node_p = node_p;
-																																}
-																														}
-
-
-																													freeRodsObjStat (stat_p);
-																												}
-
-																										}		/* if (irods_data_path_s) */
-
-																								}		/* if (coll_id_results_p -> attriCnt == num_select_columns) */
-
-																						}		/* if (coll_id_results_p -> rowCnt == 1) */
-
-																					freeGenQueryOut (&coll_id_results_p);
-																				}		/* if (coll_id_results_p) */
-
-																		}
-
-																}		/* if (data_id_results_p -> rowCnt == 1) */
-
-															freeGenQueryOut (&data_id_results_p);
-														}		/* if (data_id_results_p) */
-
-
-
-												}		/* for (j = 0; j < id_results_p -> rowCnt; ++ j) */
-
-										}		/* if (id_results_p -> rowCnt > 0) */
-
-
-									freeGenQueryOut (&id_results_p);
-								}		/* if (id_results_p) */
-
-						}		/* for (i = 0; i < meta_id_results_p -> rowCnt; ++ i, meta_id_s += meta_results_inc) */
-
-
-
-				}		/* if (meta_id_results_p -> attriCnt == 1) */
-
-			freeGenQueryOut (&meta_id_results_p);
-		}		/* if (meta_id_results_p) */
-
-	return root_node_p;
-}
 
 
 static OutputFormat GetRequestedOutputFormat (apr_table_t *params_p, apr_pool_t *pool_p)
@@ -1056,8 +902,6 @@ static int GetMatchingMetadataKeys (const APICall *call_p, request_rec *req_p, a
 													if (result_s)
 														{
 															ap_rputs (result_s, req_p);
-															ap_set_content_type (req_p, "application/json");
-
 															res = OK;
 															free (result_s);
 														}		/* if (result_s) */
@@ -1141,8 +985,6 @@ static int GetMatchingMetadataValues (const APICall *call_p, request_rec *req_p,
 															if (result_s)
 																{
 																	ap_rputs (result_s, req_p);
-																	ap_set_content_type (req_p, "application/json");
-
 																	res = OK;
 																	free (result_s);
 																}		/* if (result_s) */

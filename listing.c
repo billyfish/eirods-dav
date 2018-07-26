@@ -42,6 +42,9 @@ static void PrintCollEntry (const collEnt_t *coll_entry_p, apr_pool_t *pool_p);
 
 static json_t *GetIRodsObjectAsJSON (const IRodsObject *irods_obj_p, const IRodsConfig *config_p, apr_pool_t *pool_p);
 
+static bool SetStringValue (const char *src_s, char **dest_ss, apr_pool_t *pool_p);
+
+
 
 
 void InitIRodsObject (IRodsObject *obj_p)
@@ -111,7 +114,7 @@ apr_status_t SetIRodsObjectFromIdString (IRodsObject *obj_p, const char *id_s, r
 																{
 																	rodsLong_t size = atoi (size_s);
 
-																	status = SetIRodsObject (obj_p, DATA_OBJ_T, id_s, name_s, coll_s, owner_s, resource_s, modify_s, size);
+																	status = SetIRodsObject (obj_p, DATA_OBJ_T, id_s, name_s, coll_s, owner_s, resource_s, modify_s, size, pool_p);
 																}		/* if (resource_s) */
 															else
 																{
@@ -200,7 +203,7 @@ apr_status_t SetIRodsObjectFromIdString (IRodsObject *obj_p, const char *id_s, r
 
 													if (modify_s)
 														{
-															status = SetIRodsObject (obj_p, COLL_OBJ_T, id_s, name_s, parent_s, owner_s, NULL, modify_s, 0);
+															status = SetIRodsObject (obj_p, COLL_OBJ_T, id_s, name_s, parent_s, owner_s, NULL, modify_s, 0, pool_p);
 														}		/* if (modify_s) */
 													else
 														{
@@ -235,7 +238,7 @@ apr_status_t SetIRodsObjectFromIdString (IRodsObject *obj_p, const char *id_s, r
 }
 
 
-IRodsObjectNode *AllocateIRodsObjectNode (const objType_t obj_type, const char *id_s, const char *data_s, const char *collection_s, const char *owner_name_s, const char *resource_s, const char *last_modified_time_s, const rodsLong_t size)
+IRodsObjectNode *AllocateIRodsObjectNode (const objType_t obj_type, const char *id_s, const char *data_s, const char *collection_s, const char *owner_name_s, const char *resource_s, const char *last_modified_time_s, const rodsLong_t size, apr_pool_t *pool_p)
 {
 	IRodsObject *obj_p = (IRodsObject *) malloc (sizeof (IRodsObject));
 
@@ -245,7 +248,7 @@ IRodsObjectNode *AllocateIRodsObjectNode (const objType_t obj_type, const char *
 
 			if (node_p)
 				{
-					if (SetIRodsObject (obj_p, obj_type, id_s, data_s, collection_s, owner_name_s, resource_s, last_modified_time_s, size) == APR_SUCCESS)
+					if (SetIRodsObject (obj_p, obj_type, id_s, data_s, collection_s, owner_name_s, resource_s, last_modified_time_s, size, pool_p) == APR_SUCCESS)
 						{
 							node_p -> ion_object_p = obj_p;
 							node_p -> ion_next_p = NULL;
@@ -350,48 +353,86 @@ static json_t *GetIRodsObjectAsJSON (const IRodsObject *irods_obj_p, const IRods
 				{
 					if (json_object_set_new (irods_json_p, "path", json_string (relative_link_s)) == 0)
 						{
-							if (json_object_set_new (irods_json_p, "id", json_string (irods_obj_p -> io_id_s)) == 0)
+							char *major_s = apr_itoa (pool_p, irods_obj_p -> io_obj_type);
+
+							if (major_s)
 								{
-									return irods_json_p;
+									char *id_s = apr_pstrcat (pool_p, major_s, ".", irods_obj_p -> io_id_s, NULL);
+
+									if (id_s)
+										{
+											if (json_object_set_new (irods_json_p, "id", json_string (id_s)) == 0)
+												{
+													return irods_json_p;
+												}
+											else
+												{
+													ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to set \"id\": \"%s\"", id_s);
+												}
+										}
+									else
+										{
+											ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to concatenate \"s\", \".\" & \"%s\"", major_s, irods_obj_p -> io_id_s);
+										}
 								}
 							else
 								{
-									ap_log_perror (APLOG_MARK, APLOG_ERR, APR_ENOSTAT, pool_p, "Failed to set \"id\": \"%s\"", irods_obj_p -> io_id_s);
+
 								}
 						}
 					else
 						{
-							ap_log_perror (APLOG_MARK, APLOG_ERR, APR_ENOSTAT, pool_p, "Failed to set \"path\": \"%s\"", relative_link_s);
+							ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to set \"path\": \"%s\"", relative_link_s);
 						}
 				}
 			else
 				{
-					ap_log_perror (APLOG_MARK, APLOG_ERR, APR_ENOSTAT, pool_p, "Failed to create relative link for \"%s\"", irods_obj_p -> io_data_s);
+					ap_log_perror (APLOG_MARK, APLOG_ERR, APR_ENOMEM, pool_p, "Failed to create relative link for \"%s\"", irods_obj_p -> io_data_s);
 				}
 
 			json_decref (irods_json_p);
 		}
 	else
 		{
-			ap_log_perror (APLOG_MARK, APLOG_ERR, APR_ENOSTAT, pool_p, "Failed to create JSON object");
+			ap_log_perror (APLOG_MARK, APLOG_ERR, APR_ENOMEM, pool_p, "Failed to create JSON object");
 		}
 
 	return NULL;
 }
 
 
-apr_status_t SetIRodsObject (IRodsObject *obj_p, const objType_t obj_type, const char *id_s, const char *data_s, const char *collection_s, const char *owner_name_s, const char *resource_s, const char *last_modified_time_s, const rodsLong_t size)
+apr_status_t SetIRodsObject (IRodsObject *obj_p, const objType_t obj_type, const char *id_s, const char *data_s, const char *collection_s, const char *owner_name_s, const char *resource_s, const char *last_modified_time_s, const rodsLong_t size, apr_pool_t *pool_p)
 {
-	apr_status_t status = APR_SUCCESS;
+	apr_status_t status = APR_ENOMEM;
 
 	obj_p -> io_obj_type = obj_type;
-	obj_p -> io_id_s = id_s;
-	obj_p -> io_data_s = data_s;
-	obj_p -> io_collection_s = collection_s;
-	obj_p -> io_owner_name_s = owner_name_s;
-	obj_p -> io_resource_s = resource_s;
-	obj_p -> io_last_modified_time_s = last_modified_time_s;
-	obj_p -> io_size = size;
+
+	if (SetStringValue (id_s, & (obj_p -> io_id_s), pool_p))
+		{
+			if (SetStringValue (data_s, & (obj_p -> io_data_s), pool_p))
+				{
+					if (SetStringValue (collection_s, & (obj_p -> io_collection_s), pool_p))
+						{
+							if (SetStringValue (owner_name_s, & (obj_p -> io_owner_name_s), pool_p))
+								{
+									if (SetStringValue (resource_s, & (obj_p -> io_resource_s), pool_p))
+										{
+											if (SetStringValue (last_modified_time_s, & (obj_p -> io_last_modified_time_s), pool_p))
+												{
+													obj_p -> io_size = size;
+													status = APR_SUCCESS;
+
+												}		/* if (SetStringValue (last_modified_time_s, & (obj_p -> io_last_modified_time_s), pool_p)) */
+
+										}		/* if (SetStringValue (resource_s, & (obj_p -> io_resource_s), pool_p)) */
+
+								}		/* if (SetStringValue (owner_name_s, & (obj_p -> io_owner_name_s), pool_p)) */
+
+						}		/* if (SetStringValue (collection_s, & (obj_p -> io_collection_s), pool_p)) */
+
+				}		/* if (SetStringValue (data_s, & (obj_p -> io_data_s), pool_p)) */
+
+		}		/* if (SetStringValue (id_s, & (obj_p -> io_id_s), pool_p)) */
 
 	return status;
 }
@@ -410,11 +451,11 @@ apr_status_t SetIRodsObjectFromCollEntry (IRodsObject *obj_p, const collEnt_t *c
 		{
 			const char *id_s = GetCollectionId (coll_entry_p -> collName, connection_p, pool_p);
 
-			status = SetIRodsObject (obj_p, coll_entry_p -> objType, id_s, coll_entry_p -> dataName, coll_entry_p -> collName, coll_entry_p -> ownerName, coll_entry_p -> resource, coll_entry_p -> modifyTime, coll_entry_p -> dataSize);
+			status = SetIRodsObject (obj_p, coll_entry_p -> objType, id_s, coll_entry_p -> dataName, coll_entry_p -> collName, coll_entry_p -> ownerName, coll_entry_p -> resource, coll_entry_p -> modifyTime, coll_entry_p -> dataSize, pool_p);
 		}
 	else
 		{
-			status = SetIRodsObject (obj_p, coll_entry_p -> objType, coll_entry_p -> dataId, coll_entry_p -> dataName, coll_entry_p -> collName, coll_entry_p -> ownerName, coll_entry_p -> resource, coll_entry_p -> modifyTime, coll_entry_p -> dataSize);
+			status = SetIRodsObject (obj_p, coll_entry_p -> objType, coll_entry_p -> dataId, coll_entry_p -> dataName, coll_entry_p -> collName, coll_entry_p -> ownerName, coll_entry_p -> resource, coll_entry_p -> modifyTime, coll_entry_p -> dataSize, pool_p);
 		}
 
 	return status;
@@ -583,7 +624,14 @@ char *GetIRodsObjectRelativeLink (const IRodsObject *irods_obj_p, const IRodsCon
 							char *escaped_data_s = ap_escape_html (pool_p, irods_obj_p -> io_data_s);
 
 							//res_s = apr_pstrcat (pool_p, "./", escaped_relative_collection_s, "/", escaped_data_s, NULL);
-							res_s = apr_pstrcat (pool_p, escaped_uri_root_s, separator_s, escaped_relative_collection_s, "/", escaped_data_s, NULL);
+							if (escaped_relative_collection_s && (strlen (escaped_relative_collection_s) > 0))
+								{
+									res_s = apr_pstrcat (pool_p, escaped_uri_root_s, separator_s, escaped_relative_collection_s, "/", escaped_data_s, NULL);
+								}
+							else
+								{
+									res_s = apr_pstrcat (pool_p, escaped_uri_root_s, separator_s, escaped_data_s, NULL);
+								}
 						}
 					else
 						{
@@ -870,5 +918,29 @@ static void PrintCollEntry (const collEnt_t *coll_entry_p, apr_pool_t *pool_p)
 	ap_log_perror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, pool_p, "ownerName %s\n", coll_entry_p -> ownerName);
 	ap_log_perror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, pool_p, "dataType %s\n", coll_entry_p -> dataType);
 	ap_log_perror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, pool_p, "=====================\n");
+}
+
+
+static bool SetStringValue (const char *src_s, char **dest_ss, apr_pool_t *pool_p)
+{
+	bool success_flag = false;
+
+	if (src_s)
+		{
+			char *dest_s = apr_pstrdup (pool_p, src_s);
+
+			if (dest_s)
+				{
+					*dest_ss = dest_s;
+					success_flag = true;
+				}
+		}
+	else
+		{
+			*dest_ss = NULL;
+			success_flag = true;
+		}
+
+	return success_flag;
 }
 

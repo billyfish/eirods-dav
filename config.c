@@ -142,11 +142,13 @@ void *davrods_merge_dir_config(apr_pool_t *p, void *_parent, void *_child) {
     conf_p -> rods_host = MergeConfigStrings (parent_p -> rods_host, child_p -> rods_host, S_DEFAULT_HOST_S);
 
 
-    conf_p -> davrods_search_path_s = MergeConfigStrings (parent_p -> davrods_search_path_s, child_p -> davrods_search_path_s, S_DEFAULT_SEARCH_PATH_S);
+    conf_p -> eirods_dav_views_path_s = MergeConfigStrings (parent_p -> eirods_dav_views_path_s, child_p -> eirods_dav_views_path_s, S_DEFAULT_SEARCH_PATH_S);
 
 
   	conf_p -> exposed_roots_per_user_p = MergeAPRTables (parent_p -> exposed_roots_per_user_p, child_p -> exposed_roots_per_user_p, p);
 
+
+    MergeThemeConfigs (conf_p, parent_p, child_p, p);
 
   	exposed_root_s = MergeConfigStrings (parent_p -> rods_exposed_root, child_p -> rods_exposed_root, S_DEFAULT_EXPOSED_ROOT_S);
 
@@ -554,8 +556,8 @@ const command_rec davrods_directives[] = {
 		),
 
 		AP_INIT_TAKE1(
-				DAVRODS_CONFIG_PREFIX "SearchPath", SetSearchPath,
-				NULL, ACCESS_CONF, "Set the location used for the Web-based search. This is relative to the <Location> that davrods is hosted on."
+				DAVRODS_CONFIG_PREFIX "ViewsPath", SetViewsPath,
+				NULL, ACCESS_CONF, "Set the location used for the html-based views. This is relative to the <Location> that davrods is hosted on."
 		),
 
 

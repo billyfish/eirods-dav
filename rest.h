@@ -28,6 +28,9 @@
 #include "irods/rcConnect.h"
 
 #include "httpd.h"
+#include "listing.h"
+#include "meta.h"
+#include "output_format.h"
 
 
 #ifdef ALLOCATE_REST_CONSTANTS
@@ -47,16 +50,8 @@ REST_PREFIX const char REST_METADATA_DELETE_S [] REST_VAL ("metadata/delete");
 REST_PREFIX const char REST_METADATA_MATCHING_KEYS_S [] REST_VAL ("metadata/keys");
 REST_PREFIX const char REST_METADATA_MATCHING_VALUES_S [] REST_VAL ("metadata/values");
 
-
-typedef enum OutputFormat
-{
-	OF_HTML,
-	OF_JSON,
-	OF_TSV,
-	OF_CSV,
-	OF_NUM_FORMATS
-} OutputFormat;
-
+REST_PREFIX const char VIEW_SEARCH_S [] REST_VAL ("search");
+REST_PREFIX const char VIEW_LIST_S [] REST_VAL ("list");
 
 
 int EIRodsDavAPIHandler (request_rec *req_p);

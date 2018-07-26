@@ -1373,11 +1373,11 @@ const char *SetAPIPath (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 }
 
 
-const char *SetSearchPath (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+const char *SetViewsPath (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
 	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-	conf_p -> davrods_search_path_s = arg_p;
+	conf_p -> eirods_dav_views_path_s = arg_p;
 
 	return NULL;
 }

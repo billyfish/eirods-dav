@@ -36,7 +36,7 @@
 #include "config.h"
 #include "rest.h"
 #include "listing.h"
-
+#include "output_format.h"
 
 typedef struct IrodsMetadata
 {
@@ -79,14 +79,15 @@ void SortIRodsMetadataArray (apr_array_header_t *metadata_array_p, int (*compare
 apr_status_t PrintMetadata (const char *id_s, const apr_array_header_t *metadata_list_p, const struct HtmlTheme * const theme_p, const int editable_flag, apr_bucket_brigade *bb_p, const char *api_root_url_s, apr_pool_t *pool_p);
 
 
-char *DoMetadataSearch (const char * const key_s, const char *value_s, const SearchOperator op, const char * const username_s, apr_pool_t *pool_p, rcComm_t *connection_p, struct apr_bucket_alloc_t *bucket_allocator_p, davrods_dir_conf_t *conf_p, request_rec *req_p, const char *davrods_path_s);
-
+char *DoMetadataSearch (const char * const key_s, const char *value_s, const SearchOperator op, rcComm_t *connection_p, davrods_dir_conf_t *conf_p, request_rec *req_p, const char *davrods_path_s);
 
 genQueryOut_t *RunQuery (rcComm_t *connection_p, const int *select_columns_p, const int *where_columns_p, const char **where_values_ss, const SearchOperator *where_ops_p, size_t num_where_columns, const int options, apr_pool_t *pool_p);
 
 apr_array_header_t *GetAllDataObjectMetadataKeys (apr_pool_t *pool_p, rcComm_t *connection_p);
 
 apr_status_t GetSearchOperatorFromString (const char *op_s, SearchOperator *op_p);
+
+IRodsObjectNode *GetMatchingMetadataHits (const char * const key_s, const char * const value_s, SearchOperator op, rcComm_t *rods_connection_p, apr_pool_t *pool_p);
 
 
 apr_table_t *GetAllDataObjectMetadataValuesForKey (apr_pool_t *pool_p, rcComm_t *connection_p, const char *key_s);
