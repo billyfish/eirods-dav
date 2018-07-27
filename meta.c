@@ -1,18 +1,18 @@
 /*
-** Copyright 2014-2016 The Earlham Institute
-**
-** Licensed under the Apache License, Version 2.0 (the "License");
-** you may not use this file except in compliance with the License.
-** You may obtain a copy of the License at
-**
-**     http://www.apache.org/licenses/LICENSE-2.0
-**
-** Unless required by applicable law or agreed to in writing, software
-** distributed under the License is distributed on an "AS IS" BASIS,
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-** See the License for the specific language governing permissions and
-** limitations under the License.
-*/
+ ** Copyright 2014-2016 The Earlham Institute
+ **
+ ** Licensed under the Apache License, Version 2.0 (the "License");
+ ** you may not use this file except in compliance with the License.
+ ** You may obtain a copy of the License at
+ **
+ **     http://www.apache.org/licenses/LICENSE-2.0
+ **
+ ** Unless required by applicable law or agreed to in writing, software
+ ** distributed under the License is distributed on an "AS IS" BASIS,
+ ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ ** See the License for the specific language governing permissions and
+ ** limitations under the License.
+ */
 /*
  * meta.c
  *
@@ -96,6 +96,9 @@ static apr_status_t GetMetadataArrayAsJSON (apr_array_header_t *metadata_array_p
 
 static apr_status_t PrintDownloadMetadataObjectLink (const IRodsObject *irods_obj_p, const char *icon_s, const char *label_s, const char *type_s, const char *api_root_url_s, apr_bucket_brigade *bb_p);
 
+static objType_t GetObjTypeForIdString (const char * const id_s);
+
+
 /*************************************/
 
 
@@ -118,30 +121,30 @@ char *GetParentCollectionId (const char *child_id_s, const objType_t object_type
 	InitGenQuery (&in_query, 0, zone_s);
 
 	switch (object_type)
-		{
-			/*
-			 * Get all of the meta_id values for a given object_id.
-			 *
-			 * in psql:
-			 *
-			 * 		SELECT meta_id FROM r_objt_metamap WHERE object_id = '10002';
-			 *
-			 * in iquest:
-			 *
-			 * 		iquest "SELECT META_DATA_ATTR_ID WHERE DATA_ID = '10002'";
-			 *
-			 */
-			case DATA_OBJ_T:
-				select_col = COL_D_COLL_ID;
-				break;
+	{
+		/*
+		 * Get all of the meta_id values for a given object_id.
+		 *
+		 * in psql:
+		 *
+		 * 		SELECT meta_id FROM r_objt_metamap WHERE object_id = '10002';
+		 *
+		 * in iquest:
+		 *
+		 * 		iquest "SELECT META_DATA_ATTR_ID WHERE DATA_ID = '10002'";
+		 *
+		 */
+		case DATA_OBJ_T:
+			select_col = COL_D_COLL_ID;
+			break;
 
-			case COLL_OBJ_T:
-				select_col = COL_COLL_ID;
-				break;
+		case COLL_OBJ_T:
+			select_col = COL_COLL_ID;
+			break;
 
-			default:
-				break;
-		}
+		default:
+			break;
+	}
 
 	if (select_col != -1)
 		{
@@ -192,24 +195,24 @@ apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t o
 			InitGenQuery (&in_query, 0, zone_s);
 
 			switch (object_type)
-				{
-					/*
-					 * Get all of the meta_id values for a given object_id.
-					 *
-					 * in psql:
-					 *
-					 * 		SELECT meta_id FROM r_objt_metamap WHERE object_id = '10002';
-					 *
-					 * in iquest:
-					 *
-					 * 		iquest "SELECT META_DATA_ATTR_ID WHERE DATA_ID = '10002'";
-					 *
-					 */
-					case DATA_OBJ_T:
-						select_col = COL_META_DATA_ATTR_ID;
-						where_col = COL_D_DATA_ID;
-						where_value_s = id_s;
-						break;
+			{
+				/*
+				 * Get all of the meta_id values for a given object_id.
+				 *
+				 * in psql:
+				 *
+				 * 		SELECT meta_id FROM r_objt_metamap WHERE object_id = '10002';
+				 *
+				 * in iquest:
+				 *
+				 * 		iquest "SELECT META_DATA_ATTR_ID WHERE DATA_ID = '10002'";
+				 *
+				 */
+				case DATA_OBJ_T:
+					select_col = COL_META_DATA_ATTR_ID;
+					where_col = COL_D_DATA_ID;
+					where_value_s = id_s;
+					break;
 
 					/*
 					 * For a collection we need to do an intermediate search to get the
@@ -217,73 +220,73 @@ apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t o
 					 *
 					 * SELECT coll_id FROM r_coll_main WHERE coll_name = ' ';
 					 */
-					case COLL_OBJ_T:
-						{
-							if (coll_name_s == NULL)
-								{
-									IRodsObject obj;
-									apr_status_t status;
+				case COLL_OBJ_T:
+					{
+						if (coll_name_s == NULL)
+							{
+								IRodsObject obj;
+								apr_status_t status;
 
-									InitIRodsObject (&obj);
+								InitIRodsObject (&obj);
 
-									status = SetIRodsObjectFromIdString (&obj, id_s, irods_connection_p, pool_p);
+								status = SetIRodsObjectFromIdString (&obj, id_s, irods_connection_p, pool_p);
 
-									if (status == APR_SUCCESS)
-										{
-											coll_name_s = GetIRodsObjectFullPath (&obj, pool_p);
+								if (status == APR_SUCCESS)
+									{
+										coll_name_s = GetIRodsObjectFullPath (&obj, pool_p);
 
-											if (!coll_name_s)
-												{
+										if (!coll_name_s)
+											{
 
-												}
-										}
-								}
+											}
+									}
+							}
 
-							if (coll_name_s)
-								{
-									int select_columns_p [] = { COL_COLL_ID, -1};
-									int where_columns_p [] = { COL_COLL_NAME };
-									SearchOperator where_ops_p [] = { SO_EQUALS };
+						if (coll_name_s)
+							{
+								int select_columns_p [] = { COL_COLL_ID, -1};
+								int where_columns_p [] = { COL_COLL_NAME };
+								SearchOperator where_ops_p [] = { SO_EQUALS };
 
-									const char *where_values_ss [] = { coll_name_s };
+								const char *where_values_ss [] = { coll_name_s };
 
-									genQueryOut_t *coll_id_results_p = RunQuery (irods_connection_p, select_columns_p, where_columns_p, where_values_ss, where_ops_p, 1, 0, pool_p);
+								genQueryOut_t *coll_id_results_p = RunQuery (irods_connection_p, select_columns_p, where_columns_p, where_values_ss, where_ops_p, 1, 0, pool_p);
 
-									if (coll_id_results_p)
-										{
-											if (s_debug_flag)
-												{
-													fprintf (stderr, "collection results:\n");
-													PrintBasicGenQueryOut (coll_id_results_p);
-												}
+								if (coll_id_results_p)
+									{
+										if (s_debug_flag)
+											{
+												fprintf (stderr, "collection results:\n");
+												PrintBasicGenQueryOut (coll_id_results_p);
+											}
 
-											if ((coll_id_results_p -> attriCnt == 1) && (coll_id_results_p -> rowCnt == 1))
-												{
-													char *coll_id_s = coll_id_results_p -> sqlResult [0].value;
+										if ((coll_id_results_p -> attriCnt == 1) && (coll_id_results_p -> rowCnt == 1))
+											{
+												char *coll_id_s = coll_id_results_p -> sqlResult [0].value;
 
-													if (coll_id_s)
-														{
-															where_value_s = apr_pstrdup (pool_p, coll_id_s);
+												if (coll_id_s)
+													{
+														where_value_s = apr_pstrdup (pool_p, coll_id_s);
 
-															if (where_value_s)
-																{
-																	where_col = COL_COLL_ID;
-																	select_col = COL_META_COLL_ATTR_ID;
-																}
-														}
-												}
+														if (where_value_s)
+															{
+																where_col = COL_COLL_ID;
+																select_col = COL_META_COLL_ATTR_ID;
+															}
+													}
+											}
 
-											freeGenQueryOut (&coll_id_results_p);
-										}
+										freeGenQueryOut (&coll_id_results_p);
+									}
 
-								}
+							}
 
-						}
-						break;
+					}
+					break;
 
-					default:
-						break;
-				}		/* switch (object_type) */
+				default:
+					break;
+			}		/* switch (object_type) */
 
 			/*
 			 * Did we get all of the required values?
@@ -621,6 +624,182 @@ char *DoMetadataSearch (const char * const key_s, const char *value_s, const Sea
 }
 
 
+static objType_t GetObjTypeForIdString (const char * const id_s)
+{
+	objType_t obj = UNKNOWN_OBJ_T;
+	char *dot_p = strchr (id_s, '.');
+
+	if (dot_p)
+		{
+			*dot_p = '\0';
+			apr_int64_t i = apr_atoi64 (id_s);
+
+			if (errno == 0)
+				{
+					if ((i >= UNKNOWN_OBJ_T) && (i <= NO_INPUT_T))
+						{
+							obj = (objType_t) i;
+						}
+				}
+
+			*dot_p = '.';
+		}
+
+	return obj;
+}
+
+
+
+
+IRodsObjectNode *GetIRodsObjectNodeForId (const char *id_s, rcComm_t *rods_connection_p, apr_pool_t *pool_p)
+{
+	IRodsObjectNode *node_p = NULL;
+	int select_columns_p [] = { COL_COLL_NAME, -1, -1 };
+	int where_columns_p [] =  { COL_COLL_ID };
+	genQueryOut_t *results_p = NULL;
+	int num_select_columns = 1;
+	bool found_flag = false;
+	const char *minor_id_s = GetMinorId (id_s);
+	const char **where_values_ss = &minor_id_s;
+
+	/*
+	 * Check object type to try to narrow down the queries
+	 * we need to execute
+	 */
+
+	objType_t obj_type = GetObjTypeForIdString (id_s);
+
+	if ((obj_type == COLL_OBJ_T) || (obj_type == UNKNOWN_OBJ_T))
+		{
+			results_p = RunQuery (rods_connection_p, select_columns_p, where_columns_p, where_values_ss, NULL, 1, 0, pool_p);
+
+			if (results_p)
+				{
+					if (results_p -> rowCnt > 0)
+						{
+							found_flag = true;
+
+							if (results_p -> attriCnt == num_select_columns)
+								{
+									const char *collection_s = results_p -> sqlResult [0].value;
+									rodsObjStat_t *stat_p;
+
+									stat_p = GetObjectStat (collection_s, rods_connection_p, pool_p);
+
+									if (stat_p)
+										{
+											node_p = AllocateIRodsObjectNode (COLL_OBJ_T, id_s, NULL, collection_s, stat_p -> ownerName, NULL, stat_p -> modifyTime, stat_p -> objSize, pool_p);
+
+											if (node_p)
+												{
+
+												}
+
+											freeRodsObjStat (stat_p);
+										}		/* if (stat_p) */
+
+								}		/* if (results_p -> attriCnt == num_select_columns) */
+
+						}		/* if (results_p -> rowCnt > 0) */
+
+					freeGenQueryOut (&results_p);
+				}		/* if (results_p) */
+		}
+
+
+
+	if (!found_flag)
+		{
+			if ((obj_type == DATA_OBJ_T) || (obj_type == UNKNOWN_OBJ_T))
+				{
+					* (select_columns_p + 1) = COL_DATA_NAME;
+					*select_columns_p = COL_D_COLL_ID;
+
+					num_select_columns = 2;
+
+					/*
+					 * Testing as data object id.
+					 *
+					 * 		SELECT data_name, coll_id FROM r_data_main where data_id = 10001;
+					 *
+					 */
+					results_p = RunQuery (rods_connection_p, select_columns_p, where_columns_p, where_values_ss, NULL, 1, 0, pool_p);
+
+					if (results_p)
+						{
+							if (results_p -> rowCnt == 1)
+								{
+									/* we have a data id match */
+									if (results_p -> attriCnt == num_select_columns)
+										{
+											sqlResult_t *sql_p = results_p -> sqlResult;
+											const char *data_name_s = sql_p -> value;
+											const char *coll_id_s = (++ sql_p) -> value;
+											genQueryOut_t *coll_id_results_p = NULL;
+											int coll_id_select_columns_p [] = { COL_COLL_NAME, -1 };
+											int num_coll_id_select_columns = 1;
+											int coll_id_where_columns_p [] = { COL_COLL_ID };
+											const char *coll_id_where_values_ss [] = { coll_id_s };
+											int num_coll_id_where_columns = 1;
+
+											/*
+											 * We have the local data object name, we now need to get the collection name
+											 * and join the two together
+											 */
+											coll_id_results_p = RunQuery (rods_connection_p, coll_id_select_columns_p, coll_id_where_columns_p, coll_id_where_values_ss, NULL, num_coll_id_where_columns, 0, pool_p);
+
+											if (coll_id_results_p)
+												{
+													if (coll_id_results_p -> rowCnt == 1)
+														{
+															/* we have a coll id match */
+															if (coll_id_results_p -> attriCnt == num_coll_id_select_columns)
+																{
+																	const char *collection_s = coll_id_results_p -> sqlResult [0].value;
+																	char *irods_data_path_s = apr_pstrcat (pool_p, collection_s, "/", data_name_s, NULL);
+
+																	if (irods_data_path_s)
+																		{
+																			rodsObjStat_t *stat_p;
+
+																			stat_p = GetObjectStat (irods_data_path_s, rods_connection_p, pool_p);
+
+																			if (stat_p)
+																				{
+																					node_p = AllocateIRodsObjectNode (DATA_OBJ_T, id_s, data_name_s, collection_s, stat_p -> ownerName, stat_p -> rescHier, stat_p -> modifyTime, stat_p -> objSize, pool_p);
+
+																					if (node_p)
+																						{
+
+																						}
+
+
+																					freeRodsObjStat (stat_p);
+																				}
+
+																		}		/* if (irods_data_path_s) */
+
+																}		/* if (coll_id_results_p -> attriCnt == num_select_columns) */
+
+														}		/* if (coll_id_results_p -> rowCnt == 1) */
+
+													freeGenQueryOut (&coll_id_results_p);
+												}		/* if (coll_id_results_p) */
+
+										}		/* if (results_p -> attriCnt == num_select_columns) */
+
+								}		/* if (results_p -> rowCnt == 1) */
+
+							freeGenQueryOut (&results_p);
+						}		/* if (results_p) */
+
+				}		/* if ((obj_type == DATA_OBJ_T) || (obj_type == UNKNOWN_OBJ_T)) */
+
+		}		/* if (!found_flag) */
+
+	return node_p;
+}
+
 
 IRodsObjectNode *GetMatchingMetadataHits (const char * const key_s, const char * const value_s, SearchOperator op, rcComm_t *rods_connection_p, apr_pool_t *pool_p)
 {
@@ -922,29 +1101,29 @@ apr_status_t GetMetadataTableForId (char *id_s, davrods_dir_conf_t *config_p, rc
 			const char *content_type_s = "text/html";
 
 			switch (format)
-				{
-					case OF_JSON:
-						status = GetMetadataArrayAsJSON (metadata_array_p, bucket_brigade_p);
-						content_type_s = "application/json";
-						break;
+			{
+				case OF_JSON:
+					status = GetMetadataArrayAsJSON (metadata_array_p, bucket_brigade_p);
+					content_type_s = "application/json";
+					break;
 
-					case OF_TSV:
-						status = GetMetadataArrayAsColumnData (metadata_array_p, bucket_brigade_p, "\t");
-						break;
+				case OF_TSV:
+					status = GetMetadataArrayAsColumnData (metadata_array_p, bucket_brigade_p, "\t");
+					break;
 
-					case OF_CSV:
-						status = GetMetadataArrayAsColumnData (metadata_array_p, bucket_brigade_p, ", ");
-						break;
+				case OF_CSV:
+					status = GetMetadataArrayAsColumnData (metadata_array_p, bucket_brigade_p, ", ");
+					break;
 
-					case OF_HTML:
-					default:
-						{
-							char *metadata_link_s = GetDavrodsAPIPath (NULL, config_p, req_p);
+				case OF_HTML:
+				default:
+					{
+						char *metadata_link_s = GetDavrodsAPIPath (NULL, config_p, req_p);
 
-							status = PrintMetadata (id_s, metadata_array_p, config_p -> theme_p, editable_flag, bucket_brigade_p, metadata_link_s, pool_p);
-						}
-						break;
-				}
+						status = PrintMetadata (id_s, metadata_array_p, config_p -> theme_p, editable_flag, bucket_brigade_p, metadata_link_s, pool_p);
+					}
+					break;
+			}
 
 			ap_set_content_type (req_p, content_type_s);
 		}
@@ -961,7 +1140,6 @@ apr_status_t GetMetadataTableForId (char *id_s, davrods_dir_conf_t *config_p, rc
 apr_array_header_t *GetMetadataForId (char *id_s, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p)
 {
 	apr_array_header_t *metadata_array_p = NULL;
-	apr_status_t status = APR_EGENERAL;
 	objType_t obj_type = UNKNOWN_OBJ_T;
 
 	char *child_id_s = GetId (id_s, &obj_type, pool_p);
@@ -1140,20 +1318,20 @@ const char *GetSearchOperatorAsString (const SearchOperator op)
 	const char *op_s = NULL;
 
 	switch (op)
-		{
-			case SO_EQUALS:
-				op_s = S_SEARCH_OPERATOR_EQUALS_S;
-				break;
+	{
+		case SO_EQUALS:
+			op_s = S_SEARCH_OPERATOR_EQUALS_S;
+			break;
 
-			case SO_LIKE:
-				op_s = S_SEARCH_OPERATOR_LIKE_S;
-				break;
+		case SO_LIKE:
+			op_s = S_SEARCH_OPERATOR_LIKE_S;
+			break;
 
-			default:
+		default:
 			//	ap_log_rerror  ();
-				break;
+			break;
 
-		}
+	}
 
 	return op_s;
 }
@@ -1425,8 +1603,8 @@ void PrintBasicGenQueryOut( genQueryOut_t *genQueryOut)
 					char *result_s = genQueryOut->sqlResult[j].value;
 					result_s += i * genQueryOut->sqlResult[j].len;
 					fprintf(stderr,  "i: %d, j: %d -> \"%s\"\n", i, j, result_s );
-			}
-	}
+				}
+		}
 
 	fprintf(stderr,  "\n----\n" );
 }
@@ -1540,7 +1718,7 @@ apr_status_t PrintMetadata (const char *id_s, const apr_array_header_t *metadata
 													char *escaped_value_s = ap_escape_urlencoded (pool_p, metadata_p -> im_value_s);
 
 													apr_brigade_printf (bb_p, NULL, NULL, "<a href=\"%s/%s?key=%s&amp;value=%s\" title=\"Find all items that match %s = %s\">",
-														api_root_url_s, REST_METADATA_SEARCH_S, escaped_key_s, escaped_value_s, metadata_p -> im_key_s, metadata_p -> im_value_s);
+																							api_root_url_s, REST_METADATA_SEARCH_S, escaped_key_s, escaped_value_s, metadata_p -> im_key_s, metadata_p -> im_value_s);
 												}
 
 											apr_brigade_printf (bb_p, NULL, NULL, "<span class=\"key\">%s</span>: <span class=\"value\">%s</span>", metadata_p -> im_key_s, metadata_p -> im_value_s);
@@ -1899,16 +2077,16 @@ static int CopyTableKeysToArray (void *data_p, const char *key_s, const char *va
 
 	* (const char **) apr_array_push (metadata_keys_p) = key_s;
 
-//	char *copied_key_s = apr_pstrdup (metadata_keys_p -> pool, key_s);
-//
-//	if (copied_key_s)
-//		{
-//			* (char **) apr_array_push (metadata_keys_p) = copied_key_s;
-//		}		/* if (copied_key_s) */
-//	else
-//		{
-//			res = 0;
-//		}
+	//	char *copied_key_s = apr_pstrdup (metadata_keys_p -> pool, key_s);
+	//
+	//	if (copied_key_s)
+	//		{
+	//			* (char **) apr_array_push (metadata_keys_p) = copied_key_s;
+	//		}		/* if (copied_key_s) */
+	//	else
+	//		{
+	//			res = 0;
+	//		}
 
 	return res;
 }

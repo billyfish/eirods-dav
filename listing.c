@@ -45,6 +45,8 @@ static json_t *GetIRodsObjectAsJSON (const IRodsObject *irods_obj_p, const IRods
 static bool SetStringValue (const char *src_s, char **dest_ss, apr_pool_t *pool_p);
 
 
+static int CompareIRodsObjectsDoublePointers (const void *a_p, const void *b_p);
+
 
 
 void InitIRodsObject (IRodsObject *obj_p)
@@ -867,7 +869,7 @@ char *GetId (char *value_s, objType_t *type_p, apr_pool_t *pool_p)
 
 
 
-rodsObjStat_t * GetObjectStat (const char * const path_s, rcComm_t *connection_p, apr_pool_t *pool_p)
+rodsObjStat_t *GetObjectStat (const char * const path_s, rcComm_t *connection_p, apr_pool_t *pool_p)
 {
 	dataObjInp_t inp;
 	rodsObjStat_t *stat_p = NULL;
@@ -896,6 +898,88 @@ rodsObjStat_t * GetObjectStat (const char * const path_s, rcComm_t *connection_p
 }
 
 
+void SortIRodsObjectNodeListIntoDirectoryOrder (IRodsObjectNode *root_node_p)
+{
+	IRodsObjectNode *node_p = root_node_p;
+	size_t num_nodes = 0;
+
+	while (node_p)
+		{
+			node_p = node_p -> ion_next_p;
+			++ num_nodes;
+		}
+
+	if (num_nodes)
+		{
+			IRodsObject **objs_pp = malloc (num_nodes * sizeof (IRodsObject *));
+
+			if (objs_pp)
+				{
+					IRodsObject **obj_pp = objs_pp;
+					node_p = root_node_p;
+
+					while (node_p)
+						{
+							*obj_pp = node_p -> ion_object_p;
+
+							node_p = node_p -> ion_next_p;
+							++ obj_pp;
+						}
+
+					qsort (obj_pp, num_nodes, sizeof (IRodsObjectNode *), CompareIRodsObjectsDoublePointers);
+
+					node_p = root_node_p;
+					obj_pp = objs_pp;
+
+					while (node_p)
+						{
+							node_p -> ion_object_p = *obj_pp;
+
+							node_p = node_p -> ion_next_p;
+							++ obj_pp;
+						}
+
+
+					free (objs_pp);
+				}
+		}
+}
+
+
+static int CompareIRodsObjectsDoublePointers (const void *a_p, const void *b_p)
+{
+	int res = 0;
+	const IRodsObject *obj_a_p = * ((const IRodsObject **) a_p);
+	const IRodsObject *obj_b_p = * ((const IRodsObject **) b_p);
+
+	if (obj_a_p -> io_obj_type != obj_b_p -> io_obj_type)
+		{
+			if (obj_a_p -> io_obj_type == COLL_OBJ_T)
+				{
+					res = -1;
+				}
+			else
+				{
+					res = 1;
+				}
+
+		}
+	else
+		{
+			res = strcmp (obj_a_p -> io_collection_s, obj_b_p -> io_collection_s);
+
+			if (obj_a_p -> io_obj_type != COLL_OBJ_T)
+				{
+					if (res == 0)
+						{
+							res = strcmp (obj_a_p -> io_data_s, obj_b_p -> io_data_s);
+						}
+				}
+
+		}
+
+	return res;
+}
 
 
 static void PrintCollEntry (const collEnt_t *coll_entry_p, apr_pool_t *pool_p)

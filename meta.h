@@ -89,6 +89,8 @@ apr_status_t GetSearchOperatorFromString (const char *op_s, SearchOperator *op_p
 
 IRodsObjectNode *GetMatchingMetadataHits (const char * const key_s, const char * const value_s, SearchOperator op, rcComm_t *rods_connection_p, apr_pool_t *pool_p);
 
+IRodsObjectNode *GetIRodsObjectNodeForId (const char *id_s, rcComm_t *rods_connection_p, apr_pool_t *pool_p);
+
 
 apr_table_t *GetAllDataObjectMetadataValuesForKey (apr_pool_t *pool_p, rcComm_t *connection_p, const char *key_s);
 

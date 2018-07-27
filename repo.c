@@ -1148,10 +1148,8 @@ static dav_error *dav_repo_set_headers (request_rec *r, const dav_resource *reso
 		}
 	else
 		{
-			apr_table_t *req_params_p = NULL;
 			const char *etag = dav_repo_getetag (resource);
 			char *date_str = apr_pcalloc(r->pool, APR_RFC822_DATE_LEN);
-			bool set_length_flag = true;
 
 			if (date_str)
 				{

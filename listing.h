@@ -61,6 +61,13 @@ typedef struct IRodsObjectNode
 } IRodsObjectNode;
 
 
+typedef struct IRodsObjectList
+{
+	struct IRodsObjectNode *ion_head_p;
+	size_t iol_size;
+} IRodsObjectList;
+
+
 
 
 typedef struct IRodsConfig
@@ -96,6 +103,11 @@ void FreeIRodsObjectNode (IRodsObjectNode *node_p);
 
 
 void FreeIRodsObjectNodeList (IRodsObjectNode *root_node_p);
+
+
+
+void SortIRodsObjectNodeListIntoDirectoryOrder (IRodsObjectNode *node_p);
+
 
 
 

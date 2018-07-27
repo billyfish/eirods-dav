@@ -80,6 +80,9 @@ static int GetMatchingMetadataKeys (const APICall *call_p, request_rec *req_p, a
 static int GetMatchingMetadataValues (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s);
 
 
+static int GetInformationForEntry (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s);
+
+
 static const char *GetIdParameter (apr_table_t *params_p, request_rec *req_p, rcComm_t *rods_connection_p, apr_pool_t *pool_p);
 
 
@@ -111,32 +114,35 @@ static int GetVirtualListingAsHTML (const APICall *call_p, request_rec *req_p, a
 
 static int GetSearchMetadataAsHTML (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s);
 
+static char *GetFullPath (const char *path_s, request_rec *req_p, apr_pool_t *pool_p);
 
 /*
  * STATIC VARIABLES
  */
 
 static APICall S_REST_API_ACTIONS_P [] =
-{
-	{ REST_METADATA_SEARCH_S, SearchMetadata },
-	{ REST_METADATA_GET_S, GetMetadataForEntry },
-	{ REST_METADATA_ADD_S, AddMetadataForEntry },
-	{ REST_METADATA_DELETE_S, DeleteMetadataForEntry },
-	{ REST_METADATA_EDIT_S, EditMetadataForEntry },
-	{ REST_METADATA_MATCHING_KEYS_S, GetMatchingMetadataKeys },
-	{ REST_METADATA_MATCHING_VALUES_S, GetMatchingMetadataValues },
+		{
+				{ REST_METADATA_SEARCH_S, SearchMetadata },
+				{ REST_METADATA_GET_S, GetMetadataForEntry },
+				{ REST_METADATA_ADD_S, AddMetadataForEntry },
+				{ REST_METADATA_DELETE_S, DeleteMetadataForEntry },
+				{ REST_METADATA_EDIT_S, EditMetadataForEntry },
+				{ REST_METADATA_MATCHING_KEYS_S, GetMatchingMetadataKeys },
+				{ REST_METADATA_MATCHING_VALUES_S, GetMatchingMetadataValues },
 
-	{ NULL, NULL }
-};
+				{ REST_GET_INFO_S, GetInformationForEntry },
+
+				{ NULL, NULL }
+		};
 
 
 static APICall S_VIEW_ACTIONS_P [] =
-{
-	{ VIEW_LIST_S, GetVirtualListingAsHTML },
-	{ VIEW_SEARCH_S, GetSearchMetadataAsHTML },
+		{
+				{ VIEW_LIST_S, GetVirtualListingAsHTML },
+				{ VIEW_SEARCH_S, GetSearchMetadataAsHTML },
 
-	{ NULL, NULL }
-};
+				{ NULL, NULL }
+		};
 
 
 
@@ -278,11 +284,7 @@ int EIRodsDavAPIHandler (request_rec *req_p)
 				{
 					apr_table_clear (params_p);
 				}
-
-
 		}
-
-
 
 	return res;
 }
@@ -311,9 +313,76 @@ const char *GetMinorId (const char *id_s)
 }
 
 
+IRodsObjectNode *GetMatchingIds (request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p)
+{
+	apr_pool_t *pool_p = req_p -> pool;
+	IRodsObjectNode *root_node_p = NULL;
+	rcComm_t *rods_connection_p = GetIRODSConnectionForAPI (req_p, config_p);
+
+	if (rods_connection_p)
+		{
+			const char * const ids_s = GetParameterValue (params_p, "key", pool_p);
+
+			if (ids_s)
+				{
+					char *copied_ids_s = apr_pstrdup (pool_p, ids_s);
+
+					if (copied_ids_s)
+						{
+							const char *sep_s = " ";
+							char *id_s = apr_strtok (copied_ids_s, sep_s, &copied_ids_s);
+							IRodsObjectNode *current_node_p = NULL;
+
+							while (id_s)
+								{
+									IRodsObjectNode *node_p = GetIRodsObjectNodeForId (id_s, rods_connection_p, pool_p);
+
+									if (node_p)
+										{
+											if (current_node_p)
+												{
+													current_node_p -> ion_next_p = node_p;
+												}
+											else
+												{
+													root_node_p = node_p;
+												}
+
+											current_node_p = node_p;
+										}
+
+
+
+									id_s = apr_strtok (NULL, sep_s, &id_s);
+								}		/* while (id_s) */
+
+
+						}		/* if (copied_ids_s) */
+
+				}		/* if (ids_s) */
+
+		}		/* if (rods_connection_p) */
+
+
+	if (root_node_p)
+		{
+			SortIRodsObjectNodeListIntoDirectoryOrder (root_node_p);
+		}
+
+
+	return root_node_p;
+}
+
+
 static int GetVirtualListingAsHTML (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s)
 {
 	int res = DECLINED;
+	IRodsObjectNode *root_node_p = GetMatchingIds (req_p, params_p, config_p);
+
+	if (root_node_p)
+		{
+
+		}
 
 	return res;
 }
@@ -511,6 +580,58 @@ static OutputFormat GetRequestedOutputFormat (apr_table_t *params_p, apr_pool_t 
 
 	return format;
 }
+
+
+static int GetInformationForEntry (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s)
+{
+	int res = DECLINED;
+	apr_pool_t *pool_p = req_p -> pool;
+	rcComm_t *rods_connection_p = GetIRODSConnectionForAPI (req_p, config_p);
+
+	if (rods_connection_p)
+		{
+			const char * const path_s = GetParameterValue (params_p, "path", pool_p);
+
+			if (path_s)
+				{
+					char *full_path_s = GetFullPath (path_s, req_p, pool_p);
+
+					if (full_path_s)
+						{
+							rodsObjStat_t *stat_p = GetObjectStat (full_path_s, rods_connection_p, pool_p);
+
+							if (stat_p)
+								{
+									char *result_s = NULL;
+
+									json_t *obj_p = json_object ();
+
+									if (obj_p)
+										{
+											if (json_object_set_new (obj_p, "id", json_string (stat_p -> dataId)) == 0)
+												{
+													result_s = json_dumps (obj_p, JSON_INDENT (2));
+													if (result_s)
+														{
+															ap_rputs (result_s, req_p);
+														}
+
+													res = OK;
+
+												}
+										}
+
+									freeRodsObjStat (stat_p);
+								}
+
+						}
+				}
+
+		}
+
+	return res;
+}
+
 
 
 static int GetMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s)
@@ -1027,6 +1148,41 @@ static int GetMatchingMetadataValues (const APICall *call_p, request_rec *req_p,
 }
 
 
+static char *GetFullPath (const char *path_s, request_rec *req_p, apr_pool_t *pool_p)
+{
+	const char *full_path_s = NULL;
+
+	if (*path_s == '/')
+		{
+			full_path_s = path_s;
+		}
+	else
+		{
+			const char *root_path_s = GetRodsExposedPath (req_p);
+
+			if (root_path_s)
+				{
+					size_t l = strlen (root_path_s);
+
+					if (* (root_path_s + l - 1) == '/')
+						{
+							full_path_s = apr_pstrcat (pool_p, root_path_s, path_s, NULL);
+						}
+					else
+						{
+							full_path_s = apr_pstrcat (pool_p, root_path_s, "/", path_s, NULL);
+						}
+				}
+			else
+				{
+					full_path_s = path_s;
+				}
+		}
+
+	return full_path_s;
+}
+
+
 static const char *GetIdParameter (apr_table_t *params_p, request_rec *req_p, rcComm_t *rods_connection_p, apr_pool_t *pool_p)
 {
 	const char *id_s = GetParameterValue (params_p, "id", pool_p);
@@ -1037,35 +1193,7 @@ static const char *GetIdParameter (apr_table_t *params_p, request_rec *req_p, rc
 
 			if (path_s)
 				{
-					const char *full_path_s = NULL;
-
-					if (*path_s == '/')
-						{
-							full_path_s = path_s;
-						}
-					else
-						{
-							const char *root_path_s = GetRodsExposedPath (req_p);
-
-							if (root_path_s)
-								{
-									size_t l = strlen (root_path_s);
-
-									if (* (root_path_s + l - 1) == '/')
-										{
-											full_path_s = apr_pstrcat (pool_p, root_path_s, path_s, NULL);
-										}
-									else
-										{
-											full_path_s = apr_pstrcat (pool_p, root_path_s, "/", path_s, NULL);
-										}
-								}
-							else
-								{
-									full_path_s = path_s;
-								}
-
-						}
+					const char *full_path_s = GetFullPath (path_s, req_p, pool_p);
 
 					if (full_path_s)
 						{
