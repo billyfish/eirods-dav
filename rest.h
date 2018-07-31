@@ -51,6 +51,7 @@ REST_PREFIX const char REST_METADATA_MATCHING_KEYS_S [] REST_VAL ("metadata/keys
 REST_PREFIX const char REST_METADATA_MATCHING_VALUES_S [] REST_VAL ("metadata/values");
 
 REST_PREFIX const char REST_GET_INFO_S [] REST_VAL ("general/info");
+REST_PREFIX const char REST_LIST_S [] REST_VAL ("general/list");
 
 
 REST_PREFIX const char VIEW_SEARCH_S [] REST_VAL ("search");

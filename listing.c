@@ -406,35 +406,64 @@ static json_t *GetIRodsObjectAsJSON (const IRodsObject *irods_obj_p, const IRods
 apr_status_t SetIRodsObject (IRodsObject *obj_p, const objType_t obj_type, const char *id_s, const char *data_s, const char *collection_s, const char *owner_name_s, const char *resource_s, const char *last_modified_time_s, const rodsLong_t size, apr_pool_t *pool_p)
 {
 	apr_status_t status = APR_ENOMEM;
+	bool done_id_flag = false;
 
-	obj_p -> io_obj_type = obj_type;
+	/*
+	 * If the id string contains the major id too,
+	 * scroll past it as we'll just store the minor id
+	 * since we store the object type separately
+	 */
+	char *prefix_s = apr_itoa (pool_p, obj_type);
 
-	if (SetStringValue (id_s, & (obj_p -> io_id_s), pool_p))
+	if (prefix_s)
 		{
-			if (SetStringValue (data_s, & (obj_p -> io_data_s), pool_p))
+			char *major_id_s = apr_pstrcat (pool_p, prefix_s, ".", NULL);
+
+			if (major_id_s)
 				{
-					if (SetStringValue (collection_s, & (obj_p -> io_collection_s), pool_p))
+					const size_t l = strlen (major_id_s);
+
+					if (strncmp (major_id_s, id_s, l) == 0)
 						{
-							if (SetStringValue (owner_name_s, & (obj_p -> io_owner_name_s), pool_p))
+							id_s += l;
+						}
+
+					done_id_flag = true;
+				}
+		}
+
+	if (done_id_flag)
+		{
+			if (SetStringValue (id_s, & (obj_p -> io_id_s), pool_p))
+				{
+					if (SetStringValue (data_s, & (obj_p -> io_data_s), pool_p))
+						{
+							if (SetStringValue (collection_s, & (obj_p -> io_collection_s), pool_p))
 								{
-									if (SetStringValue (resource_s, & (obj_p -> io_resource_s), pool_p))
+									if (SetStringValue (owner_name_s, & (obj_p -> io_owner_name_s), pool_p))
 										{
-											if (SetStringValue (last_modified_time_s, & (obj_p -> io_last_modified_time_s), pool_p))
+											if (SetStringValue (resource_s, & (obj_p -> io_resource_s), pool_p))
 												{
-													obj_p -> io_size = size;
-													status = APR_SUCCESS;
+													if (SetStringValue (last_modified_time_s, & (obj_p -> io_last_modified_time_s), pool_p))
+														{
+															obj_p -> io_obj_type = obj_type;
+															obj_p -> io_size = size;
 
-												}		/* if (SetStringValue (last_modified_time_s, & (obj_p -> io_last_modified_time_s), pool_p)) */
+															status = APR_SUCCESS;
+														}		/* if (SetStringValue (last_modified_time_s, & (obj_p -> io_last_modified_time_s), pool_p)) */
 
-										}		/* if (SetStringValue (resource_s, & (obj_p -> io_resource_s), pool_p)) */
+												}		/* if (SetStringValue (resource_s, & (obj_p -> io_resource_s), pool_p)) */
 
-								}		/* if (SetStringValue (owner_name_s, & (obj_p -> io_owner_name_s), pool_p)) */
+										}		/* if (SetStringValue (owner_name_s, & (obj_p -> io_owner_name_s), pool_p)) */
 
-						}		/* if (SetStringValue (collection_s, & (obj_p -> io_collection_s), pool_p)) */
+								}		/* if (SetStringValue (collection_s, & (obj_p -> io_collection_s), pool_p)) */
 
-				}		/* if (SetStringValue (data_s, & (obj_p -> io_data_s), pool_p)) */
+						}		/* if (SetStringValue (data_s, & (obj_p -> io_data_s), pool_p)) */
 
-		}		/* if (SetStringValue (id_s, & (obj_p -> io_id_s), pool_p)) */
+				}		/* if (SetStringValue (id_s, & (obj_p -> io_id_s), pool_p)) */
+
+		}		/* if (done_id_flag) */
+
 
 	return status;
 }
@@ -926,7 +955,7 @@ void SortIRodsObjectNodeListIntoDirectoryOrder (IRodsObjectNode *root_node_p)
 							++ obj_pp;
 						}
 
-					qsort (obj_pp, num_nodes, sizeof (IRodsObjectNode *), CompareIRodsObjectsDoublePointers);
+					qsort (objs_pp, num_nodes, sizeof (IRodsObjectNode *), CompareIRodsObjectsDoublePointers);
 
 					node_p = root_node_p;
 					obj_pp = objs_pp;

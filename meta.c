@@ -712,8 +712,9 @@ IRodsObjectNode *GetIRodsObjectNodeForId (const char *id_s, rcComm_t *rods_conne
 		{
 			if ((obj_type == DATA_OBJ_T) || (obj_type == UNKNOWN_OBJ_T))
 				{
-					* (select_columns_p + 1) = COL_DATA_NAME;
-					*select_columns_p = COL_D_COLL_ID;
+					*select_columns_p = COL_DATA_NAME;
+					* (select_columns_p + 1) = COL_D_COLL_ID;
+					* where_columns_p = COL_D_DATA_ID;
 
 					num_select_columns = 2;
 

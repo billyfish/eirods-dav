@@ -83,6 +83,9 @@ static int GetMatchingMetadataValues (const APICall *call_p, request_rec *req_p,
 static int GetInformationForEntry (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s);
 
 
+static int ListInformationForEntries (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s);
+
+
 static const char *GetIdParameter (apr_table_t *params_p, request_rec *req_p, rcComm_t *rods_connection_p, apr_pool_t *pool_p);
 
 
@@ -114,35 +117,36 @@ static int GetVirtualListingAsHTML (const APICall *call_p, request_rec *req_p, a
 
 static int GetSearchMetadataAsHTML (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s);
 
-static char *GetFullPath (const char *path_s, request_rec *req_p, apr_pool_t *pool_p);
+static const char *GetFullPath (const char *path_s, request_rec *req_p, apr_pool_t *pool_p);
 
 /*
  * STATIC VARIABLES
  */
 
 static APICall S_REST_API_ACTIONS_P [] =
-		{
-				{ REST_METADATA_SEARCH_S, SearchMetadata },
-				{ REST_METADATA_GET_S, GetMetadataForEntry },
-				{ REST_METADATA_ADD_S, AddMetadataForEntry },
-				{ REST_METADATA_DELETE_S, DeleteMetadataForEntry },
-				{ REST_METADATA_EDIT_S, EditMetadataForEntry },
-				{ REST_METADATA_MATCHING_KEYS_S, GetMatchingMetadataKeys },
-				{ REST_METADATA_MATCHING_VALUES_S, GetMatchingMetadataValues },
+{
+	{ REST_METADATA_SEARCH_S, SearchMetadata },
+	{ REST_METADATA_GET_S, GetMetadataForEntry },
+	{ REST_METADATA_ADD_S, AddMetadataForEntry },
+	{ REST_METADATA_DELETE_S, DeleteMetadataForEntry },
+	{ REST_METADATA_EDIT_S, EditMetadataForEntry },
+	{ REST_METADATA_MATCHING_KEYS_S, GetMatchingMetadataKeys },
+	{ REST_METADATA_MATCHING_VALUES_S, GetMatchingMetadataValues },
 
-				{ REST_GET_INFO_S, GetInformationForEntry },
+	{ REST_GET_INFO_S, GetInformationForEntry },
+	{ REST_LIST_S, ListInformationForEntries },
 
-				{ NULL, NULL }
-		};
+	{ NULL, NULL }
+};
 
 
 static APICall S_VIEW_ACTIONS_P [] =
-		{
-				{ VIEW_LIST_S, GetVirtualListingAsHTML },
-				{ VIEW_SEARCH_S, GetSearchMetadataAsHTML },
+{
+	{ VIEW_LIST_S, GetVirtualListingAsHTML },
+	{ VIEW_SEARCH_S, GetSearchMetadataAsHTML },
 
-				{ NULL, NULL }
-		};
+	{ NULL, NULL }
+};
 
 
 
@@ -154,8 +158,8 @@ static APICall S_VIEW_ACTIONS_P [] =
 int EIRodsDavAPIHandler (request_rec *req_p)
 {
 	int res = DECLINED;
-
-	//DebugRequest (req_p);
+	bool processed_flag = false;
+	apr_table_t *params_p = NULL;
 
 	/*
 	 * Normally we would check if this is a call for the ei-rods-dav rest handler,
@@ -164,14 +168,78 @@ int EIRodsDavAPIHandler (request_rec *req_p)
 	 * If it is, we accept it and do our things, it not, we simply return DECLINED,
 	 * and Apache will try somewhere else.
 	 */
-	if ((req_p -> method_number == M_GET) || (req_p -> method_number == M_POST))
+	if (req_p -> method_number == M_GET)
+		{
+			ap_args_to_table (req_p, &params_p);
+			processed_flag = true;
+		}
+	else if (req_p -> method_number == M_POST)
+		{
+			apr_array_header_t *key_value_pairs_p = NULL;
+			int local_res = ap_parse_form_data (req_p, NULL, &key_value_pairs_p, -1, HUGE_STRING_LEN);
+
+			if ((local_res == OK) && (key_value_pairs_p))
+				{
+					apr_pool_t *pool_p = req_p -> pool;
+
+					params_p = apr_table_make (pool_p, 1);
+
+					if (params_p)
+						{
+					    while (key_value_pairs_p && !apr_is_empty_array (key_value_pairs_p))
+					    	{
+					        ap_form_pair_t *pair_p = (ap_form_pair_t *) apr_array_pop (key_value_pairs_p);
+					        apr_size_t size;
+					        apr_off_t length;
+					        char *value_s = NULL;
+					        char *key_s = apr_pstrdup (req_p -> pool, pair_p -> name);
+
+					        if (key_s)
+					        	{
+							        /*
+							         * Get the length of the value
+							         */
+							        apr_brigade_length (pair_p -> value, 1, &length);
+							        size = (apr_size_t) length;
+
+
+							        value_s = apr_palloc (req_p -> pool, size + 1);
+
+							        if (value_s)
+							        	{
+													apr_brigade_flatten (pair_p -> value, value_s, &size);
+
+													if (* (value_s + size) != '\0')
+														{
+															* (value_s + size) = '\0';
+														}
+
+													/*
+													 * Since both the key and value have already been copied
+													 * we can add them to the table directly rather than it
+													 * storing copies of these values.
+													 */
+													apr_table_addn (params_p, key_s, value_s);
+							        	}
+
+					        	}		/* if (key_s) */
+
+					    	}		/* while (key_value_pairs_p && !apr_is_empty_array (key_value_pairs_p)) */
+
+					  	processed_flag = true;
+						}		/* if (params_p) */
+
+				}		/* if ((res == OK) && (key_value_pairs_p)) */
+
+			processed_flag = true;
+		}
+
+	if (processed_flag)
 		{
 			davrods_dir_conf_t *config_p = ap_get_module_config (req_p -> per_dir_config, &davrods_module);
-			apr_table_t *params_p = NULL;
 			char *davrods_path_s = NULL;
-			bool processed_flag = false;
 
-			ap_args_to_table (req_p, &params_p);
+			processed_flag = false;
 
 			if (req_p -> path_info)
 				{
@@ -321,7 +389,7 @@ IRodsObjectNode *GetMatchingIds (request_rec *req_p, apr_table_t *params_p, davr
 
 	if (rods_connection_p)
 		{
-			const char * const ids_s = GetParameterValue (params_p, "key", pool_p);
+			const char * const ids_s = GetParameterValue (params_p, "ids", pool_p);
 
 			if (ids_s)
 				{
@@ -351,9 +419,7 @@ IRodsObjectNode *GetMatchingIds (request_rec *req_p, apr_table_t *params_p, davr
 											current_node_p = node_p;
 										}
 
-
-
-									id_s = apr_strtok (NULL, sep_s, &id_s);
+									id_s = apr_strtok (NULL, sep_s, &copied_ids_s);
 								}		/* while (id_s) */
 
 
@@ -377,12 +443,75 @@ IRodsObjectNode *GetMatchingIds (request_rec *req_p, apr_table_t *params_p, davr
 static int GetVirtualListingAsHTML (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s)
 {
 	int res = DECLINED;
-	IRodsObjectNode *root_node_p = GetMatchingIds (req_p, params_p, config_p);
 
-	if (root_node_p)
+	rcComm_t *rods_connection_p = GetIRODSConnectionForAPI (req_p, config_p);
+
+	if (rods_connection_p)
 		{
+			IRodsObjectNode *root_node_p = GetMatchingIds (req_p, params_p, config_p);
+			apr_pool_t *pool_p = req_p -> pool;
+			char *result_s = NULL;
+			apr_size_t result_length = 0;
+			apr_bucket_brigade *bucket_brigade_p = apr_brigade_create (pool_p, req_p -> connection -> bucket_alloc);
 
-		}
+			char *relative_uri_s = apr_pstrcat (pool_p, "the matching values", NULL);
+			char *marked_up_relative_uri_s = apr_pstrcat (pool_p, "the matching values for the listing", NULL);
+
+			const char *escaped_zone_s = config_p -> theme_p -> ht_zone_label_s ? config_p -> theme_p -> ht_zone_label_s : ap_escape_html (pool_p, config_p -> rods_zone);
+
+			apr_status_t apr_status = PrintAllHTMLBeforeListing (NULL, escaped_zone_s, relative_uri_s, davrods_path_s, marked_up_relative_uri_s, NULL, rods_connection_p -> clientUser.userName, config_p, req_p, bucket_brigade_p, pool_p);
+
+
+			char *metadata_root_link_s = apr_pstrcat (pool_p, davrods_path_s, config_p -> davrods_api_path_s, REST_METADATA_SEARCH_S, NULL);
+
+			const char *exposed_root_s = GetRodsExposedPath (req_p);
+
+			IRodsConfig irods_config;
+
+			apr_status = SetIRodsConfig (&irods_config, exposed_root_s, davrods_path_s, metadata_root_link_s);
+
+
+			if (root_node_p)
+				{
+					IRodsObjectNode *node_p = root_node_p;
+					unsigned int i;
+
+					while (node_p && (apr_status == APR_SUCCESS))
+						{
+							apr_status = PrintItem (config_p -> theme_p, node_p -> ion_object_p, &irods_config, i, bucket_brigade_p, pool_p, rods_connection_p, req_p);
+
+							node_p = node_p -> ion_next_p;
+							++ i;
+						}
+
+					FreeIRodsObjectNodeList (root_node_p);
+				}		/* if (root_node_p) */
+
+			apr_status = PrintAllHTMLAfterListing (rods_connection_p -> clientUser.userName, escaped_zone_s, davrods_path_s, config_p, NULL, rods_connection_p, req_p, bucket_brigade_p, pool_p);
+
+
+			CloseBucketsStream (bucket_brigade_p);
+
+			apr_status = apr_brigade_pflatten (bucket_brigade_p, &result_s, &result_length, pool_p);
+
+			if (result_s)
+				{
+					/*
+					 * Sometimes there is garbage at the end of this, and I don't know which apr_brigade_...
+					 * method I need to get the terminating '\0' so have to do it explicitly.
+					 */
+					if (* (result_s + result_length) != '\0')
+						{
+							* (result_s + result_length) = '\0';
+						}
+
+					apr_brigade_destroy (bucket_brigade_p);
+
+					ap_rputs (result_s, req_p);
+					res = OK;
+				}
+
+		}		/* if (rods_connection_p) */
 
 	return res;
 }
@@ -582,6 +711,35 @@ static OutputFormat GetRequestedOutputFormat (apr_table_t *params_p, apr_pool_t 
 }
 
 
+static int ListInformationForEntries (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s)
+{
+	int res = DECLINED;
+	apr_pool_t *pool_p = req_p -> pool;
+	IRodsObjectNode *root_node_p = GetMatchingIds (req_p, params_p, config_p);
+
+	if (root_node_p)
+		{
+			IRodsConfig irods_config;
+			char *metadata_root_link_s = apr_pstrcat (pool_p, davrods_path_s, config_p -> eirods_dav_views_path_s, NULL);
+			const char *exposed_root_s = GetRodsExposedPath (req_p);
+
+			SetIRodsConfig (&irods_config, exposed_root_s, davrods_path_s, metadata_root_link_s);
+
+			PrintIRodsObjectNodesToJSON (root_node_p, &irods_config, req_p);
+			FreeIRodsObjectNodeList (root_node_p);
+
+			res = OK;
+		}		/* if (root_node_p) */
+	else
+		{
+			ap_rputs ("[]", req_p);
+		}
+
+
+	return res;
+}
+
+
 static int GetInformationForEntry (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s)
 {
 	int res = DECLINED;
@@ -594,7 +752,7 @@ static int GetInformationForEntry (const APICall *call_p, request_rec *req_p, ap
 
 			if (path_s)
 				{
-					char *full_path_s = GetFullPath (path_s, req_p, pool_p);
+					const char *full_path_s = GetFullPath (path_s, req_p, pool_p);
 
 					if (full_path_s)
 						{
@@ -610,14 +768,18 @@ static int GetInformationForEntry (const APICall *call_p, request_rec *req_p, ap
 										{
 											if (json_object_set_new (obj_p, "id", json_string (stat_p -> dataId)) == 0)
 												{
-													result_s = json_dumps (obj_p, JSON_INDENT (2));
-													if (result_s)
+													if (json_object_set_new (obj_p, "path", json_string (path_s)) == 0)
 														{
-															ap_rputs (result_s, req_p);
+															result_s = json_dumps (obj_p, JSON_INDENT (2));
+
+															if (result_s)
+																{
+																	ap_rputs (result_s, req_p);
+																	free (result_s);
+																}
+
+															res = OK;
 														}
-
-													res = OK;
-
 												}
 										}
 
@@ -1148,7 +1310,7 @@ static int GetMatchingMetadataValues (const APICall *call_p, request_rec *req_p,
 }
 
 
-static char *GetFullPath (const char *path_s, request_rec *req_p, apr_pool_t *pool_p)
+static const char *GetFullPath (const char *path_s, request_rec *req_p, apr_pool_t *pool_p)
 {
 	const char *full_path_s = NULL;
 
