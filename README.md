@@ -1,19 +1,18 @@
-﻿Eirods-dav - An Apache WebDAV and metadata REST API interface to iRODS
-======================================================================
+﻿# Eirods-dav - An Apache WebDAV and metadata REST API interface to iRODS
 
 
 Eirods-dav provides access to iRODS servers using the WebDAV protocol and exposes a REST API for accessing and manipulating metadata from within a web browser. It takes the original [Davrods](https://github.com/UtrechtUniversity/davrods "") module written by Ton Smeele and Chris Smeele, which is a bridge between the WebDAV protocol and the iRODS API. Davrods leverages the Apache server implementation of the WebDAV
-protocol, `mod_dav`, for compliance with the WebDAV Class 2 standard. For fuirther informtaion please check out their site or the original readme file included in this repo. 
+protocol, `mod_dav`, for compliance with the WebDAV Class 2 standard. For further information please check out their site or the original readme file included in this repo. 
 
-Eirods-dav adds extra featues such as themeable listings and anonymous access for public-facing websites. As well as these features, it also incorporates a REST API for interacting with the metadate stored within an iRODS system. All of these featuresare implemented as an Apache HTTPD module.
+Eirods-dav adds extra features such as themeable listings and anonymous access for public-facing websites. As well as these features, it also incorporates a REST API for interacting with the metadata stored within an iRODS system. All of these features are implemented as an Apache HTTPD module.
 
 
-The features that have been added within eirods-dav are:
+Some of the features that have been added within Eirods-dav are:
  
 - Themeable listings similar to using mod_autoindex.
 - Expose and navigate by metadata key-value pairs.
 - Search the metadata catalogue.
-- REST API for accessing and manipulating the iRODS metadata 
+- REST API for accessing and manipulating the iRODS data and metadata 
 - Client-side interface to add, edit and delete metadata entries.
 - Download all of the metadata for an iRODS entry in various formats.
 - Full location breadcrumbs.
@@ -30,14 +29,27 @@ As well as features from the original Davrods such as:
 
 
 Working demos of this module showing the themeable listings along with metadata 
-searching and linking is available at [https://wheatis.tgac.ac.uk/davrods/browse/reads/](https://wheatis.tgac.ac.uk/davrods/browse/reads/) and with metadata editing features at [https://grassroots.tools/davrods/](https://grassroots.tools/davrods/).
+searching and linking is available at [https://wheatis.tgac.ac.uk/davrods/browse/reads/](https://wheatis.tgac.ac.uk/davrods/browse/reads/) and the [Desigining Future Wheat Data Portal](http://opendata.earlham.ac.uk/wheat).
+
+## Changelog
+
+### 1.5 (1 Aug 2018)
+ 
+- REST API now accepts POST requests.
+- Added REST API for generating virtual directory listings.
+- Added Views API for performing searches and generating virtual directory listings
+directly within the web page.
+- Added extra places within the web page where custom HTML sections can be added.
+- Added ability to get HTML chunks from any http(s) source such as another web server.
+- Added dynamic capabilities to the URL used for getting the HTML chunks using the 
+iRODS ids and metadata values.
 
 
-## Installation ##
+## Installation
 
-### Prerequisites ###
+### Prerequisites
 
-Davrods requires the following packages to be installed on your server:
+EIrods-dav requires the following packages to be installed on your server:
 
 - Apache httpd 2.4+
 - iRODS 4.x client libraries and headers (in package `irods-runtime` and `irods-dev`, available
@@ -51,7 +63,7 @@ plugins, one of the following packages must also be installed:
 These three packages all provide the necessary libraries in
 `/var/lib/irods/plugins/network`.
 
-### Using the binary distribution ###
+### Using the binary distribution
 
 For binary installation, download the package for your platform at
 https://github.com/billyfish/eirods-dav/releases and copy the module to the 
@@ -61,24 +73,23 @@ is not available, then you can compile the module from source.
 
 ### Compiling 
 
-To compile eirods-dav from source, copy `example-user.prefs` to `user.prefs` and edit 
+To compile Eirods-dav from source, copy `example-user.prefs` to `user.prefs` and edit 
 it to contain values valid for your system. The file is commented and should be able to 
 to be set up with a minimum of effort.
 
 Once this is complete, then ```make``` followed by ```make install``` will create 
 and install `mod_eirods-dav.so` to your Apache httpd installation.
 
+See the [configuration](#configuration) section for instructions on how to configure
+Eirods-dav once it has been installed.
 
-See the __Configuration__ section for instructions on how to configure
-Davrods once it has been installed.
+### Eirods-dav and SELinux
 
-### Davrods and SELinux ##
-
-If the machine on which you install Davrods is protected by SELinux,
-you may need to make changes to your policies to allow davrods to run:
+If the machine on which you install Eirods-dav  is protected by SELinux,
+you may need to make changes to your policies to allow Eirods-dav  to run:
 
 - Apache HTTPD must be allowed to connect to TCP port 1247
-- Davrods must be allowed to dynamically load iRODS client plugin
+- Eirods-dav  must be allowed to dynamically load iRODS client plugin
   libraries in /var/lib/irods/plugins/network
 
 For example, the following two commands can be used to resolve these
@@ -87,28 +98,27 @@ requirements:
     setsebool -P httpd_can_network_connect true
     chcon -t lib_t /var/lib/irods/plugins/network/lib*.so
 
-## Configuration ##
+## Configuration {#configuration}
 
-Davrods is configured in two locations: In a HTTPD vhost configuration
-file and in an iRODS environment file. The vhost config is the main
-configuration file, the iRODS environment file is used for iRODS
-client library configuration, similar to the configuration of
-icommands.
+Eirods-dav is configured in two locations: In a HTTPD configuration
+file, which is the main configuration file, and in an iRODS environment 
+file used for iRODS client library configuration, similar to the 
+configuration of icommands.
 
 
-### HTTPD vhost configuration ###
+### HTTPD vhost configuration
 
-The Davrods RPM distribution installs a commented out vhost template
-in `/etc/httpd/conf.d/davrods-vhost.conf`. With the comment marks
+The Eirods-dav RPM distribution installs a commented out vhost template
+in `davrods-vhost.conf`. With the comment marks
 (`#`) removed, this provides you with a sane default configuration
-that you can tune to your needs. The Davrods configuration
+that you can tune to your needs. The Eirods-dav configuration
 options are documented in this file and can be changed to your liking.
 As well as that documentation, the new features are also described
 below.
 
 #### Public access
 
-If you wish to run Davrods without the need for authentication, it 
+If you wish to run Eirods-dav without the need for authentication, it 
 can be set up to run as a normal public-facing website. This is done by
 specifying a user name and password for the iRODS user whose data you 
 wish to display. The directives for these are `DavRodsDefaultUsername`
@@ -123,11 +133,69 @@ DavRodsDefaultUsername anonymous
 DavRodsDefaultPassword foobar
 ```
 
-#### Themed Listings
+### Themed Listings {#themed_listings}
 
 By default, the html listings generated by mod_davrods do not use any 
 styling. It is possible to style the listings much like [mod_autoindex](https://httpd.apache.org/docs/2.4/mod/mod_autoindex.html). There are
 various directives that can be used.
+
+Some of these directives, such as DavRodsHTMLHead, DavRodsHTMLTop, *etc.* take chunks 
+of HTML and insert them into various points of the resulting web page. Each of these can 
+configuration directives take three different types of different data:
+
+* **text**: Treat the configuration value as raw HTML that will get used. This can either be 
+a single-line directive or if you want to define this across multiple lines of text 
+you will need a backslash (\\) at the end of each line. An example is
+ ```
+ DavRodsHTMLHead <link rel="stylesheet" type="text/css"\ 
+ media="all" href="/davrods_files/styles/styles.css">
+ ```
+
+* **file**: A file whose content will be used for the required HTML
+chunk by beginning your value with "file:", *e.g.* to use the content of a file
+at /opt/apache/eirods_dav_head.html
+
+ ```
+ DavRodsHTMLTop file:/opt/apache/eirods_dav_head.html
+ ```
+If a file is used, then it will be re-read for each incoming request. So any 
+changes you make to the file won't need a restart of Apache to be made live.
+
+* **http(s)**: A web page that is available via an http or https 
+request. Eirods-dav will download all of the html and use this as the data
+that will be inserted into its listing page. The configuration value needs 
+to begin with the appropriate protocol, *e.g.* http or https. For example 
+to use the content of a web page at https://grassroots.tools/eirods_dav_bottom.html
+
+ ```
+ DavRodsHTMLBottom https://grassroots.tools/eirods_dav_bottom.html
+ ```
+
+So each of these examples  all point to static resources in that the content is 
+always the same regardless of the listing that Eirods-dav is currently displaying. 
+One of the new features of Eirods-dav is that it can now use its internal variables 
+to use dynamic resources. It currently has two types of internal variables 
+
+* **id**: This is the iRODS id for the collection that Eriods-dav is currently 
+displaying.
+* **metadata**: This is used to get a given value from the metadata for the current
+collection. For example if the collection had metadata key called *method*, then the 
+this would be referred to by *metadata:method*. 
+
+Each variable is denoted within a configuration directive by placing it in inside 
+a @{ } block. So an example directive might be 
+
+ ```
+ DavRodsHTMLTop http://test.server?project=@{metadata:project_id}&id=@{id}
+ ```
+
+and, for example, if the id of the current collection was *2.123* and it had a 
+metadata key-value pair of *project_id* = *mariner1*, then Eirods-dav would convert
+this web address into  
+
+http://test.server?project=mariner1&id=2.123
+
+### Configuration directives
 
 * **DavRodsThemedListings**:
 This directive is a global on/off switch which toggles the usage of 
@@ -141,79 +209,40 @@ directive:
 
 * **DavRodsHTMLHead**:
 This is an HTML text that will be placed within the *\<head\>* directive
-of the HTML pages generated by Davrods. This can either be set as a string 
-for this directive in which case, as it is a single-line directive, if you 
-want to define this across multiple lines of text you will need a backslash 
-(\\) at the end of each line. 
-
- ```
- DavRodsHTMLHead <link rel="stylesheet" type="text/css"\ 
- media="all" href="/davrods_files/styles/styles.css">
- ```
-
-
-It also can point at a file whose content will be used for the required HTML
-chunk by beginning your value with "file:", *e.g.* to use the content of a file
-at /opt/apache/davrods_head.html
-
- ```
- DavRodsHTMLTop file:/opt/apache/davrods_head.html
- ```
-
-If a file is used, then it will be re-read for each incoming request. So any 
-changes you make to the file won't need a restart of Apache to be made live.
+of the HTML pages generated by Eirods-dav. More information on the types of
+values that this can take is described in the [themed listings](#themed_listings)
+section.
 
 * **DavRodsHTMLTop**:
 You can specify a chunk of HTML to appear above each listing using this 
-directive. This can either be set as a string for this directive in which 
-case, as it is a single-line directive, if you want to define this 
-across multiple lines of text you will need a backslash (\\) at the end of each 
-line. For instance to have a *\<header\>* section containing a logo
-on each page, you could use the following directive:
+directive.  More information on the types of
+values that this can take is described in the [themed listings](#themed_listings)
+section.
 
- ```
- DavRodsHTMLTop <header><img src="logo.png" alt="Company logo" /> \
- 	</header>
- ```
+* **DavRodsPreListingsHtml**:
+You can specify a chunk of HTML to appear directly prior to the directory listing 
+using this directive.  More information on the types of
+values that this can take is described in the [themed listings](#themed_listings)
+section.
 
-It also can point at a file whose content will be used for the required HTML
-chunk by beginning your value with "file:", *e.g.* to use the content of a file
-at /opt/apache/davrods_top.html
+* **DavRodsPostListingsHtml**:
+You can specify a chunk of HTML to appear directly after to the directory listing 
+using this directive.  More information on the types of
+values that this can take is described in the [themed listings](#themed_listings)
+section.
 
- ```
- DavRodsHTMLTop file:/opt/apache/davrods_top.html
- ```
-
-If a file is used, then it will be re-read for each incoming request. So any 
-changes you make to the file won't need a restart of Apache to be made live.
 
 * **DavRodsHTMLBottom**:
-You can specify a chunk of HTML to appear above each listing using this 
-directive. This can either be set as a string for this directive in which 
-case, as it is a single-line directive, if you want to define this 
-across multiple lines of text you will need a backslash (\\) at the end of each 
-line. For instance to have a *\<header\>* section containing a logo
-on each page, you could use the following directive:
+You can specify a chunk of HTML to appear below each listing using this 
+directive.  More information on the types of
+values that this can take is described in the [themed listings](#themed_listings)
+section.
 
- ```
- DavRodsHTMLBottom <footer>Listing generated by mod_davrods, \
-  &copy; 2016 by Utrecht University and &copy; 2017 by the \
-  Earlham Institute.<br /> Filetype icons are taken from the \
-  Amiga Image Storage System &copy; 2004 - 2016 by Martin \
-  Mason Merz.</footer>
- ```
 
-It also can point at a file whose content will be used for the required HTML
-chunk by beginning your value with "file:", *e.g.* to use the content of a file
-at /opt/apache/davrods_bottom.html
-
- ```
- DavRodsHTMLTop file:/opt/apache/davrods_bottom.html
- ```
-
-If a file is used, then it will be re-read for each incoming request. So any 
-changes you make to the file won't need a restart of Apache to be made live.
-
+* **DavRodsPreCloseBodyHtml**:
+You can specify a chunk of HTML to appear just before the closing \</body\> tag 
+using this directive.  More information on the types of values that this can 
+take is described in the [themed listings](#themed_listings) section.
 
 
 * **DavRodsHTMLListingClass**:
@@ -271,8 +300,16 @@ basis. When a logged-in user hasn't been added using this directive, the
  DavRodsAddExposedRoot james /tempZone/home/admin
  ```
  
+* **DavRodsZoneLabel**:
+This directive allows you specify an alternative value instead of the iRODS
+zone name. For example to set this to be *public data*, then the directive 
+would be: 
+
+ ```
+ DavRodsZoneLabel public data
+ ```
  
-#### Metadata
+#### Metadata options
 
 Each data object and collection can also display its metadata AVUs 
 and have these as clickable links to allow a user to browse all 
@@ -286,7 +323,7 @@ It can take one of the following values:
 	* **full**: All of the metadata for each entry will get sent in the
 HTML page for each request.
  * **on_demand**: None of the metadata is initially included with the 
-HTML pages sent by Davrods. Instead they can be accessed via AJAX requests
+HTML pages sent by Eirods-dav. Instead they can be accessed via AJAX requests
 from these pages.
   * **none**: No metadata information will be made available.
  So to set the metadata to be available on demand, the directive would be:
@@ -306,13 +343,23 @@ off and can be turned on by setting this directive to true.
 
 
 * **DavRodsAPIPath**:
-This directive specifies the path used within Davrods to link to the
-various REST API functionality such as the metadata search 
-functionality. To specify it as */api/*, which is a good default, 
+This directive specifies the path used within Eirods-dav to link to the
+various REST API functionality such as the metadata search. To specify 
+it as */api/*, which is a good default, 
 use the following directive:
 
  ```
  DavRodsAPIPath /api/
+ ```
+
+* **DavRodsViewsPath**:
+This directive specifies the path used within Eirods-dav to link to the
+various HTML views that use the REST API functionality such as the metadata search 
+functionality. To specify it as */views/*, which is a good default, 
+use the following directive:
+
+ ```
+ DavRodsViewsPath /views/
  ```
 
 * **DavRodsHTMLAddMetadataImage**:
@@ -371,8 +418,10 @@ editor.
 
 #### REST API
 
-Davrods has a REST API for accessing and manipulating the iRODS metadata catalog. 
+Eirods-dav has a REST API for accessing and manipulating the iRODS metadata catalog. 
 Currently it has the following functions:
+
+##### Metadata
 
  * **metadata/get**: This is for getting all of the associated metadata for an iRODS item. It takes two parameter, the first is *id*, which is the iRODS id of the data object or collection that you wish to get the metadata pairs for. The second parameter is *output_format* which specifies the format that the metadata will be returned in. It currently can take one of the following values:
 
@@ -382,25 +431,52 @@ Currently it has the following functions:
  
  For example to get the metadata for a data object with the id of 1.10021 in a JSON output format, the URL to call would be  
 
- `/davrods/api/metadata/get?id=1.10021&output_format=json`
+ `/eirods-dav/api/metadata/get?id=1.10021&output_format=json`
  
  * **metadata/search**:  This API call is for getting a list of all data objects and collections that have a given metadata attribute-value pair. It takes two parameters: *key*, which is the attribute to search for and, *value*, which specifies the metadata value. There is a third optional parameter, *units* for specifying the units that the metadata attribute-value pair must also have. So to search for all of the data objects and collections that have an attribute called *volume* with a value of *11*,  the URL to call would be  
 
- `/davrods/api/metadata/search?key=volume&value=11`
+ `/eirods-dav/api/metadata/search?key=volume&value=11`
  
  * **metadata/edit**: This API call is for editing a metadata attribute-value pair for a data object of collection and replacing one or more of its attribute, value or units. It takes the following required parameters: *id*, which is the iRODS id of the data object or collection to delete the metadata from, *key*, which is the attribute to edit, *value*, which specifies the metadata value to edit. Again, there is an optional parameter, *units* for specifying the units that the metadata attribute-value pair must also have to match. There must also be one or more of the following parameters to specify how the metadata will be altered: *new_key*, which is for specifying the new name for the attribute, *new_value*, for specifying the new metadata value and *new_units* for specifying the units that the metadata attribute-value pair will now have. So to edit an attribute called *volume* with a value of *11* and units of *decibels* for a data object with the id of 1.10021 and give it a new value of 8 and units of litres, the URL to call would be  
 
- `/davrods/api/metadata/edit?id=1.10021&key=volume&value=11&units=decibels&new_value=8&new_units=litres`
+ `/eirods-dav/api/metadata/edit?id=1.10021&key=volume&value=11&units=decibels&new_value=8&new_units=litres`
  
- * **metadata/add**: This API call is for adding a metadata attribute-value pair to a data object of collection. It takes three parameters: *id*, which is the iRODS id of the data object or collection to add the metadata to, *key*, which is the attribute to add  and, *value*, which specifies the metadata value to be added. As with the *search* call listed above, there is a fourth optional parameter, *units* for specifying the units that the metadata attribute-value pair will have. So to add an attribute called *volume* with a value of *11* to a data object with the id of 1.10021,  the URL to call would be  
+ * **metadata/add**: This API call is for adding a metadata attribute-value pair to a data object of collection. It takes three parameters: *id*, which is the iRODS id of the data object or collection to add the metadata to, *key*, which is the attribute to add  and, *value*, which specifies the metadata value to be added. As with the *search* call listed above, there is a fourth optional parameter, *units* for specifying the units that the metadata attribute-value pair will have. So to add an attribute called *volume* with a value of *11* to a data object with the id of 1.10021, the URL to call would be  
 
- `/davrods/api/metadata/add?id=1.10021&key=volume&value=11`
+ `/eirods-dav/api/metadata/add?id=1.10021&key=volume&value=11`
  
- * **metadata/delete**: This API call is for deleting a metadata attribute-value pair from a data object of collection. It takes three parameters: *id*, which is the iRODS id of the data object or collection to delete the metadata from, *key*, which is the attribute to delete for and, *value*, which specifies the metadata value to delete. As before, there is a third optional parameter, *units* for specifying the units that the metadata attribute-value pair must also have to match. So to delete an attribute called *volume* with a value of *11* and units of *decibels* from a data object with the id of 1.10021,  the URL to call would be 
+ * **metadata/delete**: This API call is for deleting a metadata attribute-value pair from a data object of collection. It takes three parameters: *id*, which is the iRODS id of the data object or collection to delete the metadata from, *key*, which is the attribute to delete for and, *value*, which specifies the metadata value to delete. As before, there is a third optional parameter, *units* for specifying the units that the metadata attribute-value pair must also have to match. So to delete an attribute called *volume* with a value of *11* and units of *decibels* from a data object with the id of 1.10021, the URL to call would be 
 
-  `/davrods/api/metadata/delete?id=1.10021&key=volume&value=11&units=decibels`
+  `/eirods-dav/api/metadata/delete?id=1.10021&key=volume&value=11&units=decibels`
+
+ * **metadata/keys**: This API call is for getting a list of the metadata keys that have a partial match with a given key parameter denoted by *key*. For example, to get a list of all keys containing the phrase *proj*, the URL to call
+would be
+
+  `/eirods-dav/api/metadata/keys?key=proj`
+
+ * **metadata/values**: This API call is for getting a list of the metadata key-value pairs that have a partial match for the value given by the parameter *value* for a given key parameter denoted by *key*. For example, to get a list of all key-value pairs for a key called *name* and a value containing the phrase *ob* so that it would match *R****ob****ert*, *B****ob***, *etc.*, the URL to call
+would be     
+
+  `/eirods-dav/api/metadata/values?key=name&value=ob`
 
 
+##### General
+
+ * **general/info**: This API call is for getting information such as id, path, file size, *etc.* on a given iRODS data object or collection. The parameter, *path*, specifies the object or collection to get the details for. For example, to get the information for the item at */test/test.txt*, the URL to call
+would be          
+
+  `/eirods-dav/api/general/info?path=/test/test.txt`
+
+ * **general/list**: This API call is for getting information such as id, path, file size, *etc.* for a list of given iRODS data object or collection ids. The parameter, *ids*, specifies a space- or comma-separated list of ids. For example to get the information for the ids 1.123 and 2.234, the URL to call
+would be              
+
+  `/eirods-dav/api/general/list?ids=1.123%202.234`
+
+### Views
+
+ * **search**:
+ 
+ * **list**:
 
 ### The iRODS environment file ###
 
@@ -410,15 +486,14 @@ is.
 
 Importantly, the first seven options (from `irods_host` up to and
 including `irods_zone_name`) are **not** read from this file. These
-settings are taken from their equivalent Davrods configuration
+settings are taken from their equivalent Eirods-dav configuration
 directives in the vhost file instead.
 
 The options in the provided environment file starting from
 `irods_client_server_negotiation` *do* affect the behaviour of
-Davrods. See the official documentation for help on these settings at:
-https://docs.irods.org/master/manual/configuration/#irodsirods_environmentjson
+Eirods-dav. See the [official documentation](https://docs.irods.org/master/system_overview/configuration/#irodsirods_environmentjson) for help on these settings.
 
-For instance, if you want Davrods to connect to iRODS 3.3.1, the
+For instance, if you want Eirods-dav to connect to iRODS 3.3.1, the
 `irods_client_server_negotiation` option must be set to `"none"`.
 
 
@@ -434,7 +509,8 @@ installed (package names may differ on your platform):
 
 Additionally, the following runtime dependencies must be installed:
 
-- `httpd >= 2.4`
+- `httpd >= 2.4` which can either be installed using the platform package provider 
+or downloaded and built from the [httpd](http://httpd.apache.org/) website.
 - `irods-runtime >= 4.1.8`
 - `jansson`
 - `boost`
@@ -444,15 +520,23 @@ Additionally, the following runtime dependencies must be installed:
 - `boost-thread`
 - `boost-chrono`
 
-First, browse to the directory where you have unpacked the Davrods
+First, browse to the directory where you have unpacked the Eirods-dav
 source distribution.
 
 Running `make` without parameters will generate the Davrods module .so
 file in the `.libs` directory. `make install` will install the module
 into Apache's modules directory.
 
-After installing the module, copy the `davrods.conf` file to
-`/etc/httpd/conf.modules.d/01-davrods.conf`.
+If you are using the httpd provided by your platform, then copy the `davrods.conf` 
+file into `/etc/httpd/conf.modules.d/. If you are using an httpd installed 
+from a source package, then copy `davrods-vhost.conf` to the `conf/extra` folder 
+inside httpd and enable it by adding 
+
+```
+include conf/extra/davrods-vhost.conf
+```
+
+to *conf/httpd.conf*.
 
 Note: Non-Redhat platforms may have a different convention for the
 location of the above file and the method for enabling/disabling
@@ -461,9 +545,10 @@ modules, consult the respective documentation for details.
 Create an `irods` folder in a location where Apache HTTPD has read
 access (e.g. `/etc/httpd/irods`). Place the provided
 `irods_environment.json` file in this directory. For most setups, this
-file can be used as is (but please read the __Configuration__ section).
+file can be used as is (but please read the [configuration](#configuration)
+section).
 
-Finally, set up httpd to serve Davrods where you want it to. An
+Finally, set up httpd to serve Eirods-dav where you want it to. An
 example vhost config is provided for your convenience.
 
 ## Tips and Tricks ##
@@ -482,26 +567,24 @@ SetEnvIfNoCase Request_URI "\.(?:gif|jpe?g|png|gzip|zip|bz2)$" no-gzip
 ## Bugs and ToDos ##
 
 Please report any issues you encounter on the
-[issues page](https://github.com/UtrechtUniversity/davrods/issues).
+[issues page](https://github.com/billyfish/eirods-dav/issues).
 
 ## Authors ##
 
-[Chris Smeele](https://github.com/cjsmeele) and [Simon Tyrrell](https://github.com/billyfish).
+[Simon Tyrrell](https://github.com/billyfish) and [Chris Smeele](https://github.com/cjsmeele).
 
 ## Contact information ##
 
-For questions or support on the WebDAV functionality, contact Chris Smeele or Ton Smeele either
-directly or via the
-[Utrecht University RDM](http://www.uu.nl/en/research/research-data-management/contact-us)
-page.
-For questions or support on the themeable listings and metadata functionality, contact Simon Tyrrell
+For questions or support on the WebDAV functionality, Simon Tyrrell, Chris Smeele or Ton Smeele either
+directly.
+For questions or support on the themes and REST API, contact Simon Tyrrell
 directly or via the [Earlham Institute](http://www.earlham.ac.uk/contact-us/) page.
 
 ## License ##
 
-Copyright (c) 2016, Utrecht University  and (c) 2017, Earlham Institute.
+Copyright (c) 2017-18, Earlham Institute and (c) 2016 Utrecht University.
 
-Davrods is licensed under the GNU Lesser General Public License version
+EIrods-dav is licensed under the GNU Lesser General Public License version
 3 or higher (LGPLv3+). See the COPYING.LESSER file for details.
 
 The `lock_local.c` file was adapted from the source of `mod_dav_lock`,
