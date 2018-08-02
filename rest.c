@@ -397,7 +397,7 @@ IRodsObjectNode *GetMatchingIds (request_rec *req_p, apr_table_t *params_p, davr
 
 					if (copied_ids_s)
 						{
-							const char *sep_s = " ";
+							const char *sep_s = " ,";
 							char *id_s = apr_strtok (copied_ids_s, sep_s, &copied_ids_s);
 							IRodsObjectNode *current_node_p = NULL;
 
