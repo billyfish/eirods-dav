@@ -383,79 +383,17 @@ struct dav_error *FillInPrivateResourceData (request_rec *req_p, dav_resource **
 
 					if (res_private_p -> davrods_pool)
 						{
-							const char *username_s = NULL;
-							const char *password_s = NULL;
-							const char *hash_s = NULL;
-							apr_status_t status = GetSessionAuth (req_p, &username_s, &password_s, &hash_s);
+							rcComm_t *connection_p = GetIRODSConnectionFromRequest (req_p);
 
-							if (status == APR_SUCCESS)
+							if (!connection_p)
 								{
-									rcComm_t *connection_p = GetIRODSConnectionFromPool (res_private_p -> davrods_pool);
+									connection_p = GetIRODSConnectionForPublicUser (req_p, res_private_p -> davrods_pool, res_private_p -> conf);
+								}		/* if (connection_p) */
 
-									if (connection_p)
-										{
-											/*
-											 * check that the username for the cached connection
-											 * matches the one on the request.
-											 */
-											if (connection_p -> clientUser.userName && username_s)
-												{
-													if (strcmp (connection_p -> clientUser.userName, username_s) == 0)
-														{
-															res_private_p -> rods_conn = connection_p;
-														}
-													else
-														{
-															ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, req_p, "usernames differ so won't use cached connection");
-														}
-												}
-											else
-												{
-													ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, req_p, "missing a username so can't check cached connection");
-												}
-
-										}		/* if (connection_p) */
-									else
-										{
-											ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, req_p, "No existing connection");
-										}
-
-
-									if (! (res_private_p -> rods_conn))
-										{
-											/*
-											 * If we are running behind a proxy, the iRODS connection in the pool
-											 * can sometimes get lost. So we check to see whether there are any
-											 * valid authentication authentication details in the request's session.
-											 */
-											if (username_s && password_s)
-												{
-													status = GetIRodsConnection (req_p, & (res_private_p -> rods_conn), username_s, password_s);
-
-													if (status != APR_SUCCESS)
-														{
-															ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_EGENERAL, req_p, "Failed to get irods connection for \"%s\"", username_s);
-														}
-												}
-										}
-
-
-								}		/* if (status == APR_SUCCESS) */
-							else
+							if (connection_p)
 								{
-									ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_EGENERAL, req_p, "Failed to get session variables");
+									res_private_p -> rods_conn = connection_p;
 
-								}
-
-							if (! (res_private_p -> rods_conn))
-								{
-									res_private_p -> rods_conn = GetIRODSConnectionForPublicUser (req_p, res_private_p -> davrods_pool, res_private_p -> conf);
-									username_s = res_private_p -> conf -> davrods_public_username_s;
-								}
-
-
-							if (res_private_p -> rods_conn)
-								{
 									// Obtain iRODS environment.
 									if ((res_private_p -> rods_env = GetRodsEnvFromPool (res_private_p -> davrods_pool)) != NULL)
 										{

@@ -350,7 +350,7 @@ static char *ParseURIForVariables (const char *uri_s, char *current_id_s, rcComm
 }
 
 
-rcComm_t *GetIRODSConnectionFull (request_rec *req_p)
+rcComm_t *GetIRODSConnectionFromRequest (request_rec *req_p)
 {
 	rcComm_t *connection_p = NULL;
 	davrods_dir_conf_t *conf_p = ap_get_module_config (req_p -> per_dir_config, &davrods_module);
@@ -468,7 +468,8 @@ rcComm_t *GetIRODSConnectionFromPool (apr_pool_t *pool_p)
 {
 	rcComm_t *connection_p = NULL;
 	void *ptr = NULL;
-	apr_status_t status = apr_pool_userdata_get (&ptr, GetConnectionKey (), pool_p);
+	const char *key_s = GetConnectionKey ();
+	apr_status_t status = apr_pool_userdata_get (&ptr, key_s, pool_p);
 
 	if (status == APR_SUCCESS)
 		{
@@ -485,6 +486,10 @@ rcComm_t *GetIRODSConnectionFromPool (apr_pool_t *pool_p)
 					ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, pool_p, "mem pool \"%X\"", ptr);
 
 				}
+		}
+	else
+		{
+
 		}
 
 	return connection_p;

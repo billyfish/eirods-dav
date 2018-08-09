@@ -101,7 +101,8 @@ static char *GetModValue (apr_table_t *params_p, const char *param_key_s, const 
 static apr_status_t AddDecodedJSONResponse (const APICall *call_p, apr_status_t status, const char *id_s, request_rec *req_p);
 
 
-static OutputFormat GetRequestedOutputFormat (apr_table_t *params_p, apr_pool_t *pool_p);
+
+static OutputFormat GetRequestedOutputFormat (apr_table_t *params_p, apr_pool_t *pool_p, OutputFormat default_format);
 
 
 static apr_status_t ReadRequestBody (request_rec *req_p, apr_bucket_brigade *bucket_brigade_p);
@@ -686,9 +687,9 @@ static int SearchMetadata (const APICall *call_p, request_rec *req_p, apr_table_
 
 
 
-static OutputFormat GetRequestedOutputFormat (apr_table_t *params_p, apr_pool_t *pool_p)
+static OutputFormat GetRequestedOutputFormat (apr_table_t *params_p, apr_pool_t *pool_p, OutputFormat default_format)
 {
-	OutputFormat format = OF_HTML;
+	OutputFormat format = default_format;
 	const char * const format_s = GetParameterValue (params_p, "output_format", pool_p);
 
 	if (format_s)
@@ -696,6 +697,10 @@ static OutputFormat GetRequestedOutputFormat (apr_table_t *params_p, apr_pool_t 
 			if (strcmp (format_s, "json") == 0)
 				{
 					format = OF_JSON;
+				}
+			else if (strcmp (format_s, "html") == 0)
+				{
+					format = OF_HTML;
 				}
 			else if (strcmp (format_s, "tsv") == 0)
 				{
@@ -812,7 +817,7 @@ static int GetMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_t
 
 					if (id_s)
 						{
-							OutputFormat format = GetRequestedOutputFormat (params_p, pool_p);
+							OutputFormat format = GetRequestedOutputFormat (params_p, pool_p, OF_JSON);
 							int editable_flag = GetEditableFlag (config_p -> theme_p, params_p, pool_p);
 
 							apr_status_t status = GetMetadataTableForId ((char *) id_s, config_p, rods_connection_p, req_p, pool_p, bucket_brigade_p, format, editable_flag);
@@ -1407,14 +1412,13 @@ static const char *GetIdParameter (apr_table_t *params_p, request_rec *req_p, rc
 
 rcComm_t *GetIRODSConnectionForAPI (request_rec *req_p, davrods_dir_conf_t *config_p)
 {
-	rcComm_t *rods_connection_p = NULL;
-	apr_pool_t *davrods_pool_p = GetDavrodsMemoryPool (req_p);
+	rcComm_t *rods_connection_p = GetIRODSConnectionFromRequest (req_p);
 
-	if (davrods_pool_p)
+	if (!rods_connection_p)
 		{
-			rods_connection_p = GetIRODSConnectionFromPool (davrods_pool_p);
+			apr_pool_t *davrods_pool_p = GetDavrodsMemoryPool (req_p);
 
-			if (!rods_connection_p)
+			if (davrods_pool_p)
 				{
 					rods_connection_p  = GetIRODSConnectionForPublicUser (req_p, davrods_pool_p, config_p);
 				}
@@ -1422,6 +1426,7 @@ rcComm_t *GetIRODSConnectionForAPI (request_rec *req_p, davrods_dir_conf_t *conf
 
 	return rods_connection_p;
 }
+
 
 static apr_status_t RunMetadataQuery (const int *where_columns_p, const char **where_values_ss, const SearchOperator *ops_p, const size_t num_where_columns, const int *select_columns_p, json_t *res_array_p, request_rec *req_p, davrods_dir_conf_t *config_p)
 {

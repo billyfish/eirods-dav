@@ -66,6 +66,9 @@ rcComm_t *GetIRODSConnectionFromPool (apr_pool_t *pool_p);
 rcComm_t *GetIRODSConnectionForPublicUser (request_rec *req_p, apr_pool_t *davrods_pool_p, davrods_dir_conf_t *conf_p);
 
 
+rcComm_t *GetIRODSConnectionFromRequest (request_rec *req_p);
+
+
 rodsEnv *GetRodsEnvFromPool (apr_pool_t *pool_p);
 
 
