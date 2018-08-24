@@ -1,20 +1,4 @@
-/*
-** Copyright 2014-2016 The Earlham Institute
-** 
-** Licensed under the Apache License, Version 2.0 (the "License");
-** you may not use this file except in compliance with the License.
-** You may obtain a copy of the License at
-** 
-**     http://www.apache.org/licenses/LICENSE-2.0
-** 
-** Unless required by applicable law or agreed to in writing, software
-** distributed under the License is distributed on an "AS IS" BASIS,
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-** See the License for the specific language governing permissions and
-** limitations under the License.
-*/
-
-var G_METADATA_API_URL_S = "/data/api/metadata/";
+var G_METADATA_API_URL_S = "/wheat/api/metadata/";
 var G_ROOT_URL_S = "/eirods_dav_files/";
 
 $(document).ready (function () {
@@ -633,7 +617,7 @@ function ShowMetadata (table_cell, irods_id, name_s) {
 	} else {
 
 		/* Download the data */
-		var rest_url = G_METADATA_API_URL_S + "get?edit=false&id=" + irods_id;
+		var rest_url = G_METADATA_API_URL_S + "get?edit=false&output_format=html&id=" + irods_id;
 
 		$.ajax (rest_url, {
 			dataType: "html"
@@ -671,4 +655,5 @@ function PopulateMetadataViewer (metadata_list, object_name) {
 
 	$("#metadata_viewer").modal ("show");
 }
+
 

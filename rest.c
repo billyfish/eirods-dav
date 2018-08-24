@@ -120,6 +120,8 @@ static int GetSearchMetadataAsHTML (const APICall *call_p, request_rec *req_p, a
 
 static const char *GetFullPath (const char *path_s, request_rec *req_p, apr_pool_t *pool_p);
 
+static void SetMimeTypeForOutputFormat (request_rec *req_p, const OutputFormat fmt);
+
 /*
  * STATIC VARIABLES
  */
@@ -271,12 +273,14 @@ int EIRodsDavAPIHandler (request_rec *req_p)
 
 											if (strncmp (path_s, call_p -> ac_action_s, l) == 0)
 												{
-													res = call_p -> ac_callback_fn (call_p, req_p, params_p, config_p, davrods_path_s);
-
 													if (res == OK)
 														{
 															ap_set_content_type (req_p, "application/json");
 														}
+
+													res = call_p -> ac_callback_fn (call_p, req_p, params_p, config_p, davrods_path_s);
+
+
 
 													/* force exit from loop */
 													call_p = NULL;
@@ -833,6 +837,7 @@ static int GetMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_t
 
 									if (apr_status == APR_SUCCESS)
 										{
+											const char *content_type_s = "text/plain";
 											/*
 											 * Sometimes there is garbage at the end of this, and I don't know which apr_brigade_...
 											 * method I need to get the terminating '\0' so have to do it explicitly.
@@ -847,8 +852,9 @@ static int GetMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_t
 													ap_rputs (result_s, req_p);
 												}
 
-											res = OK;
+											SetMimeTypeForOutputFormat (req_p, format);
 
+											res = OK;
 										}
 								}
 						}
@@ -992,6 +998,36 @@ static apr_status_t AddDecodedJSONResponse (const APICall *call_p, apr_status_t 
 
 
 	return local_status;
+}
+
+
+static void SetMimeTypeForOutputFormat (request_rec *req_p, const OutputFormat fmt)
+{
+	const char *content_type_s = "text/plain";
+
+	switch (fmt)
+		{
+			case OF_CSV:
+				content_type_s = "text/csv";
+				break;
+
+			case OF_HTML:
+				content_type_s = "text/html";
+				break;
+
+			case OF_JSON:
+				content_type_s = "application/json";
+				break;
+
+			case OF_TSV:
+				content_type_s = "text/tab-separated-values";
+				break;
+
+			default:
+				break;
+		}
+
+	ap_set_content_type (req_p, content_type_s);
 }
 
 
