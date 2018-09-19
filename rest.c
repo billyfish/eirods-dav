@@ -105,9 +105,6 @@ static apr_status_t AddDecodedJSONResponse (const APICall *call_p, apr_status_t 
 static OutputFormat GetRequestedOutputFormat (apr_table_t *params_p, apr_pool_t *pool_p, OutputFormat default_format);
 
 
-static apr_status_t ReadRequestBody (request_rec *req_p, apr_bucket_brigade *bucket_brigade_p);
-
-
 static apr_status_t RunMetadataQuery (const int *where_columns_p, const char **where_values_ss, const SearchOperator *ops_p, const size_t num_where_columns, const int *select_columns_p, json_t *res_array_p, request_rec *req_p, davrods_dir_conf_t *config_p);
 
 
@@ -150,210 +147,283 @@ static APICall S_VIEW_ACTIONS_P [] =
 };
 
 
-
+static const char * const S_HANDLER_NAME_S = "davrods-rest-handler";
+static const char * const S_HANDLER_SET_VALUE_S = "true";
 
 /*
  * API DEFINITIONS
  */
 
-int EIRodsDavAPIHandler (request_rec *req_p)
+int EIRodsDavFixUps (request_rec *req_p)
 {
 	int res = DECLINED;
-	bool processed_flag = false;
-	apr_table_t *params_p = NULL;
 
-	/*
-	 * Normally we would check if this is a call for the ei-rods-dav rest handler,
-	 * but dav-handler will have gotten there first. So check it against our path
-	 * and see if we are interested in it.
-	 * If it is, we accept it and do our things, it not, we simply return DECLINED,
-	 * and Apache will try somewhere else.
-	 */
-	if (req_p -> method_number == M_GET)
+  /* First off, we need to check if this is a call for the "example-handler" handler.
+   * If it is, we accept it and do our things, if not, we simply return DECLINED,
+   * and the server will try somewhere else.
+   */
+	const char *handler_s = req_p -> handler;
+
+
+	if (handler_s && (strcmp (handler_s, S_HANDLER_NAME_S) == 0))
 		{
-			ap_args_to_table (req_p, &params_p);
-			processed_flag = true;
-		}
-	else if (req_p -> method_number == M_POST)
-		{
-			apr_array_header_t *key_value_pairs_p = NULL;
-			int local_res = ap_parse_form_data (req_p, NULL, &key_value_pairs_p, -1, HUGE_STRING_LEN);
-
-			if ((local_res == OK) && (key_value_pairs_p))
-				{
-					apr_pool_t *pool_p = req_p -> pool;
-
-					params_p = apr_table_make (pool_p, 1);
-
-					if (params_p)
-						{
-					    while (key_value_pairs_p && !apr_is_empty_array (key_value_pairs_p))
-					    	{
-					        ap_form_pair_t *pair_p = (ap_form_pair_t *) apr_array_pop (key_value_pairs_p);
-					        apr_size_t size;
-					        apr_off_t length;
-					        char *value_s = NULL;
-					        char *key_s = apr_pstrdup (req_p -> pool, pair_p -> name);
-
-					        if (key_s)
-					        	{
-							        /*
-							         * Get the length of the value
-							         */
-							        apr_brigade_length (pair_p -> value, 1, &length);
-							        size = (apr_size_t) length;
-
-
-							        value_s = apr_palloc (req_p -> pool, size + 1);
-
-							        if (value_s)
-							        	{
-													apr_brigade_flatten (pair_p -> value, value_s, &size);
-
-													if (* (value_s + size) != '\0')
-														{
-															* (value_s + size) = '\0';
-														}
-
-													/*
-													 * Since both the key and value have already been copied
-													 * we can add them to the table directly rather than it
-													 * storing copies of these values.
-													 */
-													apr_table_addn (params_p, key_s, value_s);
-							        	}
-
-					        	}		/* if (key_s) */
-
-					    	}		/* while (key_value_pairs_p && !apr_is_empty_array (key_value_pairs_p)) */
-
-					  	processed_flag = true;
-						}		/* if (params_p) */
-
-				}		/* if ((res == OK) && (key_value_pairs_p)) */
-
-			processed_flag = true;
-		}
-
-	if (processed_flag)
-		{
-			davrods_dir_conf_t *config_p = ap_get_module_config (req_p -> per_dir_config, &davrods_module);
-			char *davrods_path_s = NULL;
-
-			processed_flag = false;
-
 			if (req_p -> path_info)
 				{
+					davrods_dir_conf_t *config_p = ap_get_module_config (req_p -> per_dir_config, &davrods_module);
+
 					if (config_p -> davrods_api_path_s)
 						{
 							const size_t api_path_length = strlen (config_p -> davrods_api_path_s);
 
 							if (strncmp (config_p -> davrods_api_path_s, req_p -> path_info, api_path_length) == 0)
 								{
-									/*
-									 * Parse the uri from req_p -> path_info to get the API call
-									 */
-									const APICall *call_p = S_REST_API_ACTIONS_P;
-
-									const char *path_s = (req_p -> path_info) + api_path_length;
-
-									/* Get the Location path where davrods is hosted */
-									const char *ptr = strstr (req_p -> uri, config_p -> davrods_api_path_s);
-
-									if (ptr)
-										{
-											davrods_path_s = apr_pstrmemdup (req_p -> pool, req_p -> uri, ptr - (req_p -> uri));
-										}
-
-									while ((call_p != NULL) && (call_p -> ac_action_s != NULL))
-										{
-											size_t l = strlen (call_p -> ac_action_s);
-
-											if (strncmp (path_s, call_p -> ac_action_s, l) == 0)
-												{
-													res = call_p -> ac_callback_fn (call_p, req_p, params_p, config_p, davrods_path_s);
-
-													if (res == OK)
-														{
-															ap_set_content_type (req_p, "application/json");
-														}
-
-													/* force exit from loop */
-													call_p = NULL;
-												}
-											else
-												{
-													++ call_p;
-												}
-
-										}		/* while (call_p -> ac_action_s != NULL) */
-
-									processed_flag = true;
-
-								}		/* if (strncmp (config_p -> davrods_api_path_s, req_p -> path_info, api_path_length) == 0) */
-
-						}		/* if (config_p -> davrods_api_path_s) */
-
-
-					if (!processed_flag)
-						{
-							if (config_p -> eirods_dav_views_path_s)
-								{
-									const size_t views_path_length = strlen (config_p -> eirods_dav_views_path_s);
-
-									if (strncmp (config_p -> eirods_dav_views_path_s, req_p -> path_info, views_path_length) == 0)
-										{
-											const APICall *call_p = S_VIEW_ACTIONS_P;
-											const char *path_s = (req_p -> path_info) + views_path_length;
-
-											/* Get the Location path where davrods is hosted */
-											const char *ptr = strstr (req_p -> uri, config_p -> eirods_dav_views_path_s);
-
-											if (ptr)
-												{
-													davrods_path_s = apr_pstrmemdup (req_p -> pool, req_p -> uri, ptr - (req_p -> uri));
-												}
-
-											while ((call_p != NULL) && (call_p -> ac_action_s != NULL))
-												{
-													size_t l = strlen (call_p -> ac_action_s);
-
-													if (strncmp (path_s, call_p -> ac_action_s, l) == 0)
-														{
-															res = call_p -> ac_callback_fn (call_p, req_p, params_p, config_p, davrods_path_s);
-
-															if (res == OK)
-																{
-																	ap_set_content_type (req_p, "text/html");
-																}
-
-															/* force exit from loop */
-															call_p = NULL;
-														}
-													else
-														{
-															++ call_p;
-														}
-
-												}		/* while (call_p -> ac_action_s != NULL) */
-
-
-										}		/* if (strncmp (config_p -> eirods_dav_views_path_s, req_p -> path_info, views_path_length) == 0) */
-
-								}		/* if (config_p -> eirods_dav_views_path_s) */
-
-						}		/* if (!processed_flag) */
-
-				}		/* if (req_p -> path_info) */
-
-
-
-
-			if (!apr_is_empty_table (params_p))
-				{
-					apr_table_clear (params_p);
+									apr_table_set (req_p -> notes, handler_s, S_HANDLER_SET_VALUE_S);
+									res = OK;
+								}
+						}
 				}
 		}
+
+	return res;
+}
+
+
+int EIRodsDavAPIHandler (request_rec *req_p)
+{
+	int res = DECLINED;
+
+
+  /* First off, we need to check if this is a call for the "example-handler" handler.
+   * If it is, we accept it and do our things, if not, we simply return DECLINED,
+   * and the server will try somewhere else.
+   */
+	const char *handler_s = req_p -> handler;
+	if (handler_s)
+		{
+			bool handle_flag = (strcmp (handler_s, "davrods-rest-handler") == 0);
+
+			if (!handle_flag)
+				{
+					/*
+					 * The DAV handler claims any request for itself by setting the handler to
+					 * "dav-handler" even when it shouldn't
+					 *
+					 */
+					if (strcmp (handler_s, "dav-handler") == 0)
+						{
+							const char *value_s = apr_table_get (req_p -> notes, S_HANDLER_NAME_S);
+
+							if (value_s && (strcmp (value_s, S_HANDLER_SET_VALUE_S) == 0))
+								{
+									req_p -> handler = S_HANDLER_NAME_S;
+									handle_flag = true;
+								}
+						}
+				}
+
+			if (handle_flag)
+				{
+					bool processed_flag = false;
+					apr_table_t *params_p = NULL;
+
+					davrods_dir_conf_t *config_p = ap_get_module_config (req_p -> per_dir_config, &davrods_module);
+
+
+					/*
+					 * Normally we would check if this is a call for the ei-rods-dav rest handler,
+					 * but dav-handler will have gotten there first. So check it against our path
+					 * and see if we are interested in it.
+					 * If it is, we accept it and do our things, it not, we simply return DECLINED,
+					 * and Apache will try somewhere else.
+					 */
+					if (req_p -> method_number == M_GET)
+						{
+							ap_args_to_table (req_p, &params_p);
+							processed_flag = true;
+						}
+					else if (req_p -> method_number == M_POST)
+						{
+							apr_array_header_t *key_value_pairs_p = NULL;
+							int local_res = ap_parse_form_data (req_p, NULL, &key_value_pairs_p, -1, HUGE_STRING_LEN);
+
+							if ((local_res == OK) && (key_value_pairs_p))
+								{
+									apr_pool_t *pool_p = req_p -> pool;
+
+									params_p = apr_table_make (pool_p, 1);
+
+									if (params_p)
+										{
+									    while (key_value_pairs_p && !apr_is_empty_array (key_value_pairs_p))
+									    	{
+									        ap_form_pair_t *pair_p = (ap_form_pair_t *) apr_array_pop (key_value_pairs_p);
+									        apr_size_t size;
+									        apr_off_t length;
+									        char *value_s = NULL;
+									        char *key_s = apr_pstrdup (req_p -> pool, pair_p -> name);
+
+									        if (key_s)
+									        	{
+											        /*
+											         * Get the length of the value
+											         */
+											        apr_brigade_length (pair_p -> value, 1, &length);
+											        size = (apr_size_t) length;
+
+
+											        value_s = apr_palloc (req_p -> pool, size + 1);
+
+											        if (value_s)
+											        	{
+																	apr_brigade_flatten (pair_p -> value, value_s, &size);
+
+																	if (* (value_s + size) != '\0')
+																		{
+																			* (value_s + size) = '\0';
+																		}
+
+																	/*
+																	 * Since both the key and value have already been copied
+																	 * we can add them to the table directly rather than it
+																	 * storing copies of these values.
+																	 */
+																	apr_table_addn (params_p, key_s, value_s);
+											        	}
+
+									        	}		/* if (key_s) */
+
+									    	}		/* while (key_value_pairs_p && !apr_is_empty_array (key_value_pairs_p)) */
+
+									  	processed_flag = true;
+										}		/* if (params_p) */
+
+								}		/* if ((res == OK) && (key_value_pairs_p)) */
+
+							processed_flag = true;
+						}
+
+					if (processed_flag)
+						{
+							char *davrods_path_s = NULL;
+
+							processed_flag = false;
+
+							if (req_p -> path_info)
+								{
+									if (config_p -> davrods_api_path_s)
+										{
+											const size_t api_path_length = strlen (config_p -> davrods_api_path_s);
+
+											if (strncmp (config_p -> davrods_api_path_s, req_p -> path_info, api_path_length) == 0)
+												{
+													/*
+													 * Parse the uri from req_p -> path_info to get the API call
+													 */
+													const APICall *call_p = S_REST_API_ACTIONS_P;
+
+													const char *path_s = (req_p -> path_info) + api_path_length;
+
+													/* Get the Location path where davrods is hosted */
+													const char *ptr = strstr (req_p -> uri, config_p -> davrods_api_path_s);
+
+													if (ptr)
+														{
+															davrods_path_s = apr_pstrmemdup (req_p -> pool, req_p -> uri, ptr - (req_p -> uri));
+														}
+
+													while ((call_p != NULL) && (call_p -> ac_action_s != NULL))
+														{
+															size_t l = strlen (call_p -> ac_action_s);
+
+															if (strncmp (path_s, call_p -> ac_action_s, l) == 0)
+																{
+																	res = call_p -> ac_callback_fn (call_p, req_p, params_p, config_p, davrods_path_s);
+
+																	if (res == OK)
+																		{
+																			ap_set_content_type (req_p, "application/json");
+																		}
+
+																	/* force exit from loop */
+																	call_p = NULL;
+																}
+															else
+																{
+																	++ call_p;
+																}
+
+														}		/* while (call_p -> ac_action_s != NULL) */
+
+													processed_flag = true;
+
+												}		/* if (strncmp (config_p -> davrods_api_path_s, req_p -> path_info, api_path_length) == 0) */
+
+										}		/* if (config_p -> davrods_api_path_s) */
+
+
+									if (!processed_flag)
+										{
+											if (config_p -> eirods_dav_views_path_s)
+												{
+													const size_t views_path_length = strlen (config_p -> eirods_dav_views_path_s);
+
+													if (strncmp (config_p -> eirods_dav_views_path_s, req_p -> path_info, views_path_length) == 0)
+														{
+															const APICall *call_p = S_VIEW_ACTIONS_P;
+															const char *path_s = (req_p -> path_info) + views_path_length;
+
+															/* Get the Location path where davrods is hosted */
+															const char *ptr = strstr (req_p -> uri, config_p -> eirods_dav_views_path_s);
+
+															if (ptr)
+																{
+																	davrods_path_s = apr_pstrmemdup (req_p -> pool, req_p -> uri, ptr - (req_p -> uri));
+																}
+
+															while ((call_p != NULL) && (call_p -> ac_action_s != NULL))
+																{
+																	size_t l = strlen (call_p -> ac_action_s);
+
+																	if (strncmp (path_s, call_p -> ac_action_s, l) == 0)
+																		{
+																			res = call_p -> ac_callback_fn (call_p, req_p, params_p, config_p, davrods_path_s);
+
+																			if (res == OK)
+																				{
+																					ap_set_content_type (req_p, "text/html");
+																				}
+
+																			/* force exit from loop */
+																			call_p = NULL;
+																		}
+																	else
+																		{
+																			++ call_p;
+																		}
+
+																}		/* while (call_p -> ac_action_s != NULL) */
+
+
+														}		/* if (strncmp (config_p -> eirods_dav_views_path_s, req_p -> path_info, views_path_length) == 0) */
+
+												}		/* if (config_p -> eirods_dav_views_path_s) */
+
+										}		/* if (!processed_flag) */
+
+								}		/* if (req_p -> path_info) */
+
+
+							if (!apr_is_empty_table (params_p))
+								{
+									apr_table_clear (params_p);
+								}
+
+						}		/* if (processed_flag) */
+
+				}		/* if handler_flag) */
+
+		}		/* if (handler_s) */
+
 
 	return res;
 }
@@ -544,50 +614,6 @@ static int GetSearchMetadataAsHTML (const APICall *call_p, request_rec *req_p, a
 	return res;
 }
 
-
-static apr_status_t ReadRequestBody (request_rec *req_p, apr_bucket_brigade *bucket_brigade_p)
-{
-	apr_status_t status = APR_EGENERAL;
-	int ret = ap_setup_client_block (req_p, REQUEST_CHUNKED_ERROR);
-
-	if (ret == OK)
-		{
-			if (ap_should_client_block (req_p))
-				{
-					char         temp_s [HUGE_STRING_LEN];
-					apr_off_t    len_read;
-
-					status = APR_SUCCESS;
-
-					while (((len_read = ap_get_client_block (req_p, temp_s, sizeof (temp_s))) > 0) && (status == APR_SUCCESS))
-						{
-							* (temp_s + len_read) = '\0';
-
-							status = apr_brigade_puts (bucket_brigade_p, NULL, NULL, temp_s);
-						}
-
-
-					if ((len_read == -1) || (status == APR_EGENERAL))
-						{
-							ap_log_rerror_(APLOG_MARK, APLOG_ERR, APR_EGENERAL, req_p, "error getting client block");
-
-							status = APR_EGENERAL;
-						}
-
-				}		/* if (ap_should_client_block (req_p)) */
-			else
-				{
-					ap_log_rerror_(APLOG_MARK, APLOG_ERR, APR_EGENERAL, req_p, "ap_should_client_block failed");
-				}
-
-		}		/* if (ret == OK) */
-	else
-		{
-			ap_log_rerror_(APLOG_MARK, APLOG_ERR, APR_EGENERAL, req_p, "Failed to set up client block to read request, %d", ret);
-		}
-
-	return status;
-}
 
 
 static bool GetSearchParameters (const char **key_ss, const char **value_ss, SearchOperator *op_p, apr_table_t *params_p, request_rec *req_p)

@@ -60,6 +60,9 @@ REST_PREFIX const char VIEW_LIST_S [] REST_VAL ("list");
 
 int EIRodsDavAPIHandler (request_rec *req_p);
 
+
+int EIRodsDavFixUps (request_rec *res_p);
+
 const char *GetMinorId (const char *id_s);
 
 

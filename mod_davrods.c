@@ -26,6 +26,7 @@
 #include "auth.h"
 #include "common.h"
 #include "rest.h"
+#include "http_request.h"
 
 #include <curl/curl.h>
 
@@ -44,7 +45,8 @@ static void register_davrods_hooks(apr_pool_t *p) {
     davrods_auth_register(p);
     davrods_dav_register(p);
 
-    ap_hook_child_init (EIRodsDavChildInit, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_child_init (EIRodsDavChildInit, NULL, NULL, APR_HOOK_FIRST);
+    ap_hook_fixups (EIRodsDavFixUps, NULL, NULL, APR_HOOK_FIRST);
 
     ap_hook_handler (EIRodsDavAPIHandler, NULL, NULL, APR_HOOK_FIRST);
 }
