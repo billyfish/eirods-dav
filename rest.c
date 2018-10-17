@@ -580,6 +580,8 @@ static int GetVirtualListingAsHTML (const APICall *call_p, request_rec *req_p, a
 
 					apr_brigade_destroy (bucket_brigade_p);
 
+					ap_set_content_type (req_p, "text/html");
+
 					ap_rputs (result_s, req_p);
 					res = OK;
 				}
@@ -607,6 +609,8 @@ static int GetSearchMetadataAsHTML (const APICall *call_p, request_rec *req_p, a
 
 					if (res_s)
 						{
+							ap_set_content_type (req_p, "text/html");
+
 							ap_rputs (res_s, req_p);
 							res = OK;
 						}
@@ -861,7 +865,6 @@ static int GetMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_t
 
 									if (apr_status == APR_SUCCESS)
 										{
-											const char *content_type_s = "text/plain";
 											/*
 											 * Sometimes there is garbage at the end of this, and I don't know which apr_brigade_...
 											 * method I need to get the terminating '\0' so have to do it explicitly.
