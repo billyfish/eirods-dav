@@ -756,29 +756,45 @@ IRodsObjectNode *GetIRodsObjectNodeForId (const char *id_s, rcComm_t *rods_conne
 															/* we have a coll id match */
 															if (coll_id_results_p -> attriCnt == num_coll_id_select_columns)
 																{
-																	const char *collection_s = coll_id_results_p -> sqlResult [0].value;
-																	char *irods_data_path_s = apr_pstrcat (pool_p, collection_s, "/", data_name_s, NULL);
+																	const char *collection_res_s = coll_id_results_p -> sqlResult [0].value;
+																	char *collection_s = NULL;
+																	const size_t res_length = strlen (collection_res_s);
 
-																	if (irods_data_path_s)
+																	if (* (collection_res_s + res_length - 1) == '/')
 																		{
-																			rodsObjStat_t *stat_p;
+																			collection_s = apr_pstrdup (pool_p, collection_res_s);
+																		}
+																	else
+																		{
+																			collection_s = apr_pstrcat (pool_p, collection_res_s, "/", NULL);
+																		}
 
-																			stat_p = GetObjectStat (irods_data_path_s, rods_connection_p, pool_p);
+																	if (collection_s)
+																		{
+																			char *irods_data_path_s = apr_pstrcat (pool_p, collection_s, data_name_s, NULL);
 
-																			if (stat_p)
+																			if (irods_data_path_s)
 																				{
-																					node_p = AllocateIRodsObjectNode (DATA_OBJ_T, id_s, data_name_s, collection_s, stat_p -> ownerName, stat_p -> rescHier, stat_p -> modifyTime, stat_p -> objSize, pool_p);
+																					rodsObjStat_t *stat_p;
 
-																					if (node_p)
+																					stat_p = GetObjectStat (irods_data_path_s, rods_connection_p, pool_p);
+
+																					if (stat_p)
 																						{
+																							node_p = AllocateIRodsObjectNode (DATA_OBJ_T, id_s, data_name_s, collection_s, stat_p -> ownerName, stat_p -> rescHier, stat_p -> modifyTime, stat_p -> objSize, pool_p);
 
+																							if (node_p)
+																								{
+
+																								}
+
+
+																							freeRodsObjStat (stat_p);
 																						}
 
+																				}		/* if (irods_data_path_s) */
 
-																					freeRodsObjStat (stat_p);
-																				}
-
-																		}		/* if (irods_data_path_s) */
+																		}		/* if (collection_s) */
 
 																}		/* if (coll_id_results_p -> attriCnt == num_select_columns) */
 

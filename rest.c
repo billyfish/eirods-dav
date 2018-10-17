@@ -183,6 +183,20 @@ int EIRodsDavFixUps (request_rec *req_p)
 									res = OK;
 								}
 						}
+
+					if (res != OK)
+						{
+							if (config_p -> eirods_dav_views_path_s)
+								{
+									const size_t views_path_length = strlen (config_p -> eirods_dav_views_path_s);
+
+									if (strncmp (config_p -> eirods_dav_views_path_s, req_p -> path_info, views_path_length) == 0)
+										{
+											apr_table_set (req_p -> notes, handler_s, S_HANDLER_SET_VALUE_S);
+											res = OK;
+										}
+								}
+						}
 				}
 		}
 
