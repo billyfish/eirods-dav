@@ -838,7 +838,7 @@ static int GetInformationForEntry (const APICall *call_p, request_rec *req_p, ap
 
 											if (id_s)
 												{
-													if (json_object_set_new (obj_p, "id", id_s) == 0)
+													if (json_object_set_new (obj_p, "id", json_string (id_s)) == 0)
 														{
 															if (json_object_set_new (obj_p, "path", json_string (path_s)) == 0)
 																{
@@ -849,19 +849,52 @@ static int GetInformationForEntry (const APICall *call_p, request_rec *req_p, ap
 																			ap_rputs (result_s, req_p);
 																			free (result_s);
 																		}
+																	else
+																		{
+																			ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_BADARG, pool_p, "Failed to dump json for %s", full_path_s);
+																		}
 
 																	res = OK;
 																}
+															else
+																{
+																	ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_BADARG, pool_p, "Failed to add \"path\": \"%s\" to json object for %s", path_s, full_path_s);
+																}
 														}													
+													else
+														{
+															ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_BADARG, pool_p, "Failed to add \"id\": \"%s\" to json object for %s", id_s, full_path_s);
+														}
 												}
+											else
+												{
+													ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_BADARG, pool_p, "Failed to create id string from \"%s\" and \"%s\" for %s", type_s, stat_p -> dataId, full_path_s);
+												}
+
+										}		/* if (obj_p) */
+									else
+										{
+											ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_BADARG, pool_p, "Failed to create JSON object for %s", full_path_s);
 										}
 
 									freeRodsObjStat (stat_p);
+								}		/* if (stat_p) */
+							else
+								{
+									ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_BADARG, pool_p, "Failed to  stat full path for \"%s\"", full_path_s);
 								}
 
+						}		/* if (full_path_s) */
+					else
+						{
+							ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_BADARG, pool_p, "Failed to get full path for \"%s\"", path_s);
 						}
-				}
 
+				}		/* if (path_s) */
+			else
+				{
+					ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_BADARG, pool_p, "Missing path variable for %s", req_p -> uri);
+				}
 		}
 
 	return res;
