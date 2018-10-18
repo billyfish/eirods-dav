@@ -817,20 +817,42 @@ static int GetInformationForEntry (const APICall *call_p, request_rec *req_p, ap
 
 									if (obj_p)
 										{
-											if (json_object_set_new (obj_p, "id", json_string (stat_p -> dataId)) == 0)
+											char *id_s = NULL;
+											const char *type_s = "";
+											
+											switch (stat_p -> objType)
 												{
-													if (json_object_set_new (obj_p, "path", json_string (path_s)) == 0)
+													case DATA_OBJ_T:
+														type_s = "1.";
+														break;
+														
+													case COLL_OBJ_T:
+														type_s = "2.";
+														break;
+														
+													default:
+														break;
+												}
+																				
+											id_s = apr_pstrcat (pool_p, type_s, stat_p -> dataId, NULL);
+
+											if (id_s)
+												{
+													if (json_object_set_new (obj_p, "id", id_s) == 0)
 														{
-															result_s = json_dumps (obj_p, JSON_INDENT (2));
-
-															if (result_s)
+															if (json_object_set_new (obj_p, "path", json_string (path_s)) == 0)
 																{
-																	ap_rputs (result_s, req_p);
-																	free (result_s);
-																}
+																	result_s = json_dumps (obj_p, JSON_INDENT (2));
 
-															res = OK;
-														}
+																	if (result_s)
+																		{
+																			ap_rputs (result_s, req_p);
+																			free (result_s);
+																		}
+
+																	res = OK;
+																}
+														}													
 												}
 										}
 
