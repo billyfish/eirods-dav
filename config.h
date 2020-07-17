@@ -1,7 +1,7 @@
 /**
  * \file
  * \brief     Davrods configuration.
- * \author    Chris Smeele
+ * \author    Chris Smeele, Simon Tyrrell
  * \copyright Copyright (c) 2016, Utrecht University
  *
  * This file is part of Davrods.

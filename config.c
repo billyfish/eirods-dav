@@ -428,6 +428,11 @@ const command_rec davrods_directives[] = {
     ),
 
 
+    AP_INIT_TAKE1(
+        DAVRODS_CONFIG_PREFIX "ShowChecksum", SetShowChecksum,
+        NULL, ACCESS_CONF, "Show the checksums for each data object, default is false"
+    ),
+
 		AP_INIT_RAW_ARGS(
 	        DAVRODS_CONFIG_PREFIX "SelectedResources", SetShowSelectedResourcesOnly,
 	        NULL, ACCESS_CONF, "List of resources to show with each entry separated by spaces"
@@ -596,6 +601,12 @@ const command_rec davrods_directives[] = {
 				DAVRODS_CONFIG_PREFIX "PropertiesHeading", SetPropertiesHeading,
 				NULL, ACCESS_CONF, "Set the heading for the Properties column in directory listings"
 		),
+
+		AP_INIT_TAKE1(
+				DAVRODS_CONFIG_PREFIX "ChecksumHeading", SetChecksumHeading,
+				NULL, ACCESS_CONF, "Set the heading for the Checksum column in directory listings"
+		),
+
 
 		AP_INIT_TAKE1(
 				DAVRODS_CONFIG_PREFIX "ZoneLabel", SetZoneLabel,

@@ -104,7 +104,7 @@ struct HtmlTheme
 
 	int ht_show_ids_flag;
 
-	int ht_add_search_form_flag;
+	int ht_show_checksums_flag;
 
 	int ht_active_flag;
 
@@ -127,6 +127,8 @@ struct HtmlTheme
 
 	const char *ht_properties_heading_s;
 
+	const char *ht_checksum_heading_s;
+
 	const char *ht_zone_label_s;
 
 	const char *ht_pre_table_html_s;
@@ -134,6 +136,8 @@ struct HtmlTheme
 	const char *ht_post_table_html_s;
 
 	const char *ht_pre_close_body_html_s;
+
+	int ht_add_search_form_flag;
 
 	Placement ht_tools_placement;
 };
@@ -294,6 +298,9 @@ const char *SetDateHeading (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 
 const char *SetPropertiesHeading (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
+const char *SetChecksumHeading (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
 const char *SetZoneLabel (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
 
@@ -304,6 +311,9 @@ const char *SetPostListingsHTML (cmd_parms *cmd_p, void *config_p, const char *a
 const char *SetPreCloseBodyHTML (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
 const char *SetToolsPlacement (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+const char *SetShowChecksum (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
 #ifdef __cplusplus
 }

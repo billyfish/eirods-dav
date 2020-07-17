@@ -688,7 +688,7 @@ IRodsObjectNode *GetIRodsObjectNodeForId (const char *id_s, rcComm_t *rods_conne
 
 									if (stat_p)
 										{
-											node_p = AllocateIRodsObjectNode (COLL_OBJ_T, id_s, NULL, collection_s, stat_p -> ownerName, NULL, stat_p -> modifyTime, stat_p -> objSize, pool_p);
+											node_p = AllocateIRodsObjectNode (COLL_OBJ_T, id_s, NULL, collection_s, stat_p -> ownerName, NULL, stat_p -> modifyTime, stat_p -> objSize, stat_p -> chksum, pool_p);
 
 											if (node_p)
 												{
@@ -781,7 +781,7 @@ IRodsObjectNode *GetIRodsObjectNodeForId (const char *id_s, rcComm_t *rods_conne
 
 																					if (stat_p)
 																						{
-																							node_p = AllocateIRodsObjectNode (DATA_OBJ_T, id_s, data_name_s, collection_s, stat_p -> ownerName, stat_p -> rescHier, stat_p -> modifyTime, stat_p -> objSize, pool_p);
+																							node_p = AllocateIRodsObjectNode (DATA_OBJ_T, id_s, data_name_s, collection_s, stat_p -> ownerName, stat_p -> rescHier, stat_p -> modifyTime, stat_p -> objSize, stat_p -> chksum, pool_p);
 
 																							if (node_p)
 																								{
@@ -927,7 +927,7 @@ IRodsObjectNode *GetMatchingMetadataHits (const char * const key_s, const char *
 
 																			if (stat_p)
 																				{
-																					IRodsObjectNode *node_p = AllocateIRodsObjectNode (COLL_OBJ_T, id_s, NULL, collection_s, stat_p -> ownerName, NULL, stat_p -> modifyTime, stat_p -> objSize, pool_p);
+																					IRodsObjectNode *node_p = AllocateIRodsObjectNode (COLL_OBJ_T, id_s, NULL, collection_s, stat_p -> ownerName, NULL, stat_p -> modifyTime, stat_p -> objSize, stat_p -> chksum, pool_p);
 
 																					if (node_p)
 																						{
@@ -1048,7 +1048,7 @@ IRodsObjectNode *GetMatchingMetadataHits (const char * const key_s, const char *
 
 																											if (stat_p)
 																												{
-																													IRodsObjectNode *node_p = AllocateIRodsObjectNode (DATA_OBJ_T, id_s, data_name_s, collection_s, stat_p -> ownerName, stat_p -> rescHier, stat_p -> modifyTime, stat_p -> objSize, pool_p);
+																													IRodsObjectNode *node_p = AllocateIRodsObjectNode (DATA_OBJ_T, id_s, data_name_s, collection_s, stat_p -> ownerName, stat_p -> rescHier, stat_p -> modifyTime, stat_p -> objSize, stat_p -> chksum, pool_p);
 
 																													if (node_p)
 																														{

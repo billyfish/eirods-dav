@@ -71,7 +71,7 @@ apr_status_t SetIRodsConfig (IRodsConfig *config_p, const char *exposed_root_s, 
 apr_status_t SetIRodsObjectFromIdString (IRodsObject *obj_p, const char *id_s, rcComm_t *connection_p, apr_pool_t *pool_p)
 {
 	apr_status_t status = APR_EGENERAL;
-	int select_columns_p [7] = { COL_DATA_NAME, COL_D_OWNER_NAME, COL_COLL_NAME, COL_D_MODIFY_TIME, COL_DATA_SIZE, COL_D_RESC_NAME, -1 };
+	int select_columns_p [8] = { COL_DATA_NAME, COL_D_OWNER_NAME, COL_COLL_NAME, COL_D_MODIFY_TIME, COL_DATA_SIZE, COL_D_RESC_NAME, COL_D_DATA_CHECKSUM, -1 };
 	int where_columns_p [1] = { COL_D_DATA_ID };
 	const char *where_values_ss [1];
 	genQueryOut_t *results_p = NULL;
@@ -114,9 +114,19 @@ apr_status_t SetIRodsObjectFromIdString (IRodsObject *obj_p, const char *id_s, r
 
 															if (resource_s)
 																{
-																	rodsLong_t size = atoi (size_s);
+																	char *checksum_s = apr_pstrdup (pool_p, results_p -> sqlResult [6].value);
 
-																	status = SetIRodsObject (obj_p, DATA_OBJ_T, id_s, name_s, coll_s, owner_s, resource_s, modify_s, size, pool_p);
+																	if (resource_s)
+																		{
+																			rodsLong_t size = atoi (size_s);
+
+																			status = SetIRodsObject (obj_p, DATA_OBJ_T, id_s, name_s, coll_s, owner_s, resource_s, modify_s, size, checksum_s, pool_p);
+																		}
+																	else
+																		{
+																			ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to copy resource \"%s\"", results_p -> sqlResult [5].value);
+																		}
+
 																}		/* if (resource_s) */
 															else
 																{
@@ -205,7 +215,7 @@ apr_status_t SetIRodsObjectFromIdString (IRodsObject *obj_p, const char *id_s, r
 
 													if (modify_s)
 														{
-															status = SetIRodsObject (obj_p, COLL_OBJ_T, id_s, name_s, parent_s, owner_s, NULL, modify_s, 0, pool_p);
+															status = SetIRodsObject (obj_p, COLL_OBJ_T, id_s, name_s, parent_s, owner_s, NULL, modify_s, 0, NULL, pool_p);
 														}		/* if (modify_s) */
 													else
 														{
@@ -240,7 +250,7 @@ apr_status_t SetIRodsObjectFromIdString (IRodsObject *obj_p, const char *id_s, r
 }
 
 
-IRodsObjectNode *AllocateIRodsObjectNode (const objType_t obj_type, const char *id_s, const char *data_s, const char *collection_s, const char *owner_name_s, const char *resource_s, const char *last_modified_time_s, const rodsLong_t size, apr_pool_t *pool_p)
+IRodsObjectNode *AllocateIRodsObjectNode (const objType_t obj_type, const char *id_s, const char *data_s, const char *collection_s, const char *owner_name_s, const char *resource_s, const char *last_modified_time_s, const rodsLong_t size, const char *checksum_s, apr_pool_t *pool_p)
 {
 	IRodsObject *obj_p = (IRodsObject *) malloc (sizeof (IRodsObject));
 
@@ -250,7 +260,7 @@ IRodsObjectNode *AllocateIRodsObjectNode (const objType_t obj_type, const char *
 
 			if (node_p)
 				{
-					if (SetIRodsObject (obj_p, obj_type, id_s, data_s, collection_s, owner_name_s, resource_s, last_modified_time_s, size, pool_p) == APR_SUCCESS)
+					if (SetIRodsObject (obj_p, obj_type, id_s, data_s, collection_s, owner_name_s, resource_s, last_modified_time_s, size, checksum_s, pool_p) == APR_SUCCESS)
 						{
 							node_p -> ion_object_p = obj_p;
 							node_p -> ion_next_p = NULL;
@@ -403,7 +413,7 @@ static json_t *GetIRodsObjectAsJSON (const IRodsObject *irods_obj_p, const IRods
 }
 
 
-apr_status_t SetIRodsObject (IRodsObject *obj_p, const objType_t obj_type, const char *id_s, const char *data_s, const char *collection_s, const char *owner_name_s, const char *resource_s, const char *last_modified_time_s, const rodsLong_t size, apr_pool_t *pool_p)
+apr_status_t SetIRodsObject (IRodsObject *obj_p, const objType_t obj_type, const char *id_s, const char *data_s, const char *collection_s, const char *owner_name_s, const char *resource_s, const char *last_modified_time_s, const rodsLong_t size, const char *md5_s, apr_pool_t *pool_p)
 {
 	apr_status_t status = APR_ENOMEM;
 	bool done_id_flag = false;
@@ -446,10 +456,14 @@ apr_status_t SetIRodsObject (IRodsObject *obj_p, const objType_t obj_type, const
 												{
 													if (SetStringValue (last_modified_time_s, & (obj_p -> io_last_modified_time_s), pool_p))
 														{
-															obj_p -> io_obj_type = obj_type;
-															obj_p -> io_size = size;
+															if (SetStringValue (md5_s, & (obj_p -> io_checksum_s), pool_p))
+																{
+																	obj_p -> io_obj_type = obj_type;
+																	obj_p -> io_size = size;
 
-															status = APR_SUCCESS;
+																	status = APR_SUCCESS;
+																}		/* if (SetStringValue (md5_s, & (obj_p -> io_md5_s), pool_p)) */
+
 														}		/* if (SetStringValue (last_modified_time_s, & (obj_p -> io_last_modified_time_s), pool_p)) */
 
 												}		/* if (SetStringValue (resource_s, & (obj_p -> io_resource_s), pool_p)) */
@@ -482,11 +496,11 @@ apr_status_t SetIRodsObjectFromCollEntry (IRodsObject *obj_p, const collEnt_t *c
 		{
 			const char *id_s = GetCollectionId (coll_entry_p -> collName, connection_p, pool_p);
 
-			status = SetIRodsObject (obj_p, coll_entry_p -> objType, id_s, coll_entry_p -> dataName, coll_entry_p -> collName, coll_entry_p -> ownerName, coll_entry_p -> resource, coll_entry_p -> modifyTime, coll_entry_p -> dataSize, pool_p);
+			status = SetIRodsObject (obj_p, coll_entry_p -> objType, id_s, coll_entry_p -> dataName, coll_entry_p -> collName, coll_entry_p -> ownerName, coll_entry_p -> resource, coll_entry_p -> modifyTime, coll_entry_p -> dataSize, coll_entry_p -> chksum, pool_p);
 		}
 	else
 		{
-			status = SetIRodsObject (obj_p, coll_entry_p -> objType, coll_entry_p -> dataId, coll_entry_p -> dataName, coll_entry_p -> collName, coll_entry_p -> ownerName, coll_entry_p -> resource, coll_entry_p -> modifyTime, coll_entry_p -> dataSize, pool_p);
+			status = SetIRodsObject (obj_p, coll_entry_p -> objType, coll_entry_p -> dataId, coll_entry_p -> dataName, coll_entry_p -> collName, coll_entry_p -> ownerName, coll_entry_p -> resource, coll_entry_p -> modifyTime, coll_entry_p -> dataSize, coll_entry_p -> chksum, pool_p);
 		}
 
 	return status;
@@ -547,6 +561,78 @@ const char *GetIRodsObjectDisplayName (const IRodsObject *obj_p)
 
 	return name_s;
 }
+
+
+
+const char *GetIRodsObjectChecksum (const IRodsObject *irods_obj_p)
+{
+	if (! (irods_obj_p -> io_checksum_s))
+		{
+/*
+			char *full_path_s = GetIRodsObjectFullPath (irods_obj_p, pool_p);
+
+			if (full_path_s)
+				{
+					char *checksum_s = NULL;
+					dataObjInp_t obj_inp;
+					int status;
+					size_t length = strlen (full_path_s);
+
+					memset (&obj_inp, 0, sizeof (dataObjInp_t));
+
+					if (length >= MAX_NAME_LEN)
+						{
+							length = MAX_NAME_LEN - 1;
+						}
+
+					strncpy (obj_inp.objPath, full_path_s, length);
+
+					addKeyVal (& (obj_inp.condInput), VERIFY_CHKSUM_KW, "");
+					//addKeyVal( &collInp->condInput, VERIFY_CHKSUM_KW, "" );
+
+
+				//	status = rcDataObjChksum (conn, &ob_innp, &checksum_s);
+					if (status >= 0)
+						{
+							return checksum_s;
+						}
+				}		// if (full_path_s)
+*/
+		}
+
+	return (irods_obj_p -> io_checksum_s);
+
+/*
+Example Usage:
+    Chksum the data object /myZone/home/john/myfile if one does not already exist in iCAT.
+    dataObjInp_t dataObjInp;
+    char *outChksum = NULL;
+    bzero (&dataObjInp, sizeof (dataObjInp));
+    rstrcpy (dataObjInp.objPath, "/myZone/home/john/myfile", MAX_NAME_LEN);
+    status = rcDataObjChksum (conn, &dataObjInp, &outChksum);
+    if (status < 0) {
+    .... handle the error
+    }
+
+Parameters
+    [in]	conn	- A rcComm_t connection handle to the server.
+    [in]	dataObjChksumInp	- Elements of dataObjInp_t used :
+
+        char objPath[MAX_NAME_LEN] - full path of the data object.
+        keyValPair_t condInput - keyword/value pair input. Valid keywords:
+        VERIFY_CHKSUM_KW - verify the checksum value in iCAT. If the checksum value does not exist, compute and register one. This keyWd has no value.
+        FORCE_CHKSUM_KW - checksum the data-object even if a checksum already exists in iCAT. This keyWd has no value.
+        CHKSUM_ALL_KW - checksum all replicas. This keyWd has no value.
+        REPL_NUM_KW - The replica number of the replica to delete.
+        RESC_NAME_KW - delete replica stored in this resource.
+
+    [out]	outChksum	- a string containing the md5 checksum value.
+
+ */
+
+	return NULL;
+}
+
 
 
 const char *GetIRodsObjectIcon (const IRodsObject *irods_obj_p, const struct HtmlTheme * const theme_p)

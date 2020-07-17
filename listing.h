@@ -46,6 +46,7 @@ typedef struct IRodsObject
 	char *io_owner_name_s;
 	char *io_resource_s;
 	char *io_last_modified_time_s;
+	char *io_checksum_s;
 	rodsLong_t io_size;
 } IRodsObject;
 
@@ -94,10 +95,10 @@ void InitIRodsObject (IRodsObject *obj_p);
 apr_status_t SetIRodsConfig (IRodsConfig *config_p, const char *exposed_root_s, const char *root_path_s, const char *metadata_root_link_s);
 
 
-apr_status_t SetIRodsObject (IRodsObject *obj_p, const objType_t obj_type, const char *id_s, const char *data_s, const char *collection_s, const char *owner_name_s, const char *resource_s, const char *last_modified_time_s, const rodsLong_t size, apr_pool_t *pool_p);
+apr_status_t SetIRodsObject (IRodsObject *obj_p, const objType_t obj_type, const char *id_s, const char *data_s, const char *collection_s, const char *owner_name_s, const char *resource_s, const char *last_modified_time_s, const rodsLong_t size, const char *md5_s, apr_pool_t *pool_p);
 
 
-IRodsObjectNode *AllocateIRodsObjectNode (const objType_t obj_type, const char *id_s, const char *data_s, const char *collection_s, const char *owner_name_s, const char *resource_s, const char *last_modified_time_s, const rodsLong_t size, apr_pool_t *pool_p);
+IRodsObjectNode *AllocateIRodsObjectNode (const objType_t obj_type, const char *id_s, const char *data_s, const char *collection_s, const char *owner_name_s, const char *resource_s, const char *last_modified_time_s, const rodsLong_t size, const char *checksum_s, apr_pool_t *pool_p);
 
 void FreeIRodsObjectNode (IRodsObjectNode *node_p);
 
@@ -174,6 +175,9 @@ char *GetIRodsObjectSizeAsString (const IRodsObject *irods_obj_p, apr_pool_t *po
  * @return The string for the time or <code>NULL</code> upon error.
  */
 char *GetIRodsObjectLastModifiedTime (const  IRodsObject *irods_obj_p, apr_pool_t *pool_p);
+
+
+const char *GetIRodsObjectChecksum (const IRodsObject *irods_obj_p);
 
 
 apr_status_t GetAndPrintMetadataForIRodsObject (const IRodsObject *irods_obj_p, const char * const link_s, const char *zone_s, const struct HtmlTheme * const theme_p, apr_bucket_brigade *bb_p, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p);

@@ -40,13 +40,14 @@ static const char *S_DEFAULT_DATE_HEADING_S = "Last Modified";
 static const char *S_DEFAULT_SIZE_HEADING_S = "Size";
 static const char *S_DEFAULT_OWNER_HEADING_S = "Owner";
 static const char *S_DEFAULT_PROPERTIES_HEADING_S = "Properties";
-
+static const char *S_DEFAULT_CHECKSUM_HEADING_S = "Checksum";
 
 static const char *S_NAME_CLASS_S = "name";
 static const char *S_DATE_CLASS_S = "date";
 static const char *S_SIZE_CLASS_S = "size";
 static const char *S_OWNER_CLASS_S = "owner";
 static const char *S_PROPERTIES_CLASS_S = "properties";
+static const char *S_CHECKSUM_CLASS_S = "checksum";
 
 
 /************************************/
@@ -120,6 +121,8 @@ struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 
 			theme_p -> ht_properties_heading_s = NULL;
 
+			theme_p -> ht_checksum_heading_s = NULL;
+
 			theme_p -> ht_zone_label_s = NULL;
 
 			theme_p -> ht_pre_table_html_s = NULL;
@@ -129,6 +132,8 @@ struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 			theme_p -> ht_pre_close_body_html_s = NULL;
 
 			theme_p -> ht_tools_placement = PL_IN_HEADER;
+
+			theme_p -> ht_show_checksums_flag = 0;
 		}
 
 	return theme_p;
@@ -137,15 +142,14 @@ struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 
 dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *output_p)
 {
+	dav_error *res_p = NULL;
 	struct dav_resource_private *davrods_resource_p = (struct dav_resource_private *) resource_p -> info;
 	request_rec *req_p = davrods_resource_p -> r;
 	apr_pool_t *pool_p = resource_p -> pool;
-
 	collInp_t coll_inp = { { 0 } };
-	collHandle_t coll_handle = { 0 };
-	collEnt_t coll_entry;
-	int status;
+	int collection_handle;
 	davrods_dir_conf_t *conf_p = davrods_resource_p->conf;
+	struct HtmlTheme *theme_p = conf_p -> theme_p;
 
 	const char * const user_s = davrods_resource_p -> rods_conn -> clientUser.userName;
 
@@ -154,7 +158,6 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 	const char *davrods_path_s = GetDavrodsAPIPath (davrods_resource_p, conf_p, req_p);
 
 	// Make brigade.
-	apr_bucket_brigade *bucket_brigade_p = NULL;
 	apr_status_t apr_status = APR_EGENERAL;
 
 	/*
@@ -166,153 +169,203 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 			current_id_s = apr_pstrcat (pool_p, "2.", current_id_s, NULL);
 		}
 
-	strcpy (coll_inp.collName, davrods_resource_p -> rods_path);
+	memset (&coll_inp, 0, sizeof (collInp_t));
+	rstrcpy (coll_inp.collName, davrods_resource_p -> rods_path, MAX_NAME_LEN);
+	coll_inp.flags = DATA_QUERY_FIRST_FG | LONG_METADATA_FG | NO_TRIM_REPL_FG;
 
 	// Open the collection
-	status = rclOpenCollection (davrods_resource_p -> rods_conn, davrods_resource_p->rods_path, DATA_QUERY_FIRST_FG | LONG_METADATA_FG | NO_TRIM_REPL_FG, &coll_handle);
+//	status = rclOpenCollection (davrods_resource_p -> rods_conn, davrods_resource_p->rods_path, DATA_QUERY_FIRST_FG | LONG_METADATA_FG | NO_TRIM_REPL_FG, &coll_handle);
 
-	if (status < 0)
+	collection_handle = rcOpenCollection (davrods_resource_p -> rods_conn, &coll_inp);
+
+
+	if (collection_handle >= 0)
 		{
-			ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, req_p, "rcOpenCollection failed: %d = %s", status, get_rods_error_msg(status));
+			int status;
 
-			return dav_new_error (pool_p, HTTP_INTERNAL_SERVER_ERROR, 0, status, "Could not open a collection");
-		}
-
-
-	// Make brigade.
-	bucket_brigade_p = apr_brigade_create (pool_p, output_p -> c -> bucket_alloc);
-	apr_status = PrintAllHTMLBeforeListing (davrods_resource_p, escaped_zone_s, NULL, davrods_path_s, NULL, current_id_s, user_s, conf_p, req_p, bucket_brigade_p, pool_p);
+			// Make brigade.
+			apr_bucket_brigade *bucket_brigade_p = apr_brigade_create (pool_p, output_p -> c -> bucket_alloc);
+			apr_status = PrintAllHTMLBeforeListing (davrods_resource_p, escaped_zone_s, NULL, davrods_path_s, NULL, current_id_s, user_s, conf_p, req_p, bucket_brigade_p, pool_p);
 
 
-	if (apr_status == APR_SUCCESS)
-		{
-			const char *davrods_root_path_s = davrods_resource_p -> root_dir;
-			const char *exposed_root_s = GetRodsExposedPath (req_p);
-			char *metadata_link_s = apr_pstrcat (pool_p, davrods_resource_p -> root_dir, conf_p -> davrods_api_path_s, NULL);
-			IRodsConfig irods_config;
-
-			if (SetIRodsConfig (&irods_config, exposed_root_s, davrods_root_path_s, metadata_link_s) == APR_SUCCESS)
+			if (apr_status == APR_SUCCESS)
 				{
-					int row_index = 0;
+					const char *davrods_root_path_s = davrods_resource_p -> root_dir;
+					const char *exposed_root_s = GetRodsExposedPath (req_p);
+					char *metadata_link_s = apr_pstrcat (pool_p, davrods_resource_p -> root_dir, conf_p -> davrods_api_path_s, NULL);
+					IRodsConfig irods_config;
 
-					// Actually print the directory listing, one table row at a time.
-					do
+					if (SetIRodsConfig (&irods_config, exposed_root_s, davrods_root_path_s, metadata_link_s) == APR_SUCCESS)
 						{
-							status = rclReadCollection (davrods_resource_p -> rods_conn, &coll_handle, &coll_entry);
+							int row_index = 0;
+							collEnt_t *coll_entry_p = NULL;
 
-							if (status >= 0)
+							// Actually print the directory listing, one table row at a time.
+							do
 								{
-									IRodsObject irods_obj;
+									status = rcReadCollection (davrods_resource_p -> rods_conn, collection_handle, &coll_entry_p);
 
-									apr_status = SetIRodsObjectFromCollEntry (&irods_obj, &coll_entry, davrods_resource_p -> rods_conn, pool_p);
-
-									if (apr_status == APR_SUCCESS)
+									if (status >= 0)
 										{
-											struct HtmlTheme *theme_p = conf_p -> theme_p;
-											int show_item_flag = 1;
+											IRodsObject irods_obj;
 
-											if (irods_obj.io_obj_type == DATA_OBJ_T)
+											if ((coll_entry_p -> objType == DATA_OBJ_T) && (theme_p -> ht_show_checksums_flag))
 												{
-													if (theme_p -> ht_resources_ss)
+													size_t l = coll_entry_p -> chksum ? strlen (coll_entry_p -> chksum) : 0;
+
+													if (l == 0)
 														{
-															char **resources_ss = theme_p -> ht_resources_ss;
-															int loop_flag = 1;
+															char *checksum_s = NULL;
+															dataObjInp_t obj_inp;
+															const char *full_path_s = apr_pstrcat (pool_p, coll_entry_p -> collName, "/", coll_entry_p -> dataName, NULL);
+															size_t length = strlen (full_path_s);
 
-															show_item_flag = 0;
+															memset (&obj_inp, 0, sizeof (dataObjInp_t));
 
-															while (loop_flag)
+															if (length >= MAX_NAME_LEN)
 																{
-																	if (strcmp (irods_obj.io_resource_s, *resources_ss) == 0)
-																		{
-																			show_item_flag = 1;
-																			loop_flag = 0;
-																		}
-																	else
-																		{
-																			++ resources_ss;
-																			loop_flag = (*resources_ss != NULL) ? 1 : 0;
-																		}
+																	length = MAX_NAME_LEN - 1;
+																}
+
+															strncpy (obj_inp.objPath, full_path_s, length);
+
+															addKeyVal (& (obj_inp.condInput), VERIFY_CHKSUM_KW, "");
+															//addKeyVal( &collInp->condInput, VERIFY_CHKSUM_KW, "" );
+
+
+															status = rcDataObjChksum (davrods_resource_p -> rods_conn, &obj_inp, &checksum_s);
+
+															if (status >= 0)
+																{
+																	coll_entry_p -> chksum = checksum_s;
+																}
+															else
+																{
+																	ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to rcDataObjChksum for \"%s\"", full_path_s);
 																}
 														}
+												}		/* if ((coll_entry_p -> objType = DATA_OBJ_T) && (theme_p -> ht_show_checksums_flag)) */
 
-												}
 
-											if (show_item_flag)
+											apr_status = SetIRodsObjectFromCollEntry (&irods_obj, coll_entry_p, davrods_resource_p -> rods_conn, pool_p);
+
+											if (apr_status == APR_SUCCESS)
 												{
-													apr_status = PrintItem (conf_p -> theme_p, &irods_obj, &irods_config, row_index, bucket_brigade_p, pool_p, resource_p -> info -> rods_conn, req_p);
-													++ row_index;
+													int show_item_flag = 1;
+
+													if (irods_obj.io_obj_type == DATA_OBJ_T)
+														{
+															if (theme_p -> ht_resources_ss)
+																{
+																	char **resources_ss = theme_p -> ht_resources_ss;
+																	int loop_flag = 1;
+
+																	show_item_flag = 0;
+
+																	while (loop_flag)
+																		{
+																			if (strcmp (irods_obj.io_resource_s, *resources_ss) == 0)
+																				{
+																					show_item_flag = 1;
+																					loop_flag = 0;
+																				}
+																			else
+																				{
+																					++ resources_ss;
+																					loop_flag = (*resources_ss != NULL) ? 1 : 0;
+																				}
+																		}
+																}
+
+														}
+
+													if (show_item_flag)
+														{
+															apr_status = PrintItem (conf_p -> theme_p, &irods_obj, &irods_config, row_index, bucket_brigade_p, pool_p, resource_p -> info -> rods_conn, req_p);
+															++ row_index;
+														}
+
+													if (apr_status != APR_SUCCESS)
+														{
+															const char *collection_s = coll_entry_p -> collName ? coll_entry_p -> collName : "";
+															const char *data_object_s = coll_entry_p -> dataName ? coll_entry_p -> dataName : "";
+
+															ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to PrintItem for \"%s\":\"%s\"", collection_s, data_object_s);
+														}
+												}
+											else
+												{
+													const char *collection_s = coll_entry_p -> collName ? coll_entry_p -> collName : "";
+													const char *data_object_s = coll_entry_p -> dataName ? coll_entry_p -> dataName : "";
+
+													ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to SetIRodsObjectFromCollEntry for \"%s\":\"%s\"", collection_s, data_object_s);
 												}
 
-											if (apr_status != APR_SUCCESS)
-												{
-													ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to PrintItem for \"%s\":\"%s\"",
-																				 coll_entry.collName ? coll_entry.collName : "",
-																						 coll_entry.dataName ? coll_entry.dataName : "");
-												}
-										}
+											freeCollEnt (coll_entry_p);
+										}		/* if (status >= 0) */
 									else
 										{
-											ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to SetIRodsObjectFromCollEntry for \"%s\":\"%s\"",
-																		 coll_entry.collName ? coll_entry.collName : "",
-																				 coll_entry.dataName ? coll_entry.dataName : "");
-										}
+											if (status == CAT_NO_ROWS_FOUND)
+												{
+													// End of collection.
+												}
+											else
+												{
+													ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_SUCCESS,
+																				req_p,
+																				"rcReadCollection failed for collection <%s> with error <%s>",
+																				davrods_resource_p->rods_path, get_rods_error_msg(status));
 
-									//clearCollEnt (&coll_entry);
-								}
-							else
-								{
-									if (status == CAT_NO_ROWS_FOUND)
-										{
-											// End of collection.
-										}
-									else
-										{
-											ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_SUCCESS,
-																		req_p,
-																		"rcReadCollection failed for collection <%s> with error <%s>",
-																		davrods_resource_p->rods_path, get_rods_error_msg(status));
+													apr_brigade_destroy(bucket_brigade_p);
 
-											apr_brigade_destroy(bucket_brigade_p);
-
-											return dav_new_error(pool_p, HTTP_INTERNAL_SERVER_ERROR,
-																					 0, 0, "Could not read a collection entry from a collection.");
+													res_p = dav_new_error(pool_p, HTTP_INTERNAL_SERVER_ERROR,
+																							 0, 0, "Could not read a collection entry from a collection.");
+												}
 										}
 								}
+							while (status >= 0);
+
+						}		/* if (SetIRodsConfig (&irods_config, exposed_root_s, davrods_root_path_s, REST_METADATA_PATH_S)) */
+					else
+						{
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "SetIRodsConfig failed for exposed_root_s:\"%s\" davrods_root_path_s:\"%s\"",
+														 exposed_root_s ? exposed_root_s : "<NULL>",
+																 davrods_root_path_s ? davrods_root_path_s: "<NULL>");
 						}
-					while (status >= 0);
 
-				}		/* if (SetIRodsConfig (&irods_config, exposed_root_s, davrods_root_path_s, REST_METADATA_PATH_S)) */
+				}		/* if (apr_status == APR_SUCCESS) */
 			else
 				{
-					ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "SetIRodsConfig failed for exposed_root_s:\"%s\" davrods_root_path_s:\"%s\"",
-												 exposed_root_s ? exposed_root_s : "<NULL>",
-														 davrods_root_path_s ? davrods_root_path_s: "<NULL>");
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "PrintAllHTMLBeforeListing failed");
 				}
 
-		}		/* if (apr_status == APR_SUCCESS) */
+			apr_status = PrintAllHTMLAfterListing (user_s, escaped_zone_s, davrods_path_s, conf_p, current_id_s, davrods_resource_p -> rods_conn, req_p, bucket_brigade_p, pool_p);
+			if (apr_status != APR_SUCCESS)
+				{
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "PrintAllHTMLAfterListing failed");
+				}
+
+			CloseBucketsStream (bucket_brigade_p);
+
+			if ((status = ap_pass_brigade (output_p, bucket_brigade_p)) != APR_SUCCESS)
+				{
+					apr_brigade_destroy (bucket_brigade_p);
+					res_p = dav_new_error(pool_p, HTTP_INTERNAL_SERVER_ERROR, 0, status,
+															 "Could not write content to filter.");
+				}
+
+			apr_brigade_destroy(bucket_brigade_p);
+
+			rcCloseCollection (davrods_resource_p -> rods_conn, collection_handle);
+		}		/* if (collection_handle >= 0) */
 	else
 		{
-			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "PrintAllHTMLBeforeListing failed");
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, req_p, "rcOpenCollection failed: %d = %s", collection_handle, get_rods_error_msg (collection_handle));
+
+			res_p = dav_new_error (pool_p, HTTP_INTERNAL_SERVER_ERROR, 0, collection_handle, "Could not open a collection");
 		}
 
-	apr_status = PrintAllHTMLAfterListing (user_s, escaped_zone_s, davrods_path_s, conf_p, current_id_s, davrods_resource_p -> rods_conn, req_p, bucket_brigade_p, pool_p);
-	if (apr_status != APR_SUCCESS)
-		{
-			ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "PrintAllHTMLAfterListing failed");
-		}
-
-
-	CloseBucketsStream (bucket_brigade_p);
-
-	if ((status = ap_pass_brigade (output_p, bucket_brigade_p)) != APR_SUCCESS)
-		{
-			apr_brigade_destroy (bucket_brigade_p);
-			return dav_new_error(pool_p, HTTP_INTERNAL_SERVER_ERROR, 0, status,
-													 "Could not write content to filter.");
-		}
-	apr_brigade_destroy(bucket_brigade_p);
-
-	return NULL;
+	return res_p;
 }
 
 
@@ -770,7 +823,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 
 	if (conf_p -> theme_p -> ht_show_resource_flag)
 		{
-			apr_status = PrintBasicStringToBucketBrigade ("<th class=\"resource\">Resource</th>", bucket_brigade_p, req_p, __FILE__, __LINE__);;
+			apr_status = PrintBasicStringToBucketBrigade ("<th class=\"resource\">Resource</th>", bucket_brigade_p, req_p, __FILE__, __LINE__);
 		}
 
 	if (apr_status != APR_SUCCESS)
@@ -789,6 +842,13 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 			return apr_status;
 		}
 
+	if (conf_p -> theme_p -> ht_show_checksums_flag)
+		{
+			if ((apr_status = PrintTableHeader (theme_p -> ht_checksum_heading_s, S_DEFAULT_CHECKSUM_HEADING_S, S_CHECKSUM_CLASS_S, bucket_brigade_p) != APR_SUCCESS))
+				{
+					return apr_status;
+				}
+		}
 
 	if (theme_p -> ht_show_metadata_flag)
 		{
@@ -918,6 +978,7 @@ apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_
 	const char *name_s = GetIRodsObjectDisplayName (irods_obj_p);
 	char *timestamp_s = GetIRodsObjectLastModifiedTime (irods_obj_p, pool_p);
 	char *size_s = GetIRodsObjectSizeAsString (irods_obj_p, pool_p);
+	const char *checksum_s = GetIRodsObjectChecksum (irods_obj_p);
 
 	const char * const row_classes_ss [] = { "odd", "even" };
 	const char *row_class_s = row_classes_ss [(row_index % 2 == 0) ? 0 : 1];
@@ -962,6 +1023,7 @@ apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_
 														 ap_escape_html (pool_p, name_s),
 														 link_suffix_s ? link_suffix_s : "");
 				}
+
 		}		/* if (name_s) */
 
 	// Print data object size.
@@ -988,8 +1050,6 @@ apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_
 					return status;
 				}
 		}
-
-
 
 
 	if (theme_p -> ht_show_resource_flag)
@@ -1019,39 +1079,62 @@ apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_
 				}
 		}
 
+
+	// Print checksum.
+	if (IsColumnDisplayed (theme_p -> ht_checksum_heading_s))
+		{
+			status = PrintBasicStringToBucketBrigade ("<td class=\"checksum\">", bb_p, req_p, __FILE__, __LINE__);
+			if (status != APR_SUCCESS)
+				{
+					return status;
+				}
+
+			if (checksum_s)
+				{
+					apr_brigade_printf (bb_p, NULL, NULL, "%s", checksum_s);
+				}
+
+			status = PrintBasicStringToBucketBrigade ("</td>", bb_p, req_p, __FILE__, __LINE__);
+			if (status != APR_SUCCESS)
+				{
+					return status;
+				}
+		}
+
+
 	switch (theme_p -> ht_show_metadata_flag)
-	{
-		case MD_FULL:
-			{
-				const char *zone_s = NULL;
+		{
+			case MD_FULL:
+				{
+					const char *zone_s = NULL;
 
-				status = GetAndPrintMetadataForIRodsObject (irods_obj_p, config_p -> ic_metadata_root_link_s, zone_s, theme_p, bb_p, connection_p, req_p, pool_p);
+					status = GetAndPrintMetadataForIRodsObject (irods_obj_p, config_p -> ic_metadata_root_link_s, zone_s, theme_p, bb_p, connection_p, req_p, pool_p);
 
-				if (status == APR_SUCCESS)
-					{
+					if (status == APR_SUCCESS)
+						{
 
-					}
-			}
-			break;
+						}
+				}
+				break;
 
-		case MD_ON_DEMAND:
-			{
-				const char *zone_s = NULL;
+			case MD_ON_DEMAND:
+				{
+					const char *zone_s = NULL;
 
-				status = GetAndPrintMetadataRestLinkForIRodsObject (irods_obj_p, config_p -> ic_metadata_root_link_s, zone_s, theme_p, bb_p, connection_p, pool_p);
+					status = GetAndPrintMetadataRestLinkForIRodsObject (irods_obj_p, config_p -> ic_metadata_root_link_s, zone_s, theme_p, bb_p, connection_p, pool_p);
 
-				if (status == APR_SUCCESS)
-					{
+					if (status == APR_SUCCESS)
+						{
 
-					}
+						}
 
-			}
+				}
 
-			break;
+				break;
 
-		default:
-			break;
-	}
+			default:
+				break;
+		}
 
 
 
@@ -1514,6 +1597,16 @@ const char *SetPropertiesHeading (cmd_parms *cmd_p, void *config_p, const char *
 }
 
 
+const char *SetChecksumHeading (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+	conf_p -> theme_p -> ht_checksum_heading_s = arg_p;
+
+	return NULL;
+}
+
+
 const char *SetZoneLabel (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 {
 	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
@@ -1626,6 +1719,7 @@ void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p
 	DAVRODS_PROP_MERGE (theme_p -> ht_owner_heading_s);
 	DAVRODS_PROP_MERGE (theme_p -> ht_date_heading_s);
 	DAVRODS_PROP_MERGE (theme_p -> ht_properties_heading_s);
+	DAVRODS_PROP_MERGE (theme_p -> ht_checksum_heading_s);
 
 	DAVRODS_PROP_MERGE (theme_p -> ht_zone_label_s);
 	DAVRODS_PROP_MERGE (theme_p -> ht_pre_table_html_s);
@@ -1634,6 +1728,8 @@ void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p
 
 
 	DAVRODS_PROP_MERGE (theme_p -> ht_tools_placement);
+
+	DAVRODS_PROP_MERGE (theme_p -> ht_show_checksums_flag);
 
 	conf_p -> theme_p -> ht_icons_map_p = MergeAPRTables (parent_p -> theme_p -> ht_icons_map_p, child_p -> theme_p -> ht_icons_map_p, pool_p);
 
@@ -1825,6 +1921,23 @@ static apr_status_t PrintUserSection (const char *user_s, const char *escaped_zo
 	return status;
 }
 
+
+const char *SetShowChecksum (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t *) config_p;
+
+	if (strcasecmp (arg_p, "true") == 0)
+		{
+			conf_p -> theme_p -> ht_show_checksums_flag = 1;
+		}
+	else if (strcasecmp (arg_p, "false") == 0)
+		{
+			conf_p -> theme_p -> ht_show_checksums_flag = 0;
+		}
+
+	return NULL;
+
+}
 
 static int AreIconsDisplayed (const struct HtmlTheme *theme_p)
 {

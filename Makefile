@@ -69,8 +69,8 @@ LIBS += \
 	irods_common \
 	irods_plugin_dependencies 
 LIB_PATHS += \
-	$(IRODS_EXTERNALS)/boost1.60.0-0/lib \
-	$(IRODS_EXTERNALS)/jansson2.7-0/lib
+	$(IRODS_EXTERNALS)/boost1.67.0-0/lib \
+	/home/billy/Applications/grassroots/extras/jansson/lib
 MACROS += IRODS_4_2
 else
 LIBS += \

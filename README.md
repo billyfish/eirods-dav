@@ -34,6 +34,10 @@ searching and linking is available at the [Designing Future Wheat Data Portal](h
 
 ## Changelog
 
+### 1.5.1 (15 Jul 2020)
+- Added ability to show the data object checksums in the listings table. See the documentation on the 
+**DavRodsShowChecksum** and **DavRodsChecksumHeading** directives for more information.
+
 ### 1.5 (1 Aug 2018)
  
 - REST API now accepts POST requests.
@@ -286,7 +290,7 @@ The directory listings can be customised using a variety of configuration
 directives.
 
 * **DavRodsHTMLListingClass**:
-The list of collections and data objects displayed by Davrods are within 
+The list of collections and data objects displayed by Eirods-dav are within 
 an HTML table. If you wish to specify CSS classes for this table, you can 
 use this directive. For instance, if you wish to use the CSS classes 
 called *table* and *table-striped*, then you could use the following 
@@ -303,6 +307,7 @@ The listings table defaults to displaying five columns:
  * Size
  * Date
  * Properties
+
 
 Each of these headings can be changed to one of your choice using the 
 following configuration directives. If you would like a column to 
@@ -351,7 +356,20 @@ then you can use this directive. For instance to change it to *Metadata*
  DavRodsPropertiesHeading Metadata
  ```
 
+* **DavRodsShowChecksum**: If you wish to add a column for displaying the file checksums, set this 
+directive to true. By default it is *false* and checksums will not be displayed.
+
+ ```
+ DavRodsShowChecksum true
+ ```
  
+* **DavRodsChecksumHeading**: If you want to change the column heading for the *Checksum* column 
+then you can use this directive. For instance to change it to *MD5*
+
+ ```
+ DavRodsChecksumHeading MD5
+ ```
+
 * **DavRodsHTMLCollectionIcon**:
 If you wish to use a custom image to denote collections, you can use this
 directive. This can be superseded by a matching call to the `DavRodsAddIcon`
@@ -685,7 +703,7 @@ directly or via the [Earlham Institute](http://www.earlham.ac.uk/contact-us/) pa
 
 ## License ##
 
-Copyright (c) 2017-18, Earlham Institute and (c) 2016 Utrecht University.
+Copyright (c) 2017-20, Earlham Institute and (c) 2016 Utrecht University.
 
 EIrods-dav is licensed under the GNU Lesser General Public License version
 3 or higher (LGPLv3+). See the COPYING.LESSER file for details.
