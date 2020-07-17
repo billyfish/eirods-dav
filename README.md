@@ -34,9 +34,16 @@ searching and linking is available at the [Designing Future Wheat Data Portal](h
 
 ## Changelog
 
-### 1.5.1 (15 Jul 2020)
+### 1.6 (15 Jul 2020)
 - Added ability to show the data object checksums in the listings table. See the documentation on the 
 **DavRodsShowChecksum** and **DavRodsChecksumHeading** directives for more information.
+
+### 1.5.1 (22 Oct 2018)
+    
+ - Added workaround for the fact that mod_dav.so assumes that it is the handler for the REST API calls (https://svn.apache.org/viewvc/httpd/httpd/branches/2.4.x/modules/dav/main/mod_dav.c?revision=1807753&view=markup#l4863)
+ - Fixed response content-types for the views/... calls
+ - Object type now included when using the REST API calls that get id information for given paths
+ - The REST handler now makes sure that the request is really for it before getting the request parameters so it can be used with other modules that are also reading these.
 
 ### 1.5 (1 Aug 2018)
  
