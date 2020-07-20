@@ -8,7 +8,7 @@
 #
 # E.g.
 #	IRODS_VERSION := 4.2.0
-IRODS_VERSION := 4.2.0
+IRODS_VERSION := 4.2.8
 
 
 #
@@ -16,18 +16,44 @@ IRODS_VERSION := 4.2.0
 # ---------------
 #
 # This is the path to the all of external dependencies for iRODS.
+# If you are using a version of iRODS greater or equal to 4.2.x 
+# then you do not need to set this variable.
 #
 # E.g.
 # IRODS_EXTERNALS := /usr/libs/irods
 IRODS_EXTERNALS := \
-	/opt/irods-externals/avro1.7.7-0/lib \
-	/opt/irods-externals/boost1.60.0-0/lib \
-	/opt/irods-externals/clang3.8-0/lib \
+	/opt/irods-externals/avro1.9.0-0/lib \
+	/opt/irods-externals/boost1.67.0-0/lib \
 	/opt/irods-externals/clang-runtime3.8-0/lib \
-	/opt/irods-externals/cppzmq4.1-0/lib \
-	/opt/irods-externals/jansson2.7-0/lib \
-	/opt/irods-externals/libarchive3.1.2-0/lib \
-	/opt/irods-externals/zeromq4-14.1.3-0/lib
+	/opt/irods-externals/zeromq4-14.1.6-0/lib 
+
+
+#
+# BOOST
+# ---------------
+#
+# This is tha path to the boost libraries that the installed
+# version of iRODS is using. This can be found by doing
+# 
+#		ls /opt/irods-externals/boost* 
+#
+# E.g
+# DIR_BOOST = 	/opt/irods-externals/boost1.67.0-0
+DIR_BOOST = 	/opt/irods-externals/boost1.67.0-0
+
+
+#
+# JANSSON
+# ---------------
+#
+# mod_eirods_dav now uses jansson to build its JSON objects
+# so this needs to be added to the include path. You can get 
+# this from http://digip.org/jansson/releases/ and instructions
+# are available from https://jansson.readthedocs.io/en/latest/
+#
+# E.g
+# DIR_JANSSON = 	/opt/jansson
+DIR_JANSSON = /home/billy/Applications/grassroots/extras/jansson
 
 
 #
@@ -39,8 +65,7 @@ IRODS_EXTERNALS := \
 # root director (/)
 #
 # E.g.
-# IRODS_DIR := /
-IRODS_DIR := /home/billy/Applications/irods
+IRODS_DIR := /
 
 
 #
@@ -51,7 +76,7 @@ IRODS_DIR := /home/billy/Applications/irods
 #
 # E.g.
 # APACHE_DIR := /opt/apache
-APACHE_DIR := /home/billy/Applications/grassroots-0/apache
+APACHE_DIR := /home/billy/Applications/apache
 
 
 #
@@ -71,7 +96,6 @@ APACHE_DIR := /home/billy/Applications/grassroots-0/apache
 LIB_PATHS := /usr/lib/gcc/x86_64-linux-gnu/5
 
 
-
 #
 # INCLUDE_PATHS
 # ---------------
@@ -83,4 +107,100 @@ LIB_PATHS := /usr/lib/gcc/x86_64-linux-gnu/5
 #
 # E.g.
 # INCLUDE_PATHS := /opt/irods-externals/jansson2.7-0/include
-INCLUDE_PATHS := /opt/irods-externals/jansson2.7-0/include
+INCLUDE_PATHS := /home/billy/Applications/grassroots/extras/jansson/include#
+# IRODS_VERSION
+# -------------
+#
+# The set of libraries required differ for different versions of
+# iRODS, so set this variable to use the correct set. For instance,
+# if you have version 4.2.0 installed then this would be 
+#
+# E.g.
+#	IRODS_VERSION := 4.2.0
+IRODS_VERSION := 4.2.8
+
+
+#
+# IRODS_EXTERNALS
+# ---------------
+#
+# This is the path to the all of external dependencies for iRODS.
+# If you are using a version of iRODS greater or equal to 4.2.x 
+# then you do not need to set this variable.
+#
+# E.g.
+# IRODS_EXTERNALS := /usr/libs/irods
+IRODS_EXTERNALS := \
+	/opt/irods-externals/avro1.9.0-0/lib \
+	/opt/irods-externals/boost1.67.0-0/lib \
+	/opt/irods-externals/clang-runtime3.8-0/lib \
+	/opt/irods-externals/zeromq4-14.1.6-0/lib 
+
+
+#
+# BOOST
+# ---------------
+#
+# This is tha path to the boost libraries that the installed
+# version of iRODS is using. This can be found by doing
+# 
+#		ls /opt/irods-externals/boost* 
+#
+# E.g
+# DIR_BOOST = 	/opt/irods-externals/boost1.67.0-0
+DIR_BOOST = 	/opt/irods-externals/boost1.67.0-0
+
+
+#
+# JANSSON
+# ---------------
+#
+# mod_eirods_dav now uses jansson to build its JSON objects
+# so this needs to be added to the include path. You can get 
+# this from http://digip.org/jansson/releases/ and instructions
+# are available from https://jansson.readthedocs.io/en/latest/
+#
+# E.g
+# DIR_JANSSON = 	/opt/jansson
+DIR_JANSSON = /opt/jansson
+
+
+#
+# IRODS_DIR
+# ---------------
+#
+# This is the path where iRODS is installed. When it had been
+# installed from the official packages this will be at the 
+# root director (/)
+#
+# E.g.
+IRODS_DIR := /
+
+
+#
+# APACHE_DIR
+# ---------------
+#
+# This is the path where Apache httpd is installed. 
+#
+# E.g.
+# APACHE_DIR := /opt/apache
+APACHE_DIR := /opt/apache
+
+
+#
+# LIB_PATHS
+# ---------------
+#
+# This is the path for any extra libraries that are required.
+# By default, this needs to be the path to where libstdc++.so
+# is stored. This can be found by running:
+#
+#		locate libstdc++.so
+#
+# and picking an appropriate path
+#
+# E.g.
+# LIB_PATHS := /usr/lib/gcc/x86_64-linux-gnu/5
+LIB_PATHS := /usr/lib/gcc/x86_64-linux-gnu/5
+

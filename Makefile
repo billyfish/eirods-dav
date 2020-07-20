@@ -54,8 +54,8 @@ SRCFILES := $(CFILES) $(HFILES)
 OBJFILES := $(CFILES:%.c=$(OUTPUT_DIR)/%.o)
 OUTFILES := $(OBJFILES) $(CFILES:%.c=%.lo) $(CFILES:%.c=%.slo) $(CFILES:%.c=%.la)
 
-INCLUDE_PATHS += $(IRODS_DIR)/usr/include
-LIB_PATHS += $(IRODS_DIR)/usr/lib
+INCLUDE_PATHS += $(IRODS_DIR)/usr/include $(DIR_JANSSON)/include
+LIB_PATHS += $(IRODS_DIR)/usr/lib $(DIR_JANSSON)/lib
 
 # Add in the appropriate irods libs and dependencies
 IRODS_VERSION_MAJOR := $(shell echo $(IRODS_VERSION) | cut -f1 -d ".")
@@ -69,8 +69,7 @@ LIBS += \
 	irods_common \
 	irods_plugin_dependencies 
 LIB_PATHS += \
-	$(IRODS_EXTERNALS)/boost1.67.0-0/lib \
-	/home/billy/Applications/grassroots/extras/jansson/lib
+	$(DIR_BOOST)/lib 
 MACROS += IRODS_4_2
 else
 LIBS += \
