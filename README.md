@@ -35,9 +35,9 @@ searching and linking is available at the [Designing Future Wheat Data Portal](h
 ## Changelog
 
 ### 1.6 (15 Jul 2020)
-- Added ability to show the data object checksums in the listings table. See the documentation on the 
-**DavRodsShowChecksum** and **DavRodsChecksumHeading** directives for more information.
-
+ - Added ability to show the data object checksums in the listings table. See the documentation on the 
+**DavRodsShowChecksum** and **DavRodsChecksumHeading** directives for more information. If you are building with an existing *user.prefs* file, you will need to add the **DIR_BOOST** and **DIR_JANSSON** directives to this. See the included *example-user.prefs* file foir more details.
+  
 ### 1.5.1 (22 Oct 2018)
     
  - Added workaround for the fact that mod_dav.so assumes that it is the handler for the REST API calls (https://svn.apache.org/viewvc/httpd/httpd/branches/2.4.x/modules/dav/main/mod_dav.c?revision=1807753&view=markup#l4863)
