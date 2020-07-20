@@ -36,7 +36,7 @@ searching and linking is available at the [Designing Future Wheat Data Portal](h
 
 ### 1.6 (15 Jul 2020)
  - Added ability to show the data object checksums in the listings table. See the documentation on the 
-**DavRodsShowChecksum** and **DavRodsChecksumHeading** directives for more information. If you are building with an existing *user.prefs* file, you will need to add the **DIR_BOOST** and **DIR_JANSSON** directives to this. See the included *example-user.prefs* file foir more details.
+**DavRodsShowChecksum** and **DavRodsChecksumHeading** directives for more information. If you are building with an existing *user.prefs* file, you will need to add the **DIR_BOOST** and **DIR_JANSSON** directives to this. See the included *example-user.prefs* file for more details.
   
 ### 1.5.1 (22 Oct 2018)
     
