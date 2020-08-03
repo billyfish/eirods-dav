@@ -146,8 +146,8 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 	struct dav_resource_private *davrods_resource_p = (struct dav_resource_private *) resource_p -> info;
 	request_rec *req_p = davrods_resource_p -> r;
 	apr_pool_t *pool_p = resource_p -> pool;
-	collInp_t coll_inp = { { 0 } };
-	int collection_handle;
+	int status;
+	collHandle_t  collection_handle;
 	davrods_dir_conf_t *conf_p = davrods_resource_p->conf;
 	struct HtmlTheme *theme_p = conf_p -> theme_p;
 
@@ -169,20 +169,14 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 			current_id_s = apr_pstrcat (pool_p, "2.", current_id_s, NULL);
 		}
 
-	memset (&coll_inp, 0, sizeof (collInp_t));
-	rstrcpy (coll_inp.collName, davrods_resource_p -> rods_path, MAX_NAME_LEN);
-	coll_inp.flags = DATA_QUERY_FIRST_FG | LONG_METADATA_FG | NO_TRIM_REPL_FG;
+
+	memset (&collection_handle, 0, sizeof (collHandle_t));
 
 	// Open the collection
-//	status = rclOpenCollection (davrods_resource_p -> rods_conn, davrods_resource_p->rods_path, DATA_QUERY_FIRST_FG | LONG_METADATA_FG | NO_TRIM_REPL_FG, &coll_handle);
+	status = rclOpenCollection (davrods_resource_p -> rods_conn, davrods_resource_p -> rods_path, DATA_QUERY_FIRST_FG | LONG_METADATA_FG | NO_TRIM_REPL_FG, &collection_handle);
 
-	collection_handle = rcOpenCollection (davrods_resource_p -> rods_conn, &coll_inp);
-
-
-	if (collection_handle >= 0)
+	if (status >= 0)
 		{
-			int status;
-
 			// Make brigade.
 			apr_bucket_brigade *bucket_brigade_p = apr_brigade_create (pool_p, output_p -> c -> bucket_alloc);
 			apr_status = PrintAllHTMLBeforeListing (davrods_resource_p, escaped_zone_s, NULL, davrods_path_s, NULL, current_id_s, user_s, conf_p, req_p, bucket_brigade_p, pool_p);
@@ -198,26 +192,28 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 					if (SetIRodsConfig (&irods_config, exposed_root_s, davrods_root_path_s, metadata_link_s) == APR_SUCCESS)
 						{
 							int row_index = 0;
-							collEnt_t *coll_entry_p = NULL;
+							collEnt_t coll_entry;
+
+							memset (&coll_entry, 0, sizeof (collEnt_t));
 
 							// Actually print the directory listing, one table row at a time.
 							do
 								{
-									status = rcReadCollection (davrods_resource_p -> rods_conn, collection_handle, &coll_entry_p);
+									status = rclReadCollection (davrods_resource_p -> rods_conn, &collection_handle, &coll_entry);
 
 									if (status >= 0)
 										{
 											IRodsObject irods_obj;
 
-											if ((coll_entry_p -> objType == DATA_OBJ_T) && (theme_p -> ht_show_checksums_flag))
+											if ((coll_entry.objType == DATA_OBJ_T) && (theme_p -> ht_show_checksums_flag))
 												{
-													size_t l = coll_entry_p -> chksum ? strlen (coll_entry_p -> chksum) : 0;
+													size_t l = coll_entry.chksum ? strlen (coll_entry.chksum) : 0;
 
 													if (l == 0)
 														{
 															char *checksum_s = NULL;
 															dataObjInp_t obj_inp;
-															const char *full_path_s = apr_pstrcat (pool_p, coll_entry_p -> collName, "/", coll_entry_p -> dataName, NULL);
+															const char *full_path_s = apr_pstrcat (pool_p, coll_entry.collName, "/", coll_entry.dataName, NULL);
 															size_t length = strlen (full_path_s);
 
 															memset (&obj_inp, 0, sizeof (dataObjInp_t));
@@ -237,7 +233,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 															if (status >= 0)
 																{
-																	coll_entry_p -> chksum = checksum_s;
+																	coll_entry.chksum = checksum_s;
 																}
 															else
 																{
@@ -247,7 +243,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 												}		/* if ((coll_entry_p -> objType = DATA_OBJ_T) && (theme_p -> ht_show_checksums_flag)) */
 
 
-											apr_status = SetIRodsObjectFromCollEntry (&irods_obj, coll_entry_p, davrods_resource_p -> rods_conn, pool_p);
+											apr_status = SetIRodsObjectFromCollEntry (&irods_obj, &coll_entry, davrods_resource_p -> rods_conn, pool_p);
 
 											if (apr_status == APR_SUCCESS)
 												{
@@ -287,21 +283,20 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 													if (apr_status != APR_SUCCESS)
 														{
-															const char *collection_s = coll_entry_p -> collName ? coll_entry_p -> collName : "";
-															const char *data_object_s = coll_entry_p -> dataName ? coll_entry_p -> dataName : "";
+															const char *collection_s = coll_entry.collName ? coll_entry.collName : "";
+															const char *data_object_s = coll_entry.dataName ? coll_entry.dataName : "";
 
 															ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to PrintItem for \"%s\":\"%s\"", collection_s, data_object_s);
 														}
 												}
 											else
 												{
-													const char *collection_s = coll_entry_p -> collName ? coll_entry_p -> collName : "";
-													const char *data_object_s = coll_entry_p -> dataName ? coll_entry_p -> dataName : "";
+													const char *collection_s = coll_entry.collName ? coll_entry.collName : "";
+													const char *data_object_s = coll_entry.dataName ? coll_entry.dataName : "";
 
 													ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to SetIRodsObjectFromCollEntry for \"%s\":\"%s\"", collection_s, data_object_s);
 												}
 
-											freeCollEnt (coll_entry_p);
 										}		/* if (status >= 0) */
 									else
 										{
@@ -356,13 +351,13 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 			apr_brigade_destroy(bucket_brigade_p);
 
-			rcCloseCollection (davrods_resource_p -> rods_conn, collection_handle);
+			rclCloseCollection (&collection_handle);
 		}		/* if (collection_handle >= 0) */
 	else
 		{
-			ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, req_p, "rcOpenCollection failed: %d = %s", collection_handle, get_rods_error_msg (collection_handle));
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, req_p, "rcOpenCollection failed: %d = %s", status, get_rods_error_msg (status));
 
-			res_p = dav_new_error (pool_p, HTTP_INTERNAL_SERVER_ERROR, 0, collection_handle, "Could not open a collection");
+			res_p = dav_new_error (pool_p, HTTP_INTERNAL_SERVER_ERROR, 0, status, "Could not open a collection");
 		}
 
 	return res_p;
