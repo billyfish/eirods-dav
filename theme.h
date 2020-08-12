@@ -139,6 +139,8 @@ struct HtmlTheme
 
 	int ht_add_search_form_flag;
 
+	int ht_show_fd_data_packages_flag;
+
 	Placement ht_tools_placement;
 };
 
@@ -314,6 +316,10 @@ const char *SetToolsPlacement (cmd_parms *cmd_p, void *config_p, const char *arg
 
 
 const char *SetShowChecksum (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+const char *SetShowFDDataPackages (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
 
 #ifdef __cplusplus
 }

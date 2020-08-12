@@ -31,6 +31,9 @@
 
 #include "listing.h"
 
+#include "frictionless_data_package.h"
+
+
 static const char *S_FILE_PREFIX_S = "file:";
 static const char *S_HTTPS_PREFIX_S = "https:";
 static const char *S_HTTP_PREFIX_S = "http:";
@@ -134,10 +137,14 @@ struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 			theme_p -> ht_tools_placement = PL_IN_HEADER;
 
 			theme_p -> ht_show_checksums_flag = 0;
+
+			theme_p -> ht_show_fd_data_packages_flag = 0;
 		}
 
 	return theme_p;
 }
+
+
 
 
 dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *output_p)
@@ -194,6 +201,12 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 							int row_index = 0;
 							collEnt_t coll_entry;
 
+
+							if (theme_p -> ht_show_fd_data_packages_flag)
+								{
+									apr_status = AddFrictionlessDataPackage (davrods_resource_p -> rods_conn, davrods_resource_p -> rods_path);
+								}
+
 							memset (&coll_entry, 0, sizeof (collEnt_t));
 
 							// Actually print the directory listing, one table row at a time.
@@ -225,8 +238,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 															strncpy (obj_inp.objPath, full_path_s, length);
 
-															addKeyVal (& (obj_inp.condInput), VERIFY_CHKSUM_KW, "");
-															//addKeyVal( &collInp->condInput, VERIFY_CHKSUM_KW, "" );
+															//addKeyVal (& (obj_inp.condInput), VERIFY_CHKSUM_KW, "");
 
 
 															status = rcDataObjChksum (davrods_resource_p -> rods_conn, &obj_inp, &checksum_s);
@@ -1726,6 +1738,8 @@ void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p
 
 	DAVRODS_PROP_MERGE (theme_p -> ht_show_checksums_flag);
 
+	DAVRODS_PROP_MERGE (theme_p -> ht_show_fd_data_packages_flag);
+
 	conf_p -> theme_p -> ht_icons_map_p = MergeAPRTables (parent_p -> theme_p -> ht_icons_map_p, child_p -> theme_p -> ht_icons_map_p, pool_p);
 
 
@@ -1933,6 +1947,26 @@ const char *SetShowChecksum (cmd_parms *cmd_p, void *config_p, const char *arg_p
 	return NULL;
 
 }
+
+
+
+const char *SetShowFDDataPackages (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t *) config_p;
+
+	if (strcasecmp (arg_p, "true") == 0)
+		{
+			conf_p -> theme_p -> ht_show_fd_data_packages_flag = 1;
+		}
+	else if (strcasecmp (arg_p, "false") == 0)
+		{
+			conf_p -> theme_p -> ht_show_fd_data_packages_flag = 0;
+		}
+
+	return NULL;
+}
+
+
 
 static int AreIconsDisplayed (const struct HtmlTheme *theme_p)
 {

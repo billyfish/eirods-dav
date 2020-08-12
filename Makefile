@@ -32,7 +32,7 @@ INSTALL_DIR  ?= $(APACHE_DIR)/modules
 INSTALLED    := $(INSTALL_DIR)/mod_$(MODNAME).so
 BUILD_DIR := build
 
-CFILES := mod_davrods.c auth.c common.c config.c prop.c propdb.c repo.c meta.c theme.c rest.c listing.c debug.c curl_util.c
+CFILES := mod_davrods.c auth.c common.c config.c prop.c propdb.c repo.c meta.c theme.c rest.c listing.c debug.c curl_util.c frictionless_data_package.c
 
 # The DAV providers supported by default (you can override this in the shell using DAV_PROVIDERS="..." make).
 DAV_PROVIDERS ?= LOCALLOCK NOLOCKS
