@@ -1,8 +1,8 @@
 /**
  * \file
  * \brief     Davrods DAV repository.
- * \author    Chris Smeele
- * \copyright Copyright (c) 2016, Utrecht University
+ * \author    Chris Smeele and Simon Tyrrrll
+ * \copyright Copyright (c) 2016, Utrecht University, and 2020 The Earlham Institute
  *
  * This file is part of Davrods.
  *
@@ -28,6 +28,8 @@
 #include "theme.h"
 #include "auth.h"
 #include "debug.h"
+
+#include "frictionless_data_package.h"
 
 /************************************/
 
@@ -463,7 +465,25 @@ static dav_error *dav_repo_get_resource (request_rec *r, const char *root_dir,
 
 	if (!err_p)
 		{
-			err_p = get_dav_resource_rods_info (resource_p);
+			int done_flag = 0;
+
+			struct dav_resource_private *priv_p = resource_p -> info;
+
+			if ((priv_p -> conf -> theme_p) && (priv_p -> conf -> theme_p -> ht_show_fd_data_packages_flag))
+				{
+					if (IsFDDataPackageRequest (r -> uri))
+						{
+							resource_p -> exists = 1;
+							resource_p -> collection = 0;
+							done_flag = 1;
+						}
+				}
+
+
+			if (!done_flag)
+				{
+					err_p = get_dav_resource_rods_info (resource_p);
+				}
 
 			if (!err_p)
 				{
@@ -1086,25 +1106,29 @@ static dav_error *dav_repo_set_headers (request_rec *r, const dav_resource *reso
 		}
 	else
 		{
-			const char *etag = dav_repo_getetag (resource);
-			char *date_str = apr_pcalloc(r->pool, APR_RFC822_DATE_LEN);
-
-			if (date_str)
+			if (!IsFDDataPackageRequest (resource -> uri))
 				{
-					uint64_t timestamp = atoll (resource->info->stat->modifyTime);
-					int status = apr_rfc822_date (date_str, timestamp * 1000 * 1000);
 
-					apr_table_setn (r->headers_out, "Last-Modified",
-							status >= 0 ? date_str : "Thu, 01 Jan 1970 00:00:00 GMT");
-				}		/* if (date_str) */
+					const char *etag = dav_repo_getetag (resource);
+					char *date_str = apr_pcalloc(r->pool, APR_RFC822_DATE_LEN);
 
-			if (etag && strlen (etag))
-				{
-					apr_table_setn (r->headers_out, "ETag", etag);
+					if (date_str)
+						{
+							uint64_t timestamp = atoll (resource->info->stat->modifyTime);
+							int status = apr_rfc822_date (date_str, timestamp * 1000 * 1000);
+
+							apr_table_setn (r->headers_out, "Last-Modified",
+									status >= 0 ? date_str : "Thu, 01 Jan 1970 00:00:00 GMT");
+						}		/* if (date_str) */
+
+					if (etag && strlen (etag))
+						{
+							apr_table_setn (r->headers_out, "ETag", etag);
+						}
+
+					ap_set_accept_ranges (r);
+					ap_set_content_length (r, resource->info->stat->objSize);
 				}
-
-			ap_set_accept_ranges (r);
-			ap_set_content_length (r, resource->info->stat->objSize);
 		}
 
 	return 0;
@@ -1641,6 +1665,19 @@ static dav_error *dav_repo_deliver (const dav_resource *resource,
 		}
 	else
 		{
+			davrods_dir_conf_t *conf_p = resource->info->conf;
+
+			if (conf_p -> themed_listings)
+				{
+					if ((conf_p -> theme_p) && (conf_p -> theme_p -> ht_show_fd_data_packages_flag))
+						{
+							if (IsFDDataPackageRequest (resource -> uri))
+								{
+									return DeliverFDDataPackage (resource, output);
+								}
+						}
+				}
+
 			return DeliverFile (resource, output);
 		}
 }
@@ -2350,25 +2387,29 @@ static dav_error *dav_repo_remove_resource (dav_resource *resource,
 static const char *dav_repo_getetag (const dav_resource *resource)
 {
 	// This mimicks dav_fs repo's getetag.
+	const char *etag_s = "";
 
 	dav_resource_private *res_private = resource->info;
 
-	if (!resource->exists)
+	if (!IsFDDataPackageRequest (resource -> uri))
 		{
-			return "";
+			if (resource->exists)
+				{
+					if (resource->collection)
+							{
+								etag_s = apr_psprintf (resource->pool, "\"%s\"",
+										res_private->stat->modifyTime);
+							}
+						else
+							{
+								etag_s = apr_psprintf (resource->pool, "\"%" APR_UINT64_T_HEX_FMT "-%s\"",
+										(apr_uint64_t) res_private->stat->objSize,
+										res_private->stat->modifyTime);
+							}
+				}
+		}
 
-		}
-	else if (resource->collection)
-		{
-			return apr_psprintf (resource->pool, "\"%s\"",
-					res_private->stat->modifyTime);
-		}
-	else
-		{
-			return apr_psprintf (resource->pool, "\"%" APR_UINT64_T_HEX_FMT "-%s\"",
-					(apr_uint64_t) res_private->stat->objSize,
-					res_private->stat->modifyTime);
-		}
+	return etag_s;
 }
 
 static request_rec *dav_repo_get_request_rec (const dav_resource *resource)

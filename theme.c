@@ -201,10 +201,12 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 							int row_index = 0;
 							collEnt_t coll_entry;
 
-
 							if (theme_p -> ht_show_fd_data_packages_flag)
 								{
-									apr_status = AddFrictionlessDataPackage (davrods_resource_p -> rods_conn, davrods_resource_p -> rods_path);
+									status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<tr class=\"odd\"><td class=\"icon\"><img src=\"/eirods_dav_files/images/file\" alt=\"Frictionless Data Data Package\" /></td>"
+																							 "<td class=\"name\"><a href=\"datapackage.json\">datapackage.json</a></td><td class=\"size\"></td><td class=\"time\"></td><td class=\"checksum\">"
+																							 "</td><td class=\"metatable\"></td></tr>");
+									++ row_index;
 								}
 
 							memset (&coll_entry, 0, sizeof (collEnt_t));

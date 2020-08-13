@@ -433,6 +433,12 @@ const command_rec davrods_directives[] = {
         NULL, ACCESS_CONF, "Show the checksums for each data object, default is false"
     ),
 
+    AP_INIT_TAKE1(
+        DAVRODS_CONFIG_PREFIX "FrictionlessData", SetShowFDDataPackages,
+        NULL, ACCESS_CONF, "Enable Frictionless Data Package Support, default is false"
+    ),
+
+
 		AP_INIT_RAW_ARGS(
 	        DAVRODS_CONFIG_PREFIX "SelectedResources", SetShowSelectedResourcesOnly,
 	        NULL, ACCESS_CONF, "List of resources to show with each entry separated by spaces"

@@ -23,6 +23,12 @@
 #ifndef FRICTIONLESS_DATA_PACKAGE_H_
 #define FRICTIONLESS_DATA_PACKAGE_H_
 
+#include "irods/rcConnect.h"
+
+#include "apr_pools.h"
+
+#include "mod_dav.h"
+
 
 #ifdef __cplusplus
 extern "C"
@@ -30,7 +36,11 @@ extern "C"
 #endif
 
 
-apr_status_t AddFrictionlessDataPackage (rcComm_t *connection_p, const char *collection_s);
+apr_status_t AddFrictionlessDataPackage (rcComm_t *connection_p, const char *collection_id_s, const char *collection_name_s, const char *zone_s, apr_pool_t *pool_p);
+
+dav_error *DeliverFDDataPackage (const dav_resource *resource_p, ap_filter_t *output_p);
+
+int IsFDDataPackageRequest (const char *request_uri_s);
 
 
 #ifdef __cplusplus
