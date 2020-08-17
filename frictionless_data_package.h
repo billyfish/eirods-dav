@@ -29,6 +29,8 @@
 
 #include "mod_dav.h"
 
+#include "config.h"
+
 
 #ifdef __cplusplus
 extern "C"
@@ -40,7 +42,7 @@ apr_status_t AddFrictionlessDataPackage (rcComm_t *connection_p, const char *col
 
 dav_error *DeliverFDDataPackage (const dav_resource *resource_p, ap_filter_t *output_p);
 
-int IsFDDataPackageRequest (const char *request_uri_s);
+int IsFDDataPackageRequest (const char *request_uri_s, const davrods_dir_conf_t *conf_p);
 
 
 #ifdef __cplusplus

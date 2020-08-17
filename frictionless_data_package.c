@@ -23,11 +23,16 @@
 #include "frictionless_data_package.h"
 #include "meta.h"
 #include "repo.h"
+#include "theme.h"
+
 #include "httpd.h"
 
 #include "irods/rcConnect.h"
 
 #include "jansson.h"
+
+
+static const char *GetJSONString (const json_t *json_p, const char * const key_s);
 
 
 static const char * const S_DATA_PACKAGE_S = "datapackage.json";
@@ -97,34 +102,119 @@ dav_error *DeliverFDDataPackage (const dav_resource *resource_p, ap_filter_t *ou
 }
 
 
-int IsFDDataPackageRequest (const char *request_uri_s)
+int IsFDDataPackageRequest (const char *request_uri_s, const davrods_dir_conf_t *conf_p)
 {
 	int fd_data_package_flag = 0;
 
-	/*
-	 * Check if the last part of the filename matches "/datapackage.json"
-	 */
-
-	const size_t path_length = strlen (request_uri_s);
-	const size_t fd_package_length = strlen (S_DATA_PACKAGE_S);
-
-	if (path_length > fd_package_length)
+	if ((conf_p -> theme_p) && (conf_p -> theme_p -> ht_show_fd_data_packages_flag))
 		{
-			const char *temp_s = request_uri_s + path_length - fd_package_length;
+			/*
+			 * Check if the last part of the filename matches "/datapackage.json"
+			 */
 
-			if (* (temp_s - 1) == '/')
+			const size_t path_length = strlen (request_uri_s);
+			const size_t fd_package_length = strlen (S_DATA_PACKAGE_S);
+
+			if (path_length > fd_package_length)
 				{
-					if (strncmp (temp_s, S_DATA_PACKAGE_S, fd_package_length) == 0)
+					const char *temp_s = request_uri_s + path_length - fd_package_length;
+
+					if (* (temp_s - 1) == '/')
 						{
-							/*
-							 * @TODO: check that the collection exists
-							 */
-							fd_data_package_flag = 1;
+							if (strncmp (temp_s, S_DATA_PACKAGE_S, fd_package_length) == 0)
+								{
+									/*
+									 * @TODO: check that the collection exists
+									 */
+									fd_data_package_flag = 1;
+								}
 						}
 				}
 		}
 
-
 	return fd_data_package_flag;
 }
+
+apr_status_t BuildDataPackage (json_t *data_package_p, const apr_array_header_t *metadata_list_p, apr_pool_t *pool_p)
+{
+	apr_status_t status = APR_SUCCESS;
+	const int size = metadata_list_p -> nelts;
+	const char **keys_ss = { "licence", NULL };
+
+
+	if (size > 0)
+		{
+			const char *license_s = NULL;
+			int i = 0;
+
+			while ((i < size) && (!license_s))
+				{
+					const IrodsMetadata *metadata_p = APR_ARRAY_IDX (metadata_list_p, i, IrodsMetadata *);
+
+					if (strcmp (metadata_p -> im_key_s, "licence") == 0)
+						{
+							license_s = metadata_p -> im_value_s;
+						}
+
+					if (!license_s)
+						{
+							++ i;
+						}
+				}
+
+
+			if (license_s)
+				{
+					/* is it json? */
+					json_error_t err;
+					json_t *license_p = json_loads (license_s, 0, &err);
+
+					if (license_p)
+						{
+							/*
+							 * licenses MUST be an array. Each item in the array is a License. Each MUST be an object.
+							 * The object MUST contain a name property and/or a path property. It MAY contain a title property.
+							*/
+
+							const char *path_s = GetJSONString (license_p, "url");
+							if (path_s)
+								{
+
+								}
+
+							json_decref (license_p);
+						}
+
+				}		/* if (license_s) */
+
+		}		/* if (size > 0) */
+	else
+		{
+			ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_SUCCESS, pool_p, "No metadata results");
+		}
+
+	return status;
+}
+
+
+
+
+static const char *GetJSONString (const json_t *json_p, const char * const key_s)
+{
+	const char *value_s = NULL;
+	json_t *value_p = json_object_get (json_p, key_s);
+
+	if (value_p)
+		{
+			if (json_is_string (value_p))
+				{
+					value_s = json_string_value (value_p);
+				}
+		}
+
+	return value_s;
+}
+
+
+
 

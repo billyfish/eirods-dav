@@ -469,16 +469,12 @@ static dav_error *dav_repo_get_resource (request_rec *r, const char *root_dir,
 
 			struct dav_resource_private *priv_p = resource_p -> info;
 
-			if ((priv_p -> conf -> theme_p) && (priv_p -> conf -> theme_p -> ht_show_fd_data_packages_flag))
+			if (IsFDDataPackageRequest (r -> uri, priv_p -> conf))
 				{
-					if (IsFDDataPackageRequest (r -> uri))
-						{
-							resource_p -> exists = 1;
-							resource_p -> collection = 0;
-							done_flag = 1;
-						}
+					resource_p -> exists = 1;
+					resource_p -> collection = 0;
+					done_flag = 1;
 				}
-
 
 			if (!done_flag)
 				{
@@ -1106,7 +1102,9 @@ static dav_error *dav_repo_set_headers (request_rec *r, const dav_resource *reso
 		}
 	else
 		{
-			if (!IsFDDataPackageRequest (resource -> uri))
+			davrods_dir_conf_t *conf_p = resource -> info -> conf;
+
+			if (!IsFDDataPackageRequest (resource -> uri, conf_p))
 				{
 
 					const char *etag = dav_repo_getetag (resource);
@@ -1667,18 +1665,14 @@ static dav_error *dav_repo_deliver (const dav_resource *resource,
 		{
 			davrods_dir_conf_t *conf_p = resource->info->conf;
 
-			if (conf_p -> themed_listings)
+			if (IsFDDataPackageRequest (resource -> uri, conf_p))
 				{
-					if ((conf_p -> theme_p) && (conf_p -> theme_p -> ht_show_fd_data_packages_flag))
-						{
-							if (IsFDDataPackageRequest (resource -> uri))
-								{
-									return DeliverFDDataPackage (resource, output);
-								}
-						}
+					return DeliverFDDataPackage (resource, output);
 				}
-
-			return DeliverFile (resource, output);
+			else
+				{
+					return DeliverFile (resource, output);
+				}
 		}
 }
 
@@ -2391,7 +2385,7 @@ static const char *dav_repo_getetag (const dav_resource *resource)
 
 	dav_resource_private *res_private = resource->info;
 
-	if (!IsFDDataPackageRequest (resource -> uri))
+	if (!IsFDDataPackageRequest (resource -> uri, res_private -> conf))
 		{
 			if (resource->exists)
 				{
