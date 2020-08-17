@@ -43,6 +43,12 @@ static json_t *GetResources (const dav_resource *resource_p);
 
 static bool AddResources (json_t *fd_p, const dav_resource *resource_p);
 
+static bool AddResource (collEnt_t * const entry_p, json_t *resources_p, rcComm_t *connection_p, apr_pool_t *pool_p);
+
+static json_t *PopulateResourceFromDataObject (collEnt_t * const entry_p,  rcComm_t *connection_p, apr_pool_t *pool_p);
+
+static json_t *PopulateResourceFromCollection (collEnt_t * const entry_p,  rcComm_t *connection_p, apr_pool_t *pool_p);
+
 
 apr_status_t AddFrictionlessDataPackage (rcComm_t *connection_p, const char *collection_id_s, const char *collection_name_s, const char *zone_s, apr_pool_t *pool_p)
 {
@@ -109,6 +115,29 @@ dav_error *DeliverFDDataPackage (const dav_resource *resource_p, ap_filter_t *ou
 
 
 	return res_p;
+}
+
+
+char *GetFDDataPackageRequestCollectionPath (const char *request_uri_s, apr_pool_t *pool_p)
+{
+	char *parent_uri_s = NULL;
+	const size_t path_length = strlen (request_uri_s);
+	const size_t fd_package_length = strlen (S_DATA_PACKAGE_S);
+
+	if (path_length > fd_package_length)
+		{
+			const char *temp_s = request_uri_s + path_length - fd_package_length;
+
+			if (* (temp_s - 1) == '/')
+				{
+					if (strncmp (temp_s, S_DATA_PACKAGE_S, fd_package_length) == 0)
+						{
+							parent_uri_s = apr_pstrndup (pool_p, request_uri_s, path_length - fd_package_length);
+						}
+				}
+		}
+
+	return parent_uri_s;
 }
 
 
@@ -317,6 +346,10 @@ static json_t *GetResources (const dav_resource *resource_p)
 											 * Add resource
 											 */
 
+											if (!AddResource (&coll_entry, resources_json_p, davrods_resource_p -> rods_conn, resource_p -> pool))
+												{
+													status = -1;
+												}
 										}		/* if (status >= 0) */
 									else if (status == CAT_NO_ROWS_FOUND)
 										{
@@ -350,36 +383,122 @@ static json_t *GetResources (const dav_resource *resource_p)
 }
 
 
-static bool AddResource (const collEnt_t * const entry_p, json_t *resources_p, apr_pool_t *pool_p)
+static bool AddResource (collEnt_t * const entry_p, json_t *resources_p, rcComm_t *connection_p, apr_pool_t *pool_p)
+{
+	json_t *resource_p = NULL;
+
+	if (entry_p -> objType == COLL_OBJ_T)
+		{
+			resource_p = PopulateResourceFromCollection (entry_p, connection_p, pool_p);
+		}
+	else if (entry_p -> objType == DATA_OBJ_T)
+		{
+			resource_p = PopulateResourceFromDataObject (entry_p, connection_p, pool_p);
+		}
+
+	if (resource_p)
+		{
+			if (json_array_append_new (resources_p, resource_p) == 0)
+				{
+					return true;
+				}
+			else
+				{
+					json_decref (resource_p);
+				}
+		}
+
+
+	return false;
+}
+
+
+static json_t *PopulateResourceFromDataObject (collEnt_t * const entry_p,  rcComm_t *connection_p, apr_pool_t *pool_p)
 {
 	json_t *resource_p = json_object ();
 
 	if (resource_p)
 		{
-			const char *name_s = NULL;
+			if (json_object_set_new (resource_p, "bytes", json_integer (entry_p -> dataSize)) == 0)
+				{
+					char *name_s = entry_p -> dataName;
 
-			if (entry_p -> objType == COLL_OBJ_T)
-				{
-					name_s = entry_p -> collName;
-				}
-			else
-				{
-					name_s = entry_p -> dataName;
-				}
+					if (SetJSONString (resource_p, "path", name_s, pool_p))
+						{
+							const char dot = '.';
+							char *dot_s = strrchr (name_s, dot);
+							bool set_name_flag = false;
+
+							if (dot_s)
+								{
+									/*
+									 * Set the name as to the filename without the extension
+									 */
+									*dot_s = '\0';
+
+									set_name_flag = SetJSONString (resource_p, "name", name_s, pool_p);
+
+									*dot_s = dot;
+								}
+							else
+								{
+									set_name_flag = SetJSONString (resource_p, "name", name_s, pool_p);
+								}
+
+							if (set_name_flag)
+								{
+									char *checksum_s = GetChecksum (entry_p, connection_p, pool_p);
+
+									if (checksum_s)
+										{
+											 SetJSONString (resource_p, "checksum", checksum_s, pool_p);
+										}
+
+									return resource_p;
+								}		/* if (set_name == 0) */
+
+						}		/* if (SetJSONString (resource_p, "path", name_s, pool_p)) */
+
+				}		/* if (json_object_set_new (resource_p, "bytes", json_integer (entry_p -> dataSize)) == 0) */
+
+			json_decref (resource_p);
+		}		/* if (resource_p) */
+
+	return NULL;
+}
+
+
+static json_t *PopulateResourceFromCollection (collEnt_t * const entry_p,  rcComm_t *connection_p, apr_pool_t *pool_p)
+{
+	json_t *resource_p = json_object ();
+
+	if (resource_p)
+		{
+			char *name_s = strrchr (entry_p -> collName, '/');
 
 			if (name_s)
 				{
-					if (SetJSONString (resource_p, "path", name_s, pool_p))
+					++ name_s;
+
+					if (*name_s == '\0')
 						{
-							if (json_array_append_new (resources_p, resource_p) == 0)
-								{
-									return true;
-								}
+							name_s = NULL;
 						}
+				}
+
+			if (!name_s)
+				{
+					name_s = entry_p -> collName;
+				}
+
+			if (SetJSONString (resource_p, "name", name_s, pool_p))
+				{
+					return resource_p;
 				}
 
 			json_decref (resource_p);
 		}		/* if (resource_p) */
 
-	return false;
+	return NULL;
 }
+

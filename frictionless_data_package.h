@@ -44,6 +44,7 @@ dav_error *DeliverFDDataPackage (const dav_resource *resource_p, ap_filter_t *ou
 
 int IsFDDataPackageRequest (const char *request_uri_s, const davrods_dir_conf_t *conf_p);
 
+char *GetFDDataPackageRequestCollectionPath (const char *request_uri_s, apr_pool_t *pool_p);
 
 #ifdef __cplusplus
 }

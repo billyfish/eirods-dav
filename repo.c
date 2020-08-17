@@ -49,6 +49,9 @@ static const char *get_rods_root (apr_pool_t *davrods_pool, request_rec *r);
 static int walker_push_seen_path (apr_pool_t *p, walker_seen_resource_t **seen, const char *rods_path);
 static dav_error *dav_repo_get_resource (request_rec *r, const char *root_dir, const char *label, int use_checked_in, dav_resource **result_resource);
 static const char *dav_repo_getetag (const dav_resource *resource);
+static dav_error *set_rods_path_from_resource (dav_resource *resource);
+static dav_error *SetRodsPathFromResourceAndURI (dav_resource *resource, const char *uri_s);
+
 
 static dav_error *DeliverFile (const dav_resource *resource_p, ap_filter_t *output_p);
 static void LogFilters (const ap_filter_t *filter_p, request_rec *req_p);
@@ -154,62 +157,70 @@ struct dav_stream
 	size_t container_off;
 };
 
-static dav_error *set_rods_path_from_uri (dav_resource *resource)
+
+
+
+static dav_error *SetRodsPathFromResourceAndURI (dav_resource *resource, const char *uri_s)
 {
 	// Set iRODS path and relative URI properties of the resource context based on the resource URI.
-
-	const char *uri = resource->uri;
+	const char *root_dir_s = resource->info->root_dir;
+	const char *rods_root = resource->info->rods_root;
+	apr_pool_t *pool_p = resource->pool;
 
 	// Chop root_dir off of the uri if applicable.
-	if (resource->info->root_dir && strlen (resource->info->root_dir) > 1)
+	if (root_dir_s && strlen (root_dir_s) > 1)
 		{
 			// We expect the URI to contain the specified root_dir (<- the Location in which davrods runs).
-			if (strstr (uri, resource->info->root_dir) == uri)
+			if (strstr (uri_s, root_dir_s) == uri_s)
 				{
-					uri += strlen (resource->info->root_dir);
+					uri_s += strlen (root_dir_s);
 				}
 			else
 				{
 					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
 							"Assertion failure: Root dir <%s> not in URI <%s>.",
-							resource->info->root_dir, uri);
+							root_dir_s, uri_s);
 					return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0,
 							0, "Malformed internal path");
 				}
 		}
 
-	resource->info->relative_uri = uri;
+	resource->info->relative_uri = uri_s;
 
-	const char *rods_root = resource->info->rods_root;
-	char *prefixed_path =
-			rods_root ?
-					apr_pstrcat (resource->pool, rods_root, uri, NULL) :
-					apr_pstrdup (resource->pool, uri);
+	char *prefixed_path = rods_root ? apr_pstrcat (pool_p, rods_root, uri_s, NULL) : uri_s;
 
 	if (strlen (prefixed_path) >= MAX_NAME_LEN)
 		{
 			ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
 					"Generated an iRODS path exceeding iRODS path length limits for URI <%s>",
-					uri);
+					uri_s);
 			return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0,
 					"Request URI too long");
 		}
 
-	int status = parseRodsPathStr (prefixed_path, resource->info->rods_env,
-			resource->info->rods_path);
+	int status = parseRodsPathStr (prefixed_path, resource->info->rods_env, resource->info->rods_path);
+
 	if (status < 0)
 		{
 			ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
-					"Could not translate URI <%s> to an iRODS path: %s", uri,
+					"Could not translate URI <%s> to an iRODS path: %s", uri_s,
 					get_rods_error_msg (status));
 			return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0,
 					"Could not parse URI.");
 		}
 
 	ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, resource->info->r,
-			"Mapped URI <%s> to rods path <%s>", uri, resource->info->rods_path);
+			"Mapped URI <%s> to rods path <%s>", uri_s, resource->info->rods_path);
 
 	return NULL;
+}
+
+
+
+
+static dav_error *set_rods_path_from_resource (dav_resource *resource)
+{
+	return SetRodsPathFromResourceAndURI (resource, resource -> uri);
 }
 
 /**
@@ -293,7 +304,7 @@ static dav_error *get_dav_resource_rods_info (dav_resource *resource)
 	dav_resource_private *res_private = resource->info;
 	request_rec *r = res_private->r;
 
-	dav_error *err = set_rods_path_from_uri (resource);
+	dav_error *err = set_rods_path_from_resource (resource);
 	if (err)
 		return err;
 
@@ -471,8 +482,23 @@ static dav_error *dav_repo_get_resource (request_rec *r, const char *root_dir,
 
 			if (IsFDDataPackageRequest (r -> uri, priv_p -> conf))
 				{
-					resource_p -> exists = 1;
-					resource_p -> collection = 0;
+					char *uri_s = GetFDDataPackageRequestCollectionPath (r -> uri,  r -> pool);
+
+					if (uri_s)
+						{
+							err_p = SetRodsPathFromResourceAndURI (resource_p, uri_s);
+
+							if (!err_p)
+								{
+									resource_p -> exists = 1;
+									resource_p -> collection = 0;
+								}
+						}
+					else
+						{
+							err_p = dav_new_error (r -> pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0, "Invalid URL for FD Data Package");
+						}
+
 					done_flag = 1;
 				}
 
@@ -2089,7 +2115,7 @@ static dav_error *dav_repo_walk (const dav_walk_params *params, int depth,
 					ctx.resource.pool = ctx_res_private->r->pool;
 					ctx.resource.info = ctx_res_private;
 
-					err_p = set_rods_path_from_uri (&ctx.resource);
+					err_p = set_rods_path_from_resource (&ctx.resource);
 					if (!err_p)
 						{
 							ctx.wres.walk_ctx = params->walk_ctx;
