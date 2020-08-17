@@ -95,6 +95,9 @@ void InitIRodsObject (IRodsObject *obj_p);
 apr_status_t SetIRodsConfig (IRodsConfig *config_p, const char *exposed_root_s, const char *root_path_s, const char *metadata_root_link_s);
 
 
+apr_status_t InitIRodsConfig (IRodsConfig *config_p, const dav_resource *resource_p);
+
+
 apr_status_t SetIRodsObject (IRodsObject *obj_p, const objType_t obj_type, const char *id_s, const char *data_s, const char *collection_s, const char *owner_name_s, const char *resource_s, const char *last_modified_time_s, const rodsLong_t size, const char *md5_s, apr_pool_t *pool_p);
 
 

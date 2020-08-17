@@ -32,6 +32,9 @@
 
 static const char * const S_DATA_PACKAGE_S = "datapackage.json";
 
+static json_t *GetResources (const dav_resource *resource_p, ap_filter_t *output_p);
+
+
 
 apr_status_t AddFrictionlessDataPackage (rcComm_t *connection_p, const char *collection_id_s, const char *collection_name_s, const char *zone_s, apr_pool_t *pool_p)
 {
@@ -128,3 +131,89 @@ int IsFDDataPackageRequest (const char *request_uri_s)
 	return fd_data_package_flag;
 }
 
+
+
+
+static json_t *GetResources (const dav_resource *resource_p, ap_filter_t *output_p)
+{
+	json_t *resources_json_p = NULL;
+	struct dav_resource_private *davrods_resource_p = (struct dav_resource_private *) resource_p -> info;
+	const char *davrods_root_path_s = davrods_resource_p -> root_dir;
+	request_rec *req_p = davrods_resource_p -> r;
+	apr_pool_t *pool_p = resource_p -> pool;
+	const char *exposed_root_s = GetRodsExposedPath (req_p);
+	char *metadata_link_s = NULL;
+	IRodsConfig irods_config;
+
+	if (SetIRodsConfig (&irods_config, exposed_root_s, davrods_root_path_s, metadata_link_s) == APR_SUCCESS)
+		{
+			resources_json_p = json_array ();
+
+			if (resources_json_p)
+				{
+					davrods_dir_conf_t *conf_p = davrods_resource_p->conf;
+					collHandle_t  collection_handle;
+					int status;
+
+					memset (&collection_handle, 0, sizeof (collHandle_t));
+
+					// Open the collection
+					status = rclOpenCollection (davrods_resource_p -> rods_conn, davrods_resource_p -> rods_path, LONG_METADATA_FG, &collection_handle);
+
+					if (status >= 0)
+						{
+							collEnt_t coll_entry;
+
+							memset (&coll_entry, 0, sizeof (collEnt_t));
+
+							// Actually print the directory listing, one table row at a time.
+							do
+								{
+									status = rclReadCollection (davrods_resource_p -> rods_conn, &collection_handle, &coll_entry);
+
+									if (status >= 0)
+										{
+											/*
+											 * Add resource
+											 */
+
+										}		/* if (status >= 0) */
+									else if (status == CAT_NO_ROWS_FOUND)
+										{
+											// End of collection.
+										}
+									else
+										{
+											ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_SUCCESS,
+																		req_p,
+																		"rcReadCollection failed for collection <%s> with error <%s>",
+																		davrods_resource_p->rods_path, get_rods_error_msg(status));
+										}
+								}
+							while (status >= 0);
+
+
+							rclCloseCollection (&collection_handle);
+						}		/* if (collection_handle >= 0) */
+					else
+						{
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, req_p, "rcOpenCollection failed: %d = %s", status, get_rods_error_msg (status));
+						}
+
+				}		/* if (resources_json_p) */
+
+		}		/* if (SetIRodsConfig (&irods_config, exposed_root_s, davrods_root_path_s, metadata_link_s) == APR_SUCCESS) */
+
+
+
+	return resources_json_p;
+}
+
+
+static bool AddResource (const collHandle_t * const collection_handle_p, json_t *resources_p)
+{
+	bool success_flag = false;
+
+
+	return success_flag;
+}

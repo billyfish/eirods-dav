@@ -145,8 +145,6 @@ struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 }
 
 
-
-
 dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *output_p)
 {
 	dav_error *res_p = NULL;
@@ -191,12 +189,9 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 			if (apr_status == APR_SUCCESS)
 				{
-					const char *davrods_root_path_s = davrods_resource_p -> root_dir;
-					const char *exposed_root_s = GetRodsExposedPath (req_p);
-					char *metadata_link_s = apr_pstrcat (pool_p, davrods_resource_p -> root_dir, conf_p -> davrods_api_path_s, NULL);
 					IRodsConfig irods_config;
 
-					if (SetIRodsConfig (&irods_config, exposed_root_s, davrods_root_path_s, metadata_link_s) == APR_SUCCESS)
+					if (InitIRodsConfig (&irods_config, davrods_resource_p) == APR_SUCCESS)
 						{
 							int row_index = 0;
 							collEnt_t coll_entry;
@@ -334,12 +329,10 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 								}
 							while (status >= 0);
 
-						}		/* if (SetIRodsConfig (&irods_config, exposed_root_s, davrods_root_path_s, REST_METADATA_PATH_S)) */
+						}		/* if (InitIRodsConfig (&irods_config, davrods_resource_p) == APR_SUCCESS) */
 					else
 						{
-							ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "SetIRodsConfig failed for exposed_root_s:\"%s\" davrods_root_path_s:\"%s\"",
-														 exposed_root_s ? exposed_root_s : "<NULL>",
-																 davrods_root_path_s ? davrods_root_path_s: "<NULL>");
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "InitIRodsConfig failed");
 						}
 
 				}		/* if (apr_status == APR_SUCCESS) */
