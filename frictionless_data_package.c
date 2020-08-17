@@ -32,10 +32,16 @@
 #include "jansson.h"
 
 
+static const char * const S_DATA_PACKAGE_S = "datapackage.json";
+
+
 static const char *GetJSONString (const json_t *json_p, const char * const key_s);
 
+static bool SetJSONString (json_t *json_p, const char * const key_s, const char * const value_s, apr_pool_t *pool_p);
 
-static const char * const S_DATA_PACKAGE_S = "datapackage.json";
+static json_t *GetResources (const dav_resource *resource_p);
+
+static bool AddResources (json_t *fd_p, const dav_resource *resource_p);
 
 
 apr_status_t AddFrictionlessDataPackage (rcComm_t *connection_p, const char *collection_id_s, const char *collection_name_s, const char *zone_s, apr_pool_t *pool_p)
@@ -73,20 +79,24 @@ dav_error *DeliverFDDataPackage (const dav_resource *resource_p, ap_filter_t *ou
 				{
 					if (json_object_set_new (dp_p, "name", json_string (davrods_resource_p -> root_dir)) == 0)
 						{
-							apr_status_t apr_status;
-							char *dp_s = json_dumps (dp_p, JSON_INDENT (2));
-
-							if (dp_s)
+							if (AddResources (dp_p, resource_p))
 								{
-									if ((apr_status = apr_brigade_puts (bb_p, NULL, NULL, dp_s)) == APR_SUCCESS)
-										{
-											if ((apr_status = ap_pass_brigade (output_p, bb_p)) == APR_SUCCESS)
-												{
+									apr_status_t apr_status;
+									char *dp_s = json_dumps (dp_p, JSON_INDENT (2));
 
+									if (dp_s)
+										{
+											if ((apr_status = apr_brigade_puts (bb_p, NULL, NULL, dp_s)) == APR_SUCCESS)
+												{
+													if ((apr_status = ap_pass_brigade (output_p, bb_p)) == APR_SUCCESS)
+														{
+
+														}
 												}
+
+											free (dp_s);
 										}
 
-									free (dp_s);
 								}
 						}
 
@@ -135,11 +145,12 @@ int IsFDDataPackageRequest (const char *request_uri_s, const davrods_dir_conf_t 
 	return fd_data_package_flag;
 }
 
+
 apr_status_t BuildDataPackage (json_t *data_package_p, const apr_array_header_t *metadata_list_p, apr_pool_t *pool_p)
 {
 	apr_status_t status = APR_SUCCESS;
 	const int size = metadata_list_p -> nelts;
-	const char **keys_ss = { "licence", NULL };
+	const char *keys_ss [] = { "licence", NULL };
 
 
 	if (size > 0)
@@ -217,4 +228,158 @@ static const char *GetJSONString (const json_t *json_p, const char * const key_s
 
 
 
+static bool SetJSONString (json_t *json_p, const char * const key_s, const char * const value_s, apr_pool_t *pool_p)
+{
+	bool success_flag = false;
 
+	if (value_s)
+		{
+			json_t *str_p = json_string (value_s);
+
+			if (str_p)
+				{
+					if (json_object_set_new (json_p, key_s, str_p) == 0)
+						{
+							success_flag = true;
+						}
+					else
+						{
+							ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_SUCCESS, pool_p, "Failed to set \"%s\": \"%s\"", key_s, value_s);
+							json_decref (str_p);
+						}
+				}
+			else
+				{
+					ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_SUCCESS, pool_p, "Failed to create json string for \"%s\"", value_s);
+				}
+
+		}
+
+	return success_flag;
+}
+
+
+static bool AddResources (json_t *fd_p, const dav_resource *resource_p)
+{
+	json_t *resources_json_p = GetResources (resource_p);
+
+	if (resources_json_p)
+		{
+			if (json_object_set_new (fd_p, "resources", resources_json_p) == 0)
+				{
+					return true;
+				}
+
+			json_decref (resources_json_p);
+		}
+
+	return false;
+}
+
+
+
+static json_t *GetResources (const dav_resource *resource_p)
+{
+	json_t *resources_json_p = NULL;
+	struct dav_resource_private *davrods_resource_p = (struct dav_resource_private *) resource_p -> info;
+	request_rec *req_p = davrods_resource_p -> r;
+	IRodsConfig irods_config;
+
+	if (InitIRodsConfig (&irods_config, resource_p) == APR_SUCCESS)
+		{
+			resources_json_p = json_array ();
+
+			if (resources_json_p)
+				{
+					davrods_dir_conf_t *conf_p = davrods_resource_p->conf;
+					collHandle_t  collection_handle;
+					int status;
+
+					memset (&collection_handle, 0, sizeof (collHandle_t));
+
+					// Open the collection
+					status = rclOpenCollection (davrods_resource_p -> rods_conn, davrods_resource_p -> rods_path, LONG_METADATA_FG, &collection_handle);
+
+					if (status >= 0)
+						{
+							collEnt_t coll_entry;
+
+							memset (&coll_entry, 0, sizeof (collEnt_t));
+
+							// Actually print the directory listing, one table row at a time.
+							do
+								{
+									status = rclReadCollection (davrods_resource_p -> rods_conn, &collection_handle, &coll_entry);
+
+									if (status >= 0)
+										{
+											/*
+											 * Add resource
+											 */
+
+										}		/* if (status >= 0) */
+									else if (status == CAT_NO_ROWS_FOUND)
+										{
+											// End of collection.
+										}
+									else
+										{
+											ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_SUCCESS,
+																		req_p,
+																		"rcReadCollection failed for collection <%s> with error <%s>",
+																		davrods_resource_p->rods_path, get_rods_error_msg(status));
+										}
+								}
+							while (status >= 0);
+
+
+							rclCloseCollection (&collection_handle);
+						}		/* if (collection_handle >= 0) */
+					else
+						{
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, req_p, "rcOpenCollection failed: %d = %s", status, get_rods_error_msg (status));
+						}
+
+				}		/* if (resources_json_p) */
+
+		}		/* if (SetIRodsConfig (&irods_config, exposed_root_s, davrods_root_path_s, metadata_link_s) == APR_SUCCESS) */
+
+
+
+	return resources_json_p;
+}
+
+
+static bool AddResource (const collEnt_t * const entry_p, json_t *resources_p, apr_pool_t *pool_p)
+{
+	json_t *resource_p = json_object ();
+
+	if (resource_p)
+		{
+			const char *name_s = NULL;
+
+			if (entry_p -> objType == COLL_OBJ_T)
+				{
+					name_s = entry_p -> collName;
+				}
+			else
+				{
+					name_s = entry_p -> dataName;
+				}
+
+			if (name_s)
+				{
+					if (SetJSONString (resource_p, "path", name_s, pool_p))
+						{
+							if (json_array_append_new (resources_p, resource_p) == 0)
+								{
+									return true;
+								}
+						}
+				}
+
+			json_decref (resource_p);
+		}		/* if (resource_p) */
+
+	return false;
+}

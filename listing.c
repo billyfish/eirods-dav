@@ -55,6 +55,33 @@ void InitIRodsObject (IRodsObject *obj_p)
 }
 
 
+apr_status_t InitIRodsConfig (IRodsConfig *config_p, const dav_resource *resource_p)
+{
+	apr_status_t status = APR_EGENERAL;
+	struct dav_resource_private *davrods_resource_p = (struct dav_resource_private *) resource_p -> info;
+	davrods_dir_conf_t *conf_p = davrods_resource_p->conf;
+	request_rec *req_p = davrods_resource_p -> r;
+	const char *davrods_root_path_s = davrods_resource_p -> root_dir;
+	const char *exposed_root_s = GetRodsExposedPath (req_p);
+	apr_pool_t *pool_p = resource_p -> pool;
+	char *metadata_link_s = apr_pstrcat (pool_p, davrods_resource_p -> root_dir, conf_p -> davrods_api_path_s, NULL);
+
+	if (SetIRodsConfig (config_p, exposed_root_s, davrods_root_path_s, metadata_link_s) == APR_SUCCESS)
+		{
+			status = APR_SUCCESS;
+		}
+	else
+		{
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, status, req_p, "InitIRodsConfig failed for exposed_root_s:\"%s\" davrods_root_path_s:\"%s\"",
+										 exposed_root_s ? exposed_root_s : "<NULL>",
+												 davrods_root_path_s ? davrods_root_path_s: "<NULL>");
+
+		}
+
+	return status;
+}
+
+
 
 apr_status_t SetIRodsConfig (IRodsConfig *config_p, const char *exposed_root_s, const char *root_path_s, const char *metadata_root_link_s)
 {
