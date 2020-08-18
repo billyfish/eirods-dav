@@ -294,8 +294,9 @@ static json_t *GetResources (const dav_resource *resource_p)
 					davrods_dir_conf_t *conf_p = davrods_resource_p->conf;
 					collHandle_t  collection_handle;
 					int status;
+					char *path_s = apr_pstrcat (resource_p -> pool, davrods_resource_p -> rods_root)
 
-					memset (&collection_handle, 0, sizeof (collHandle_t));
+							memset (&collection_handle, 0, sizeof (collHandle_t));
 
 					// Open the collection
 					status = rclOpenCollection (davrods_resource_p -> rods_conn, davrods_resource_p -> rods_path, LONG_METADATA_FG, &collection_handle);
