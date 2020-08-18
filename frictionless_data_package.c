@@ -32,6 +32,10 @@
 #include "jansson.h"
 
 
+/*
+ * Static declarations
+ */
+
 static const char * const S_DATA_PACKAGE_S = "datapackage.json";
 
 
@@ -49,6 +53,17 @@ static json_t *PopulateResourceFromDataObject (collEnt_t * const entry_p,  rcCom
 
 static json_t *PopulateResourceFromCollection (collEnt_t * const entry_p,  rcComm_t *connection_p, apr_pool_t *pool_p);
 
+static bool AddLicense (json_t *resource_p, const char *name_s, const char *url_s, apr_pool_t *pool_p);
+
+static char *ConvertFDCompliantName (char *name_s);
+
+static apr_status_t BuildDataPackage (json_t *data_package_p, const apr_array_header_t *metadata_list_p, apr_pool_t *pool_p);
+
+
+
+/*
+ * API definitions
+ */
 
 apr_status_t AddFrictionlessDataPackage (rcComm_t *connection_p, const char *collection_id_s, const char *collection_name_s, const char *zone_s, apr_pool_t *pool_p)
 {
@@ -83,36 +98,58 @@ dav_error *DeliverFDDataPackage (const dav_resource *resource_p, ap_filter_t *ou
 
 			if (dp_p)
 				{
-					if (json_object_set_new (dp_p, "name", json_string (davrods_resource_p -> root_dir)) == 0)
-						{
-							if (AddResources (dp_p, resource_p))
-								{
-									apr_status_t apr_status;
-									char *dp_s = json_dumps (dp_p, JSON_INDENT (2));
+					const char *collection_s = strchr (davrods_resource_p -> rods_path, '/');
 
-									if (dp_s)
+					if (collection_s)
+						{
+							char *collection_id_s;
+
+							++ collection_s;
+
+							collection_id_s = GetCollectionId (collection_s, davrods_resource_p -> rods_conn, pool_p);
+
+							if (collection_id_s)
+								{
+									apr_array_header_t *metadata_p = GetMetadata (davrods_resource_p -> rods_conn, COLL_OBJ_T, collection_id_s, NULL, davrods_resource_p -> rods_env -> rodsZone, pool_p);
+
+									if (metadata_p)
 										{
-											if ((apr_status = apr_brigade_puts (bb_p, NULL, NULL, dp_s)) == APR_SUCCESS)
+											apr_status_t status = BuildDataPackage (dp_p, metadata_p, pool_p);
+
+											if (json_object_set_new (dp_p, "name", json_string (davrods_resource_p -> root_dir)) == 0)
 												{
-													if ((apr_status = ap_pass_brigade (output_p, bb_p)) == APR_SUCCESS)
+													if (AddResources (dp_p, resource_p))
 														{
+															apr_status_t apr_status;
+															char *dp_s = json_dumps (dp_p, JSON_INDENT (2));
+
+															if (dp_s)
+																{
+																	if ((apr_status = apr_brigade_puts (bb_p, NULL, NULL, dp_s)) == APR_SUCCESS)
+																		{
+																			if ((apr_status = ap_pass_brigade (output_p, bb_p)) == APR_SUCCESS)
+																				{
+
+																				}
+																		}
+
+																	free (dp_s);
+																}
 
 														}
 												}
 
-											free (dp_s);
-										}
+										}		/* if (metadata_p) */
 
-								}
+								}		/* if (collection_id_s) */
+
 						}
 
 					json_decref (dp_p);
-				}
+				}		/* if (dp_p) */
 
+			apr_brigade_destroy (bb_p);
 		}		/* if (bb_p) */
-
-
-
 
 	return res_p;
 }
@@ -175,19 +212,24 @@ int IsFDDataPackageRequest (const char *request_uri_s, const davrods_dir_conf_t 
 }
 
 
-apr_status_t BuildDataPackage (json_t *data_package_p, const apr_array_header_t *metadata_list_p, apr_pool_t *pool_p)
+static apr_status_t BuildDataPackage (json_t *data_package_p, const apr_array_header_t *metadata_list_p, apr_pool_t *pool_p)
 {
 	apr_status_t status = APR_SUCCESS;
 	const int size = metadata_list_p -> nelts;
 
-	const char *licence_name_key_s = "licence";
-	const char *licence_name_value_s = NULL;
+	const char *license_name_key_s = "license";
+	const char *license_name_value_s = NULL;
 
-	const char *licence_url_key_s = "licence_url";
-	const char *licence_url_value_s = NULL;
+	const char *license_url_key_s = "license_url";
+	const char *license_url_value_s = NULL;
 
+	/*
+	 * name
+
+A short url-usable (and preferably human-readable) name of the package. This MUST be lower-case and contain only alphanumeric characters along with “.”, “_” or “-” characters. It will function as a unique identifier and therefore SHOULD be unique in relation to any registry in which this package will be deposited (and preferably globally unique).
+	 */
 	const char *name_key_s = "name";
-	const char *name_value_s = NULL;
+	char *name_value_s = NULL;
 
 	const char *title_key_s = "title";
 	const char *title_value_s = NULL;
@@ -202,18 +244,21 @@ apr_status_t BuildDataPackage (json_t *data_package_p, const apr_array_header_t 
 		{
 			int i = 0;
 
+			/*
+			 * Collect all of the metadata
+			 */
 			while ((i < size) && (num_done < num_to_do))
 				{
 					const IrodsMetadata *metadata_p = APR_ARRAY_IDX (metadata_list_p, i, IrodsMetadata *);
 
-					if ((licence_name_value_s == NULL) && (strcmp (metadata_p -> im_key_s, licence_name_key_s) == 0))
+					if ((license_name_value_s == NULL) && (strcmp (metadata_p -> im_key_s, license_name_key_s) == 0))
 						{
-							licence_name_value_s = metadata_p -> im_value_s;
+							license_name_value_s = metadata_p -> im_value_s;
 							++ num_done;
 						}
-					else if ((licence_url_value_s == NULL) && (strcmp (metadata_p -> im_key_s, licence_url_key_s) == 0))
+					else if ((license_url_value_s == NULL) && (strcmp (metadata_p -> im_key_s, license_url_key_s) == 0))
 						{
-							licence_url_value_s = metadata_p -> im_value_s;
+							license_url_value_s = metadata_p -> im_value_s;
 							++ num_done;
 						}
 					else if ((name_value_s == NULL) && (strcmp (metadata_p -> im_key_s, name_key_s) == 0))
@@ -235,24 +280,40 @@ apr_status_t BuildDataPackage (json_t *data_package_p, const apr_array_header_t 
 					++ i;
 				}		/* while ((i < size) && (num_done < num_to_do)) */
 
-			if (licence_name_value_s && licence_url_value_s)
-				{
 
+			if (license_name_value_s && license_url_value_s)
+				{
+					if (!AddLicense (data_package_p, license_name_value_s, license_url_value_s, pool_p))
+						{
+
+						}
 				}
 
 			if (name_value_s)
 				{
+					char *converted_name_s = ConvertFDCompliantName (name_value_s);
+
+					if (!SetJSONString (data_package_p, "name", converted_name_s, pool_p))
+						{
+
+						}
 
 				}
 
 			if (title_value_s)
 				{
+					if (!SetJSONString (data_package_p, "title", title_value_s, pool_p))
+						{
 
+						}
 				}
 
 			if (id_value_s)
 				{
+					if (!SetJSONString (data_package_p, "id", id_value_s, pool_p))
+						{
 
+						}
 				}
 
 
@@ -266,7 +327,9 @@ apr_status_t BuildDataPackage (json_t *data_package_p, const apr_array_header_t 
 }
 
 
-
+/*
+ * Static definitions
+ */
 
 static const char *GetJSONString (const json_t *json_p, const char * const key_s)
 {
@@ -350,11 +413,11 @@ static json_t *GetResources (const dav_resource *resource_p)
 			if (resources_json_p)
 				{
 					davrods_dir_conf_t *conf_p = davrods_resource_p->conf;
-					collHandle_t  collection_handle;
+					collHandle_t collection_handle;
 					int status;
-					char *path_s = apr_pstrcat (resource_p -> pool, davrods_resource_p -> rods_root)
+					char *path_s = apr_pstrcat (resource_p -> pool, davrods_resource_p -> rods_root);
 
-							memset (&collection_handle, 0, sizeof (collHandle_t));
+					memset (&collection_handle, 0, sizeof (collHandle_t));
 
 					// Open the collection
 					status = rclOpenCollection (davrods_resource_p -> rods_conn, davrods_resource_p -> rods_path, LONG_METADATA_FG, &collection_handle);
@@ -387,7 +450,7 @@ static json_t *GetResources (const dav_resource *resource_p)
 										}
 									else
 										{
-											ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_SUCCESS,
+											ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_EGENERAL,
 																		req_p,
 																		"rcReadCollection failed for collection <%s> with error <%s>",
 																		davrods_resource_p->rods_path, get_rods_error_msg(status));
@@ -400,7 +463,7 @@ static json_t *GetResources (const dav_resource *resource_p)
 						}		/* if (collection_handle >= 0) */
 					else
 						{
-							ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, req_p, "rcOpenCollection failed: %d = %s", status, get_rods_error_msg (status));
+							ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, req_p, "rcOpenCollection failed: %d = %s", status, get_rods_error_msg (status));
 						}
 
 				}		/* if (resources_json_p) */
@@ -532,3 +595,74 @@ static json_t *PopulateResourceFromCollection (collEnt_t * const entry_p,  rcCom
 	return NULL;
 }
 
+
+
+static bool AddLicense (json_t *resource_p, const char *name_s, const char *url_s, apr_pool_t *pool_p)
+{
+	json_t *licenses_array_p = json_array ();
+
+	if (licenses_array_p)
+		{
+			json_t *license_p = json_pack ("{s:s,s:s}", "name", name_s, "path", url_s);
+
+			if (license_p)
+				{
+					if (json_array_append_new (licenses_array_p, license_p) == 0)
+						{
+							if (json_object_set_new (resource_p, "licenses", licenses_array_p) == 0)
+								{
+									return true;
+								}
+							else
+								{
+									ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to add licenses array to resource");
+								}
+						}
+					else
+						{
+							json_decref (license_p);
+							ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to append license object to array");
+						}
+				}
+			else
+				{
+					ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to create license object");
+				}
+
+			json_decref (licenses_array_p);
+		}
+	else
+		{
+			ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to create licenses array");
+		}
+
+	return false;
+}
+
+
+
+/*
+ * This MUST be lower-case and contain only alphanumeric characters along with “.”, “_” or “-” characters
+ */
+
+static char *ConvertFDCompliantName (char *name_s)
+{
+	char *c_p = name_s;
+
+	for ( ; *c_p != '\0'; ++ c_p)
+		{
+			if (isupper (*c_p))
+				{
+					*c_p = tolower (*c_p);
+				}
+			else if (! (*c_p == '.') || (*c_p == '_') || (*c_p == '-'))
+				{
+					if (!isalnum (*c_p))
+						{
+							*c_p = '_';
+						}
+				}
+		}
+
+	return name_s;
+}
