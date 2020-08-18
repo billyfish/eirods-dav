@@ -641,5 +641,35 @@ const command_rec davrods_directives[] = {
 				NULL, ACCESS_CONF, "Set any html you you want between the closing body and html tags"
 		),
 
+
+		AP_INIT_TAKE1(
+				DAVRODS_CONFIG_PREFIX "FDResourceNameKey", SetFDNameKey,
+				NULL, ACCESS_CONF, "Use this key to look up the name value for a Frictionless Data Package resource in the iMeta Catalogue"
+		),
+
+
+		AP_INIT_TAKE1(
+				DAVRODS_CONFIG_PREFIX "FDResourceLicenseNameKey", SetFDLicenseNameKey,
+				NULL, ACCESS_CONF, "Use this key to look up the license name value for a Frictionless Data Package resource in the iMeta Catalogue"
+		),
+
+
+		AP_INIT_TAKE1(
+				DAVRODS_CONFIG_PREFIX "FDResourceLicenseUrlKey", SetFDLicenseUrlKey,
+				NULL, ACCESS_CONF, "Use this key to look up the licene url value for a Frictionless Data Package resource in the iMeta Catalogue"
+		),
+
+
+		AP_INIT_TAKE1(
+				DAVRODS_CONFIG_PREFIX "FDResourceTitleKey", SetFDTitleKey,
+				NULL, ACCESS_CONF, "Use this key to look up the title value for a Frictionless Data Package resource in the iMeta Catalogue"
+		),
+
+		AP_INIT_TAKE1(
+				DAVRODS_CONFIG_PREFIX "FDResourceIdKey", SetFDIdKey,
+				NULL, ACCESS_CONF, "Use this key to look up the Id value for a Frictionless Data Package resource in the iMeta Catalogue"
+		),
+
+
 		{ NULL }
 };

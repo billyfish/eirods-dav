@@ -578,3 +578,36 @@ const char *GetParameterValue (apr_table_t *params_p, const char * const param_s
 
 	return value_s;
 }
+
+
+char *GetChecksum (collEnt_t *coll_entry_p, rcComm_t *connection_p, apr_pool_t *pool_p)
+{
+	char *checksum_s = NULL;
+	dataObjInp_t obj_inp;
+	const char *full_path_s = apr_pstrcat (pool_p, coll_entry_p -> collName, "/", coll_entry_p -> dataName, NULL);
+	size_t length = strlen (full_path_s);
+	int status;
+
+	memset (&obj_inp, 0, sizeof (dataObjInp_t));
+
+	if (length >= MAX_NAME_LEN)
+		{
+			length = MAX_NAME_LEN - 1;
+		}
+
+	strncpy (obj_inp.objPath, full_path_s, length);
+
+	status = rcDataObjChksum (connection_p, &obj_inp, &checksum_s);
+
+	if (status >= 0)
+		{
+			coll_entry_p -> chksum = checksum_s;
+		}
+	else
+		{
+			ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to rcDataObjChksum for \"%s\"", full_path_s);
+		}
+
+	return checksum_s;
+}
+

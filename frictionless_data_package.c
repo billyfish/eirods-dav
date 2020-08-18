@@ -43,6 +43,12 @@ static json_t *GetResources (const dav_resource *resource_p);
 
 static bool AddResources (json_t *fd_p, const dav_resource *resource_p);
 
+static bool AddResource (collEnt_t * const entry_p, json_t *resources_p, rcComm_t *connection_p, apr_pool_t *pool_p);
+
+static json_t *PopulateResourceFromDataObject (collEnt_t * const entry_p,  rcComm_t *connection_p, apr_pool_t *pool_p);
+
+static json_t *PopulateResourceFromCollection (collEnt_t * const entry_p,  rcComm_t *connection_p, apr_pool_t *pool_p);
+
 
 apr_status_t AddFrictionlessDataPackage (rcComm_t *connection_p, const char *collection_id_s, const char *collection_name_s, const char *zone_s, apr_pool_t *pool_p)
 {
@@ -112,6 +118,29 @@ dav_error *DeliverFDDataPackage (const dav_resource *resource_p, ap_filter_t *ou
 }
 
 
+char *GetFDDataPackageRequestCollectionPath (const char *request_uri_s, apr_pool_t *pool_p)
+{
+	char *parent_uri_s = NULL;
+	const size_t path_length = strlen (request_uri_s);
+	const size_t fd_package_length = strlen (S_DATA_PACKAGE_S);
+
+	if (path_length > fd_package_length)
+		{
+			const char *temp_s = request_uri_s + path_length - fd_package_length;
+
+			if (* (temp_s - 1) == '/')
+				{
+					if (strncmp (temp_s, S_DATA_PACKAGE_S, fd_package_length) == 0)
+						{
+							parent_uri_s = apr_pstrndup (pool_p, request_uri_s, path_length - fd_package_length);
+						}
+				}
+		}
+
+	return parent_uri_s;
+}
+
+
 int IsFDDataPackageRequest (const char *request_uri_s, const davrods_dir_conf_t *conf_p)
 {
 	int fd_data_package_flag = 0;
@@ -150,53 +179,82 @@ apr_status_t BuildDataPackage (json_t *data_package_p, const apr_array_header_t 
 {
 	apr_status_t status = APR_SUCCESS;
 	const int size = metadata_list_p -> nelts;
-	const char *keys_ss [] = { "licence", NULL };
 
+	const char *licence_name_key_s = "licence";
+	const char *licence_name_value_s = NULL;
+
+	const char *licence_url_key_s = "licence_url";
+	const char *licence_url_value_s = NULL;
+
+	const char *name_key_s = "name";
+	const char *name_value_s = NULL;
+
+	const char *title_key_s = "title";
+	const char *title_value_s = NULL;
+
+	const char *id_key_s = "id";
+	const char *id_value_s = NULL;
+
+	const size_t num_to_do = 5;
+	size_t num_done = 0;
 
 	if (size > 0)
 		{
-			const char *license_s = NULL;
 			int i = 0;
 
-			while ((i < size) && (!license_s))
+			while ((i < size) && (num_done < num_to_do))
 				{
 					const IrodsMetadata *metadata_p = APR_ARRAY_IDX (metadata_list_p, i, IrodsMetadata *);
 
-					if (strcmp (metadata_p -> im_key_s, "licence") == 0)
+					if ((licence_name_value_s == NULL) && (strcmp (metadata_p -> im_key_s, licence_name_key_s) == 0))
 						{
-							license_s = metadata_p -> im_value_s;
+							licence_name_value_s = metadata_p -> im_value_s;
+							++ num_done;
+						}
+					else if ((licence_url_value_s == NULL) && (strcmp (metadata_p -> im_key_s, licence_url_key_s) == 0))
+						{
+							licence_url_value_s = metadata_p -> im_value_s;
+							++ num_done;
+						}
+					else if ((name_value_s == NULL) && (strcmp (metadata_p -> im_key_s, name_key_s) == 0))
+						{
+							name_value_s = metadata_p -> im_value_s;
+							++ num_done;
+						}
+					else if ((title_value_s == NULL) && (strcmp (metadata_p -> im_key_s, title_key_s) == 0))
+						{
+							title_value_s = metadata_p -> im_value_s;
+							++ num_done;
+						}
+					else if ((id_value_s == NULL) && (strcmp (metadata_p -> im_key_s, id_key_s) == 0))
+						{
+							id_value_s = metadata_p -> im_value_s;
+							++ num_done;
 						}
 
-					if (!license_s)
-						{
-							++ i;
-						}
+					++ i;
+				}		/* while ((i < size) && (num_done < num_to_do)) */
+
+			if (licence_name_value_s && licence_url_value_s)
+				{
+
 				}
 
-
-			if (license_s)
+			if (name_value_s)
 				{
-					/* is it json? */
-					json_error_t err;
-					json_t *license_p = json_loads (license_s, 0, &err);
 
-					if (license_p)
-						{
-							/*
-							 * licenses MUST be an array. Each item in the array is a License. Each MUST be an object.
-							 * The object MUST contain a name property and/or a path property. It MAY contain a title property.
-							*/
+				}
 
-							const char *path_s = GetJSONString (license_p, "url");
-							if (path_s)
-								{
+			if (title_value_s)
+				{
 
-								}
+				}
 
-							json_decref (license_p);
-						}
+			if (id_value_s)
+				{
 
-				}		/* if (license_s) */
+				}
+
 
 		}		/* if (size > 0) */
 	else
@@ -318,6 +376,10 @@ static json_t *GetResources (const dav_resource *resource_p)
 											 * Add resource
 											 */
 
+											if (!AddResource (&coll_entry, resources_json_p, davrods_resource_p -> rods_conn, resource_p -> pool))
+												{
+													status = -1;
+												}
 										}		/* if (status >= 0) */
 									else if (status == CAT_NO_ROWS_FOUND)
 										{
@@ -351,36 +413,122 @@ static json_t *GetResources (const dav_resource *resource_p)
 }
 
 
-static bool AddResource (const collEnt_t * const entry_p, json_t *resources_p, apr_pool_t *pool_p)
+static bool AddResource (collEnt_t * const entry_p, json_t *resources_p, rcComm_t *connection_p, apr_pool_t *pool_p)
+{
+	json_t *resource_p = NULL;
+
+	if (entry_p -> objType == COLL_OBJ_T)
+		{
+			resource_p = PopulateResourceFromCollection (entry_p, connection_p, pool_p);
+		}
+	else if (entry_p -> objType == DATA_OBJ_T)
+		{
+			resource_p = PopulateResourceFromDataObject (entry_p, connection_p, pool_p);
+		}
+
+	if (resource_p)
+		{
+			if (json_array_append_new (resources_p, resource_p) == 0)
+				{
+					return true;
+				}
+			else
+				{
+					json_decref (resource_p);
+				}
+		}
+
+
+	return false;
+}
+
+
+static json_t *PopulateResourceFromDataObject (collEnt_t * const entry_p,  rcComm_t *connection_p, apr_pool_t *pool_p)
 {
 	json_t *resource_p = json_object ();
 
 	if (resource_p)
 		{
-			const char *name_s = NULL;
+			if (json_object_set_new (resource_p, "bytes", json_integer (entry_p -> dataSize)) == 0)
+				{
+					char *name_s = entry_p -> dataName;
 
-			if (entry_p -> objType == COLL_OBJ_T)
-				{
-					name_s = entry_p -> collName;
-				}
-			else
-				{
-					name_s = entry_p -> dataName;
-				}
+					if (SetJSONString (resource_p, "path", name_s, pool_p))
+						{
+							const char dot = '.';
+							char *dot_s = strrchr (name_s, dot);
+							bool set_name_flag = false;
+
+							if (dot_s)
+								{
+									/*
+									 * Set the name as to the filename without the extension
+									 */
+									*dot_s = '\0';
+
+									set_name_flag = SetJSONString (resource_p, "name", name_s, pool_p);
+
+									*dot_s = dot;
+								}
+							else
+								{
+									set_name_flag = SetJSONString (resource_p, "name", name_s, pool_p);
+								}
+
+							if (set_name_flag)
+								{
+									char *checksum_s = GetChecksum (entry_p, connection_p, pool_p);
+
+									if (checksum_s)
+										{
+											 SetJSONString (resource_p, "checksum", checksum_s, pool_p);
+										}
+
+									return resource_p;
+								}		/* if (set_name == 0) */
+
+						}		/* if (SetJSONString (resource_p, "path", name_s, pool_p)) */
+
+				}		/* if (json_object_set_new (resource_p, "bytes", json_integer (entry_p -> dataSize)) == 0) */
+
+			json_decref (resource_p);
+		}		/* if (resource_p) */
+
+	return NULL;
+}
+
+
+static json_t *PopulateResourceFromCollection (collEnt_t * const entry_p,  rcComm_t *connection_p, apr_pool_t *pool_p)
+{
+	json_t *resource_p = json_object ();
+
+	if (resource_p)
+		{
+			char *name_s = strrchr (entry_p -> collName, '/');
 
 			if (name_s)
 				{
-					if (SetJSONString (resource_p, "path", name_s, pool_p))
+					++ name_s;
+
+					if (*name_s == '\0')
 						{
-							if (json_array_append_new (resources_p, resource_p) == 0)
-								{
-									return true;
-								}
+							name_s = NULL;
 						}
+				}
+
+			if (!name_s)
+				{
+					name_s = entry_p -> collName;
+				}
+
+			if (SetJSONString (resource_p, "name", name_s, pool_p))
+				{
+					return resource_p;
 				}
 
 			json_decref (resource_p);
 		}		/* if (resource_p) */
 
-	return false;
+	return NULL;
 }
+

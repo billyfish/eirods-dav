@@ -139,6 +139,19 @@ struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 			theme_p -> ht_show_checksums_flag = 0;
 
 			theme_p -> ht_show_fd_data_packages_flag = 0;
+
+
+			theme_p -> ht_fd_resource_name_key_s = NULL;
+
+			theme_p -> ht_fd_resource_license_name_key_s = NULL;
+
+			theme_p -> ht_fd_resource_license_url_key_s = NULL;
+
+			theme_p -> ht_fd_resource_title_key_s = NULL;
+
+			theme_p -> ht_fd_resource_id_key_s = NULL;
+
+
 		}
 
 	return theme_p;
@@ -221,33 +234,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 													if (l == 0)
 														{
-															char *checksum_s = NULL;
-															dataObjInp_t obj_inp;
-															const char *full_path_s = apr_pstrcat (pool_p, coll_entry.collName, "/", coll_entry.dataName, NULL);
-															size_t length = strlen (full_path_s);
-
-															memset (&obj_inp, 0, sizeof (dataObjInp_t));
-
-															if (length >= MAX_NAME_LEN)
-																{
-																	length = MAX_NAME_LEN - 1;
-																}
-
-															strncpy (obj_inp.objPath, full_path_s, length);
-
-															//addKeyVal (& (obj_inp.condInput), VERIFY_CHKSUM_KW, "");
-
-
-															status = rcDataObjChksum (davrods_resource_p -> rods_conn, &obj_inp, &checksum_s);
-
-															if (status >= 0)
-																{
-																	coll_entry.chksum = checksum_s;
-																}
-															else
-																{
-																	ap_log_rerror (APLOG_MARK, APLOG_ERR, apr_status, req_p, "Failed to rcDataObjChksum for \"%s\"", full_path_s);
-																}
+															GetChecksum (&coll_entry, davrods_resource_p -> rods_conn, pool_p);
 														}
 												}		/* if ((coll_entry_p -> objType = DATA_OBJ_T) && (theme_p -> ht_show_checksums_flag)) */
 
@@ -1735,6 +1722,18 @@ void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p
 
 	DAVRODS_PROP_MERGE (theme_p -> ht_show_fd_data_packages_flag);
 
+	DAVRODS_PROP_MERGE (theme_p -> ht_fd_resource_name_key_s);
+
+	DAVRODS_PROP_MERGE (theme_p -> ht_fd_resource_license_name_key_s);
+
+	DAVRODS_PROP_MERGE (theme_p -> ht_fd_resource_license_url_key_s);
+
+	DAVRODS_PROP_MERGE (theme_p -> ht_fd_resource_title_key_s);
+
+	DAVRODS_PROP_MERGE (theme_p -> ht_fd_resource_id_key_s);
+
+
+
 	conf_p -> theme_p -> ht_icons_map_p = MergeAPRTables (parent_p -> theme_p -> ht_icons_map_p, child_p -> theme_p -> ht_icons_map_p, pool_p);
 
 
@@ -1967,5 +1966,56 @@ static int AreIconsDisplayed (const struct HtmlTheme *theme_p)
 {
 	return ((theme_p -> ht_collection_icon_s) || (theme_p -> ht_object_icon_s) || (theme_p -> ht_icons_map_p)) ? 1 : 0;
 }
+
+
+const char *SetFDNameKey (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+	conf_p -> theme_p -> ht_fd_resource_name_key_s = arg_p;
+
+	return NULL;
+}
+
+
+const char *SetFDLicenseNameKey (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+	conf_p -> theme_p -> ht_fd_resource_license_name_key_s = arg_p;
+
+	return NULL;
+}
+
+
+const char *SetFDLicenseUrlKey (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+	conf_p -> theme_p -> ht_fd_resource_license_url_key_s = arg_p;
+
+	return NULL;
+}
+
+
+const char *SetFDTitleKey (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+	conf_p -> theme_p -> ht_fd_resource_title_key_s = arg_p;
+
+	return NULL;
+}
+
+
+const char *SetFDIdKey (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+	conf_p -> theme_p -> ht_fd_resource_id_key_s = arg_p;
+
+	return NULL;
+}
+
 
 

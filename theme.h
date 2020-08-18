@@ -142,6 +142,16 @@ struct HtmlTheme
 	int ht_show_fd_data_packages_flag;
 
 	Placement ht_tools_placement;
+
+	const char *ht_fd_resource_name_key_s;
+
+	const char *ht_fd_resource_license_name_key_s;
+
+	const char *ht_fd_resource_license_url_key_s;
+
+	const char *ht_fd_resource_title_key_s;
+
+	const char *ht_fd_resource_id_key_s;
 };
 
 
@@ -319,6 +329,22 @@ const char *SetShowChecksum (cmd_parms *cmd_p, void *config_p, const char *arg_p
 
 
 const char *SetShowFDDataPackages (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+const char *SetFDNameKey (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+const char *SetFDLicenseNameKey (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+const char *SetFDLicenseUrlKey (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+const char *SetFDTitleKey (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+const char *SetFDIdKey (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
 
 
 #ifdef __cplusplus
