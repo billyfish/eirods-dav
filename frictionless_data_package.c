@@ -179,53 +179,82 @@ apr_status_t BuildDataPackage (json_t *data_package_p, const apr_array_header_t 
 {
 	apr_status_t status = APR_SUCCESS;
 	const int size = metadata_list_p -> nelts;
-	const char *keys_ss [] = { "licence", NULL };
 
+	const char *licence_name_key_s = "licence";
+	const char *licence_name_value_s = NULL;
+
+	const char *licence_url_key_s = "licence_url";
+	const char *licence_url_value_s = NULL;
+
+	const char *name_key_s = "name";
+	const char *name_value_s = NULL;
+
+	const char *title_key_s = "title";
+	const char *title_value_s = NULL;
+
+	const char *id_key_s = "id";
+	const char *id_value_s = NULL;
+
+	const size_t num_to_do = 5;
+	size_t num_done = 0;
 
 	if (size > 0)
 		{
-			const char *license_s = NULL;
 			int i = 0;
 
-			while ((i < size) && (!license_s))
+			while ((i < size) && (num_done < num_to_do))
 				{
 					const IrodsMetadata *metadata_p = APR_ARRAY_IDX (metadata_list_p, i, IrodsMetadata *);
 
-					if (strcmp (metadata_p -> im_key_s, "licence") == 0)
+					if ((licence_name_value_s == NULL) && (strcmp (metadata_p -> im_key_s, licence_name_key_s) == 0))
 						{
-							license_s = metadata_p -> im_value_s;
+							licence_name_value_s = metadata_p -> im_value_s;
+							++ num_done;
+						}
+					else if ((licence_url_value_s == NULL) && (strcmp (metadata_p -> im_key_s, licence_url_key_s) == 0))
+						{
+							licence_url_value_s = metadata_p -> im_value_s;
+							++ num_done;
+						}
+					else if ((name_value_s == NULL) && (strcmp (metadata_p -> im_key_s, name_key_s) == 0))
+						{
+							name_value_s = metadata_p -> im_value_s;
+							++ num_done;
+						}
+					else if ((title_value_s == NULL) && (strcmp (metadata_p -> im_key_s, title_key_s) == 0))
+						{
+							title_value_s = metadata_p -> im_value_s;
+							++ num_done;
+						}
+					else if ((id_value_s == NULL) && (strcmp (metadata_p -> im_key_s, id_key_s) == 0))
+						{
+							id_value_s = metadata_p -> im_value_s;
+							++ num_done;
 						}
 
-					if (!license_s)
-						{
-							++ i;
-						}
+					++ i;
+				}		/* while ((i < size) && (num_done < num_to_do)) */
+
+			if (licence_name_value_s && licence_url_value_s)
+				{
+
 				}
 
-
-			if (license_s)
+			if (name_value_s)
 				{
-					/* is it json? */
-					json_error_t err;
-					json_t *license_p = json_loads (license_s, 0, &err);
 
-					if (license_p)
-						{
-							/*
-							 * licenses MUST be an array. Each item in the array is a License. Each MUST be an object.
-							 * The object MUST contain a name property and/or a path property. It MAY contain a title property.
-							*/
+				}
 
-							const char *path_s = GetJSONString (license_p, "url");
-							if (path_s)
-								{
+			if (title_value_s)
+				{
 
-								}
+				}
 
-							json_decref (license_p);
-						}
+			if (id_value_s)
+				{
 
-				}		/* if (license_s) */
+				}
+
 
 		}		/* if (size > 0) */
 	else
