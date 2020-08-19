@@ -38,8 +38,6 @@ extern "C"
 #endif
 
 
-apr_status_t AddFrictionlessDataPackage (rcComm_t *connection_p, const char *collection_id_s, const char *collection_name_s, const char *zone_s, apr_pool_t *pool_p);
-
 dav_error *DeliverFDDataPackage (const dav_resource *resource_p, ap_filter_t *output_p);
 
 int IsFDDataPackageRequest (const char *request_uri_s, const davrods_dir_conf_t *conf_p);

@@ -20,6 +20,8 @@
  *      Author: billy
  */
 
+#include "apr_strings.h"
+
 #include "frictionless_data_package.h"
 #include "meta.h"
 #include "repo.h"
@@ -55,33 +57,16 @@ static json_t *PopulateResourceFromCollection (collEnt_t * const entry_p,  rcCom
 
 static bool AddLicense (json_t *resource_p, const char *name_s, const char *url_s, apr_pool_t *pool_p);
 
+static bool AddAuthors (json_t *resource_p, const char *authors_s, apr_pool_t *pool_p);
+
 static char *ConvertFDCompliantName (char *name_s);
 
-static apr_status_t BuildDataPackage (json_t *data_package_p, const apr_array_header_t *metadata_list_p, apr_pool_t *pool_p);
-
+static apr_status_t BuildDataPackage (json_t *data_package_p, const apr_array_header_t *metadata_list_p, const char *collection_name_s, const struct HtmlTheme *theme_p, apr_pool_t *pool_p);
 
 
 /*
  * API definitions
  */
-
-apr_status_t AddFrictionlessDataPackage (rcComm_t *connection_p, const char *collection_id_s, const char *collection_name_s, const char *zone_s, apr_pool_t *pool_p)
-{
-	apr_status_t status = APR_SUCCESS;
-	apr_array_header_t *metadata_array_p = GetMetadata (connection_p, COLL_OBJ_T, collection_id_s, collection_name_s, zone_s, pool_p);
-
-	if (metadata_array_p)
-		{
-			if (!apr_is_empty_array (metadata_array_p))
-				{
-
-				}		/* if (!apr_is_empty_array (metadata_array_p)) */
-
-		}		/* if (metadata_array_p) */
-
-	return status;
-}
-
 
 
 dav_error *DeliverFDDataPackage (const dav_resource *resource_p, ap_filter_t *output_p)
@@ -98,52 +83,61 @@ dav_error *DeliverFDDataPackage (const dav_resource *resource_p, ap_filter_t *ou
 
 			if (dp_p)
 				{
-					const char *collection_s = strchr (davrods_resource_p -> rods_path, '/');
+					char *collection_id_s = GetCollectionId (davrods_resource_p -> rods_path, davrods_resource_p -> rods_conn, pool_p);
 
-					if (collection_s)
+					if (collection_id_s)
 						{
-							char *collection_id_s;
+							apr_array_header_t *metadata_p = GetMetadata (davrods_resource_p -> rods_conn, COLL_OBJ_T, collection_id_s, NULL, davrods_resource_p -> rods_env -> rodsZone, pool_p);
 
-							++ collection_s;
-
-							collection_id_s = GetCollectionId (collection_s, davrods_resource_p -> rods_conn, pool_p);
-
-							if (collection_id_s)
+							if (metadata_p)
 								{
-									apr_array_header_t *metadata_p = GetMetadata (davrods_resource_p -> rods_conn, COLL_OBJ_T, collection_id_s, NULL, davrods_resource_p -> rods_env -> rodsZone, pool_p);
+									apr_status_t status;
 
-									if (metadata_p)
+									/* the local collection name */
+									const char *collection_s = strrchr (davrods_resource_p -> rods_path, '/');
+
+									if (collection_s)
 										{
-											apr_status_t status = BuildDataPackage (dp_p, metadata_p, pool_p);
+											/* move past the last slash */
+											++ collection_s;
 
-											if (json_object_set_new (dp_p, "name", json_string (davrods_resource_p -> root_dir)) == 0)
+											/*
+											 * Are we at the end of the string?
+											 */
+											if (*collection_s == '\0')
 												{
-													if (AddResources (dp_p, resource_p))
+													collection_s = NULL;
+												}
+										}
+
+									status = BuildDataPackage (dp_p, metadata_p, collection_s, davrods_resource_p -> conf -> theme_p, pool_p);
+
+									if (status == APR_SUCCESS)
+										{
+											if (AddResources (dp_p, resource_p))
+												{
+													apr_status_t apr_status;
+													char *dp_s = json_dumps (dp_p, JSON_INDENT (2));
+
+													if (dp_s)
 														{
-															apr_status_t apr_status;
-															char *dp_s = json_dumps (dp_p, JSON_INDENT (2));
-
-															if (dp_s)
+															if ((apr_status = apr_brigade_puts (bb_p, NULL, NULL, dp_s)) == APR_SUCCESS)
 																{
-																	if ((apr_status = apr_brigade_puts (bb_p, NULL, NULL, dp_s)) == APR_SUCCESS)
+																	if ((apr_status = ap_pass_brigade (output_p, bb_p)) == APR_SUCCESS)
 																		{
-																			if ((apr_status = ap_pass_brigade (output_p, bb_p)) == APR_SUCCESS)
-																				{
 
-																				}
 																		}
-
-																	free (dp_s);
 																}
 
+															free (dp_s);
 														}
+
 												}
+										}
 
-										}		/* if (metadata_p) */
+								}		/* if (metadata_p) */
 
-								}		/* if (collection_id_s) */
-
-						}
+						}		/* if (collection_id_s) */
 
 					json_decref (dp_p);
 				}		/* if (dp_p) */
@@ -212,7 +206,7 @@ int IsFDDataPackageRequest (const char *request_uri_s, const davrods_dir_conf_t 
 }
 
 
-static apr_status_t BuildDataPackage (json_t *data_package_p, const apr_array_header_t *metadata_list_p, apr_pool_t *pool_p)
+static apr_status_t BuildDataPackage (json_t *data_package_p, const apr_array_header_t *metadata_list_p, const char *collection_name_s, const struct HtmlTheme *theme_p, apr_pool_t *pool_p)
 {
 	apr_status_t status = APR_SUCCESS;
 	const int size = metadata_list_p -> nelts;
@@ -225,11 +219,20 @@ static apr_status_t BuildDataPackage (json_t *data_package_p, const apr_array_he
 
 	/*
 	 * name
-
-A short url-usable (and preferably human-readable) name of the package. This MUST be lower-case and contain only alphanumeric characters along with “.”, “_” or “-” characters. It will function as a unique identifier and therefore SHOULD be unique in relation to any registry in which this package will be deposited (and preferably globally unique).
+	 *
+	 * A short url-usable (and preferably human-readable) name of the package. This MUST be lower-case and contain
+	 * only alphanumeric characters along with “.”, “_” or “-” characters. It will function as a unique identifier
+	 * and therefore SHOULD be unique in relation to any registry in which this package will be deposited (and
+	 * preferably globally unique).
 	 */
 	const char *name_key_s = "name";
 	char *name_value_s = NULL;
+
+	const char *description_key_s = "description";
+	char *description_value_s = NULL;
+
+	const char *authors_key_s = "authors";
+	char *authors_value_s = NULL;
 
 	const char *title_key_s = "title";
 	const char *title_value_s = NULL;
@@ -237,7 +240,48 @@ A short url-usable (and preferably human-readable) name of the package. This MUS
 	const char *id_key_s = "id";
 	const char *id_value_s = NULL;
 
-	const size_t num_to_do = 5;
+	if (theme_p)
+		{
+			if (theme_p -> ht_fd_resource_license_name_key_s)
+				{
+					license_name_key_s = theme_p -> ht_fd_resource_license_name_key_s;
+				}
+
+			if (theme_p -> ht_fd_resource_license_url_key_s)
+				{
+					license_url_key_s = theme_p -> ht_fd_resource_license_url_key_s;
+				}
+
+			if (theme_p -> ht_fd_resource_name_key_s)
+				{
+					name_key_s = theme_p -> ht_fd_resource_name_key_s;
+				}
+
+			if (theme_p -> ht_fd_resource_description_key_s)
+				{
+					description_key_s = theme_p -> ht_fd_resource_description_key_s;
+				}
+
+			if (theme_p -> ht_fd_resource_authors_key_s)
+				{
+					authors_key_s = theme_p -> ht_fd_resource_authors_key_s;
+				}
+
+			if (theme_p -> ht_fd_resource_title_key_s)
+				{
+					title_key_s = theme_p -> ht_fd_resource_title_key_s;
+				}
+
+			if (theme_p -> ht_fd_resource_id_key_s)
+				{
+					id_key_s = theme_p -> ht_fd_resource_id_key_s;
+				}
+		}
+
+	/*
+	 * How many keys are we looking for
+	 */
+	const size_t num_to_do = 7;
 	size_t num_done = 0;
 
 	if (size > 0)
@@ -276,6 +320,16 @@ A short url-usable (and preferably human-readable) name of the package. This MUS
 							id_value_s = metadata_p -> im_value_s;
 							++ num_done;
 						}
+					else if ((description_value_s == NULL) && (strcmp (metadata_p -> im_key_s, description_key_s) == 0))
+						{
+							description_value_s = metadata_p -> im_value_s;
+							++ num_done;
+						}
+					else if ((authors_value_s == NULL) && (strcmp (metadata_p -> im_key_s, authors_key_s) == 0))
+						{
+							authors_value_s = metadata_p -> im_value_s;
+							++ num_done;
+						}
 
 					++ i;
 				}		/* while ((i < size) && (num_done < num_to_do)) */
@@ -287,6 +341,12 @@ A short url-usable (and preferably human-readable) name of the package. This MUS
 						{
 
 						}
+				}
+
+			if (!name_value_s)
+				{
+					/* use the directory name */
+					name_value_s = apr_pstrdup (pool_p, collection_name_s);
 				}
 
 			if (name_value_s)
@@ -311,6 +371,22 @@ A short url-usable (and preferably human-readable) name of the package. This MUS
 			if (id_value_s)
 				{
 					if (!SetJSONString (data_package_p, "id", id_value_s, pool_p))
+						{
+
+						}
+				}
+
+			if (description_value_s)
+				{
+					if (!SetJSONString (data_package_p, "description", description_value_s, pool_p))
+						{
+
+						}
+				}
+
+			if (authors_value_s)
+				{
+					if (!AddAuthors (data_package_p, authors_value_s, pool_p))
 						{
 
 						}
@@ -375,6 +451,11 @@ static bool SetJSONString (json_t *json_p, const char * const key_s, const char 
 				}
 
 		}
+	else
+		{
+			ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_SUCCESS, pool_p, "No value set for key \"%s\"", key_s);
+		}
+
 
 	return success_flag;
 }
@@ -412,10 +493,8 @@ static json_t *GetResources (const dav_resource *resource_p)
 
 			if (resources_json_p)
 				{
-					davrods_dir_conf_t *conf_p = davrods_resource_p->conf;
 					collHandle_t collection_handle;
 					int status;
-					char *path_s = apr_pstrcat (resource_p -> pool, davrods_resource_p -> rods_root);
 
 					memset (&collection_handle, 0, sizeof (collHandle_t));
 
@@ -638,6 +717,69 @@ static bool AddLicense (json_t *resource_p, const char *name_s, const char *url_
 
 	return false;
 }
+
+
+/*
+ * Split the value by commas
+ */
+static bool AddAuthors (json_t *resource_p, const char *authors_s, apr_pool_t *pool_p)
+{
+	json_t *authors_array_p = json_array ();
+
+	if (authors_array_p)
+		{
+			char *copied_authors_s = apr_pstrdup (pool_p, authors_s);
+			char *state_p;
+			char *author_s = apr_strtok (copied_authors_s, ",", &state_p);
+
+			while (author_s)
+				{
+					/* Scroll past any initial whitespace */
+					while (isspace (*author_s))
+						{
+							++ author_s;
+						}
+
+					if (*author_s != '\0')
+						{
+							json_t *author_p = json_pack ("{s:s,s:s}", "title", author_s, "role", "author");
+
+							if (author_p)
+								{
+									if (json_array_append_new (authors_array_p, author_p) != 0)
+										{
+											json_decref (author_p);
+											ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to append author \"%s\" to array", author_s);
+										}
+								}
+
+							author_s = apr_strtok (NULL, ",", &state_p);
+						}
+					else
+						{
+							author_s = NULL;
+						}
+				}
+
+			if (json_object_set_new (resource_p, "contributors", authors_array_p) == 0)
+				{
+					return true;
+				}
+			else
+				{
+					ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to add contributors array to resource");
+				}
+
+			json_decref (authors_array_p);
+		}		/* if (authors_array_p) */
+	else
+		{
+			ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to create authors array");
+		}
+
+	return false;
+}
+
 
 
 

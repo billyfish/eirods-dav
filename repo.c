@@ -187,7 +187,7 @@ static dav_error *SetRodsPathFromResourceAndURI (dav_resource *resource, const c
 
 	resource->info->relative_uri = uri_s;
 
-	char *prefixed_path = rods_root ? apr_pstrcat (pool_p, rods_root, uri_s, NULL) : uri_s;
+	const char *prefixed_path = rods_root ? apr_pstrcat (pool_p, rods_root, uri_s, NULL) : uri_s;
 
 	if (strlen (prefixed_path) >= MAX_NAME_LEN)
 		{

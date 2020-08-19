@@ -152,6 +152,11 @@ struct HtmlTheme
 	const char *ht_fd_resource_title_key_s;
 
 	const char *ht_fd_resource_id_key_s;
+
+	const char *ht_fd_resource_authors_key_s;
+
+	const char *ht_fd_resource_description_key_s;
+
 };
 
 
@@ -345,6 +350,10 @@ const char *SetFDTitleKey (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 const char *SetFDIdKey (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
 
+const char *SetFDDescriptionKey (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+
+const char *SetFDAuthorsKey (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
 
 #ifdef __cplusplus

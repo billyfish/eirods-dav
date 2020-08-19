@@ -151,6 +151,9 @@ struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 
 			theme_p -> ht_fd_resource_id_key_s = NULL;
 
+			theme_p -> ht_fd_resource_description_key_s = NULL;
+
+			theme_p -> ht_fd_resource_authors_key_s = NULL;
 
 		}
 
@@ -1732,6 +1735,10 @@ void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p
 
 	DAVRODS_PROP_MERGE (theme_p -> ht_fd_resource_id_key_s);
 
+	DAVRODS_PROP_MERGE (theme_p -> ht_fd_resource_description_key_s);
+
+	DAVRODS_PROP_MERGE (theme_p -> ht_fd_resource_authors_key_s);
+
 
 
 	conf_p -> theme_p -> ht_icons_map_p = MergeAPRTables (parent_p -> theme_p -> ht_icons_map_p, child_p -> theme_p -> ht_icons_map_p, pool_p);
@@ -2018,4 +2025,22 @@ const char *SetFDIdKey (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 }
 
 
+const char *SetFDDescriptionKey (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+	conf_p -> theme_p -> ht_fd_resource_title_key_s = arg_p;
+
+	return NULL;
+}
+
+
+const char *SetFDAuthorsKey (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+	conf_p -> theme_p -> ht_fd_resource_authors_key_s = arg_p;
+
+	return NULL;
+}
 

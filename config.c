@@ -671,5 +671,16 @@ const command_rec davrods_directives[] = {
 		),
 
 
+
+		AP_INIT_TAKE1(
+				DAVRODS_CONFIG_PREFIX "FDResourceAuthorsKey", SetFDAuthorsKey,
+				NULL, ACCESS_CONF, "Use this key to look up the authors value for a Frictionless Data Package resource in the iMeta Catalogue"
+		),
+
+		AP_INIT_TAKE1(
+				DAVRODS_CONFIG_PREFIX "FDResourceDescriptionKey", SetFDDescriptionKey,
+				NULL, ACCESS_CONF, "Use this key to look up the description value for a Frictionless Data Package resource in the iMeta Catalogue"
+		),
+
 		{ NULL }
 };
