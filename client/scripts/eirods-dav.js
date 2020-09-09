@@ -5,7 +5,7 @@ $(document).ready (function () {
 
   var listings_table = $("#listings_table");
 
-  var metadata_cells = $(listings_table).find ("td.metatable")
+  var metadata_cells = $(listings_table).find ("td.metatable").not("td.empty");
 
 
   if ($(listings_table).hasClass ("ajax")) {

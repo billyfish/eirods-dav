@@ -1121,7 +1121,7 @@ apr_status_t GetMetadataTableForId (char *id_s, davrods_dir_conf_t *config_p, rc
 			{
 				case OF_JSON:
 					status = GetMetadataArrayAsJSON (metadata_array_p, bucket_brigade_p);
-					content_type_s = "application/json";
+					content_type_s = CONTENT_TYPE_JSON_S;
 					break;
 
 				case OF_TSV:
@@ -1790,7 +1790,7 @@ apr_status_t PrintMetadata (const char *id_s, const apr_array_header_t *metadata
 
 			if (status == APR_SUCCESS)
 				{
-					if (! (theme_p -> ht_show_download_metadata_links_flag))
+					if (theme_p -> ht_show_download_metadata_links_flag <= 0)
 						{
 							status = PrintDownloadMetadataObject (theme_p, bb_p, api_root_url_s, id_s);
 						}
@@ -1821,7 +1821,7 @@ static apr_status_t PrintAddMetadataObject (const struct HtmlTheme *theme_p, apr
 {
 	apr_status_t status = APR_SUCCESS;
 
-	if (theme_p -> ht_metadata_editable_flag)
+	if (theme_p -> ht_metadata_editable_flag > 0)
 		{
 			if (theme_p -> ht_add_metadata_icon_s)
 				{

@@ -140,6 +140,13 @@ const char *GetIRodsObjectDisplayName (const IRodsObject *obj_p);
  */
 const char *GetIRodsObjectIcon (const IRodsObject *irods_obj_p, const struct HtmlTheme * const theme_p);
 
+
+const char *GetDefaultIconForObjectType (objType_t obj_type, const struct HtmlTheme * const theme_p);
+
+
+const char *GetIRodsObjectIconForExtension (const char *extension_s, const struct HtmlTheme * const theme_p);
+
+
 /**
  * Get the text to use for the alt tag of the image used for a given IRodsObject.
  *

@@ -357,7 +357,7 @@ int EIRodsDavAPIHandler (request_rec *req_p)
 
 																	if (res == OK)
 																		{
-																			ap_set_content_type (req_p, "application/json");
+																			ap_set_content_type (req_p, CONTENT_TYPE_JSON_S);
 																		}
 
 																	/* force exit from loop */

@@ -157,6 +157,7 @@ struct HtmlTheme
 
 	const char *ht_fd_resource_description_key_s;
 
+	const char *ht_fd_resource_data_package_icon_s;
 };
 
 
@@ -171,6 +172,9 @@ struct HtmlTheme
 
 
 THEME_PREFIX const char THEME_HIDE_COLUMN_S [] THEME_VAL ("!");
+
+
+THEME_PREFIX const char * const CONTENT_TYPE_JSON_S THEME_VAL ("application/json");
 
 
 /* forward declaration */
@@ -190,14 +194,11 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 
 apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_p, const IRodsConfig *config_p, unsigned int row_index, apr_bucket_brigade *bb_p, apr_pool_t *pool_p, rcComm_t *connection_p, request_rec *req_p);
 
-
 apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_resource_p, const char *escaped_zone_s, const char * const page_title_s, const char *davrods_path_s, const char * const marked_up_page_title_s, char *current_id_s, const char * const user_s, davrods_dir_conf_t *conf_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p);
 
 apr_status_t PrintAllHTMLAfterListing (const char *user_s, const char *escaped_zone_s, const char *davrods_path_s, const davrods_dir_conf_t *conf_p, char *current_id_s, rcComm_t *connection_p, request_rec *req_p, apr_bucket_brigade *bucket_brigade_p, apr_pool_t *pool_p);
 
-
 void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p, davrods_dir_conf_t *child_p, apr_pool_t *pool_p);
-
 
 char *GetLocationPath (request_rec *req_p, davrods_dir_conf_t *conf_p, apr_pool_t *pool_p, const char *needle_s);
 
@@ -205,50 +206,33 @@ char *GetDavrodsAPIPath (struct dav_resource_private *davrods_resource_p, davrod
 
 int GetEditableFlag (const struct HtmlTheme  * const theme_p, apr_table_t *params_p, apr_pool_t *pool_p);
 
-
-
 const char *SetHeadHTML (cmd_parms *cmd_p, void *config_p, const char *arg_p);
-
 
 const char *SetTopHTML (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
-
 const char *SetBottomHTML (cmd_parms *cmd_p, void *config_p, const char *arg_p);
-
-
 
 const char *SetCollectionImage (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
-
-
 const char *SetObjectImage (cmd_parms *cmd_p, void *config_p, const char *arg_p);
-
 
 const char *SetTableListingClass (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
-
 const char *SetShowThemedListings (cmd_parms *cmd_p, void *config_p, const char *arg_p);
-
 
 const char *SetShowResources (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
-
 const char *SetShowSelectedResourcesOnly (cmd_parms *cmd_p, void *config_p, const char *arg_p);
-
 
 const char *SetMetadataDisplay (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
-
 const char *SetMetadataIsEditable (cmd_parms *cmd_p, void *config_p, const char *arg_p);
-
 
 const char *SetShowIds (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
 const char *SetLoginURL (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
-
 const char *SetLogoutURL (cmd_parms *cmd_p, void *config_p, const char *arg_p);
-
 
 const char *SetUserImage (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
@@ -256,24 +240,17 @@ const char *SetAddMetadataImage (cmd_parms *cmd_p, void *config_p, const char *a
 
 const char *SetDownloadMetadataImage (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
-
-
 const char *SetDownloadMetadataImageAsJSON (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
-
 const char *SetDownloadMetadataImageAsCSV (cmd_parms *cmd_p, void *config_p, const char *arg_p);
-
 
 const char *SetDeleteMetadataImage (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
 const char *SetEditMetadataImage (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
-
-
 const char *SetOkImage (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
 const char *SetCancelImage (cmd_parms *cmd_p, void *config_p, const char *arg_p);
-
 
 const char *SetAPIPath (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
@@ -281,45 +258,29 @@ const char *SetViewsPath (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
 const char *SetDefaultUsername (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
-
 const char *SetDefaultPassword (cmd_parms *cmd_p, void *config_p, const char *arg_p);
-
 
 const char *SetIconForSuffix (cmd_parms *cmd_p, void *config_p, const char *icon_s, const char *suffix_s);
 
-
 const char *SetExposedRootForSpecifiedUser (cmd_parms *cmd_p, void *config_p, const char *username_s, const char *exposed_root_s);
-
-
 
 const char *SetShowMetadataSearchForm (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
 const char *SetShowMetadataDownloadLinks (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
-
-
 const char *SetNameHeading (cmd_parms *cmd_p, void *config_p, const char *arg_p);
-
-
 
 const char *SetSizeHeading (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
-
 const char *SetOwnerHeading (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
-
-
 const char *SetDateHeading (cmd_parms *cmd_p, void *config_p, const char *arg_p);
-
-
 
 const char *SetPropertiesHeading (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
 const char *SetChecksumHeading (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
-
 const char *SetZoneLabel (cmd_parms *cmd_p, void *config_p, const char *arg_p);
-
 
 const char *SetPreListingsHTML (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
@@ -329,31 +290,25 @@ const char *SetPreCloseBodyHTML (cmd_parms *cmd_p, void *config_p, const char *a
 
 const char *SetToolsPlacement (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
-
 const char *SetShowChecksum (cmd_parms *cmd_p, void *config_p, const char *arg_p);
-
 
 const char *SetShowFDDataPackages (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
-
 const char *SetFDNameKey (cmd_parms *cmd_p, void *config_p, const char *arg_p);
-
 
 const char *SetFDLicenseNameKey (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
-
 const char *SetFDLicenseUrlKey (cmd_parms *cmd_p, void *config_p, const char *arg_p);
-
 
 const char *SetFDTitleKey (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
 const char *SetFDIdKey (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
-
 const char *SetFDDescriptionKey (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
-
 const char *SetFDAuthorsKey (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
+const char *SetFDDataPackageImage (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
 
 #ifdef __cplusplus

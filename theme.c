@@ -155,6 +155,8 @@ struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 
 			theme_p -> ht_fd_resource_authors_key_s = NULL;
 
+			theme_p -> ht_fd_resource_data_package_icon_s = NULL;
+
 		}
 
 	return theme_p;
@@ -212,11 +214,55 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 							int row_index = 0;
 							collEnt_t coll_entry;
 
-							if (theme_p -> ht_show_fd_data_packages_flag)
+							/*
+							 * Add the datapackage.json entry to the listing?
+							 */
+							if (theme_p -> ht_show_fd_data_packages_flag > 0)
 								{
-									status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<tr class=\"odd\"><td class=\"icon\"><img src=\"/eirods_dav_files/images/file\" alt=\"Frictionless Data Data Package\" /></td>"
-																							 "<td class=\"name\"><a href=\"datapackage.json\">datapackage.json</a></td><td class=\"size\"></td><td class=\"time\"></td><td class=\"checksum\">"
-																							 "</td><td class=\"metatable\"></td></tr>");
+									status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<tr class=\"odd\">");
+									const char *icon_s = theme_p -> ht_fd_resource_data_package_icon_s;
+
+									if (!icon_s)
+										{
+											icon_s = GetIRodsObjectIconForExtension ("json", theme_p);
+										}
+
+									if (icon_s)
+										{
+											status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<td class=\"icon\"><img src=\"%s\" alt=\"Frictionless Data Data Package\" /></td>", icon_s);
+										}
+									else
+										{
+											status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<td class=\"icon\"></td>");
+										}
+
+
+									if (IsColumnDisplayed (theme_p -> ht_name_heading_s))
+										{
+											status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<td class=\"name\"><a href=\"./datapackage.json\">datapackage.json</a></td>");
+										}
+
+									if (IsColumnDisplayed (theme_p -> ht_size_heading_s))
+										{
+											status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<td class=\"size\"></td>");
+										}
+
+
+									if (IsColumnDisplayed (theme_p -> ht_date_heading_s))
+										{
+											status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<td class=\"time\"></td>");
+										}
+
+									if (IsColumnDisplayed (theme_p -> ht_checksum_heading_s))
+										{
+											status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<td class=\"checksum\"></td>");
+										}
+
+										if (theme_p -> ht_show_metadata_flag != MD_NONE)
+										{
+											status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<td class=\"metatable empty\"></td>");
+										}
+
 									++ row_index;
 								}
 
@@ -231,7 +277,7 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 										{
 											IRodsObject irods_obj;
 
-											if ((coll_entry.objType == DATA_OBJ_T) && (theme_p -> ht_show_checksums_flag))
+											if ((coll_entry.objType == DATA_OBJ_T) && (theme_p -> ht_show_checksums_flag > 0))
 												{
 													size_t l = coll_entry.chksum ? strlen (coll_entry.chksum) : 0;
 
@@ -813,7 +859,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 			return apr_status;
 		}
 
-	if (conf_p -> theme_p -> ht_show_resource_flag)
+	if (conf_p -> theme_p -> ht_show_resource_flag > 0)
 		{
 			apr_status = PrintBasicStringToBucketBrigade ("<th class=\"resource\">Resource</th>", bucket_brigade_p, req_p, __FILE__, __LINE__);
 		}
@@ -834,7 +880,7 @@ apr_status_t PrintAllHTMLBeforeListing (struct dav_resource_private *davrods_res
 			return apr_status;
 		}
 
-	if (conf_p -> theme_p -> ht_show_checksums_flag)
+	if (conf_p -> theme_p -> ht_show_checksums_flag > 0)
 		{
 			if ((apr_status = PrintTableHeader (theme_p -> ht_checksum_heading_s, S_DEFAULT_CHECKSUM_HEADING_S, S_CHECKSUM_CLASS_S, bucket_brigade_p) != APR_SUCCESS))
 				{
@@ -1044,7 +1090,7 @@ apr_status_t PrintItem (struct HtmlTheme *theme_p, const IRodsObject *irods_obj_
 		}
 
 
-	if (theme_p -> ht_show_resource_flag)
+	if (theme_p -> ht_show_resource_flag > 0)
 		{
 			apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"resource\">%s</td>", (irods_obj_p -> io_resource_s) ? ap_escape_html (pool_p, irods_obj_p -> io_resource_s) : "");
 		}
@@ -1234,9 +1280,13 @@ const char *SetShowThemedListings (cmd_parms *cmd_p, void *config_p, const char 
 {
 	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-	if (!strcasecmp (arg_p, "true"))
+	if (strcasecmp (arg_p, "true") == 0)
 		{
 			conf_p -> themed_listings = 1;
+		}
+	else if (strcasecmp (arg_p, "false") == 0)
+		{
+			conf_p -> themed_listings = -1;
 		}
 
 	return NULL;
@@ -1247,9 +1297,13 @@ const char *SetShowResources (cmd_parms *cmd_p, void *config_p, const char *arg_
 {
 	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-	if (!strcasecmp (arg_p, "true"))
+	if (strcasecmp (arg_p, "true") == 0)
 		{
 			conf_p -> theme_p -> ht_show_resource_flag = 1;
+		}
+	else if (strcasecmp (arg_p, "false") == 0)
+		{
+			conf_p -> theme_p -> ht_show_resource_flag = -1;
 		}
 
 	return NULL;
@@ -1302,9 +1356,13 @@ const char *SetMetadataIsEditable (cmd_parms *cmd_p, void *config_p, const char 
 {
 	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-	if (!strcasecmp (arg_p, "true"))
+	if (strcasecmp (arg_p, "true") == 0)
 		{
 			conf_p -> theme_p -> ht_metadata_editable_flag = 1;
+		}
+	else if (strcasecmp (arg_p, "false") == 0)
+		{
+			conf_p -> theme_p -> ht_metadata_editable_flag = -1;
 		}
 
 	return NULL;
@@ -1319,6 +1377,10 @@ const char *SetShowIds (cmd_parms *cmd_p, void *config_p, const char *arg_p)
 	if (!strcasecmp (arg_p, "true"))
 		{
 			conf_p -> theme_p -> ht_show_ids_flag = 1;
+		}
+	else if (strcasecmp (arg_p, "false") == 0)
+		{
+			conf_p -> theme_p -> ht_show_ids_flag = -1;
 		}
 
 	return NULL;
@@ -1515,7 +1577,7 @@ const char *SetShowMetadataSearchForm (cmd_parms *cmd_p, void *config_p, const c
 		}
 	else if (strcasecmp (arg_p, "false") == 0)
 		{
-			conf_p -> theme_p -> ht_add_search_form_flag = 0;
+			conf_p -> theme_p -> ht_add_search_form_flag = -1;
 		}
 
 	return NULL;
@@ -1532,7 +1594,7 @@ const char *SetShowMetadataDownloadLinks (cmd_parms *cmd_p, void *config_p, cons
 		}
 	else if (strcasecmp (arg_p, "false") == 0)
 		{
-			conf_p -> theme_p -> ht_show_download_metadata_links_flag = 0;
+			conf_p -> theme_p -> ht_show_download_metadata_links_flag = -1;
 		}
 
 	return NULL;
@@ -1739,6 +1801,7 @@ void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p
 
 	DAVRODS_PROP_MERGE (theme_p -> ht_fd_resource_authors_key_s);
 
+	DAVRODS_PROP_MERGE (theme_p -> ht_fd_resource_data_package_icon_s);
 
 
 	conf_p -> theme_p -> ht_icons_map_p = MergeAPRTables (parent_p -> theme_p -> ht_icons_map_p, child_p -> theme_p -> ht_icons_map_p, pool_p);
@@ -1836,7 +1899,7 @@ static apr_status_t PrintUserSection (const char *user_s, const char *escaped_zo
 	const struct HtmlTheme * const theme_p = conf_p -> theme_p;
 
 
-	if (theme_p -> ht_add_search_form_flag)
+	if (theme_p -> ht_add_search_form_flag > 0)
 		{
 			status = apr_brigade_printf (bb_p, NULL, NULL,
 																	 "<form action=\"%s%s\" class=\"search_form\" id=\"search_form\">\n<fieldset><legend>Search:</legend>\n<label for=\"search_key\">Attribute:</label><input name=\"key\" type=\"text\" id=\"search_key\">\n", davrods_path_s, REST_METADATA_SEARCH_S);
@@ -1942,7 +2005,7 @@ const char *SetShowChecksum (cmd_parms *cmd_p, void *config_p, const char *arg_p
 		}
 	else if (strcasecmp (arg_p, "false") == 0)
 		{
-			conf_p -> theme_p -> ht_show_checksums_flag = 0;
+			conf_p -> theme_p -> ht_show_checksums_flag = -1;
 		}
 
 	return NULL;
@@ -1961,7 +2024,7 @@ const char *SetShowFDDataPackages (cmd_parms *cmd_p, void *config_p, const char 
 		}
 	else if (strcasecmp (arg_p, "false") == 0)
 		{
-			conf_p -> theme_p -> ht_show_fd_data_packages_flag = 0;
+			conf_p -> theme_p -> ht_show_fd_data_packages_flag = -1;
 		}
 
 	return NULL;
@@ -2044,3 +2107,12 @@ const char *SetFDAuthorsKey (cmd_parms *cmd_p, void *config_p, const char *arg_p
 	return NULL;
 }
 
+
+const char *SetFDDataPackageImage (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
+
+	conf_p -> theme_p -> ht_fd_resource_data_package_icon_s = arg_p;
+
+	return NULL;
+}

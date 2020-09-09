@@ -661,6 +661,35 @@ Parameters
 }
 
 
+const char *GetIRodsObjectIconForExtension (const char *extension_s, const struct HtmlTheme * const theme_p)
+{
+	const char *icon_s = apr_table_get (theme_p -> ht_icons_map_p, extension_s);
+
+	return icon_s;
+}
+
+
+const char *GetDefaultIconForObjectType (objType_t obj_type, const struct HtmlTheme * const theme_p)
+{
+	const char *icon_s = NULL;
+
+	switch (obj_type)
+		{
+			case DATA_OBJ_T:
+				icon_s = theme_p -> ht_object_icon_s;
+				break;
+
+			case COLL_OBJ_T:
+				icon_s = theme_p -> ht_collection_icon_s;
+				break;
+
+			default:
+				break;
+		}
+
+	return icon_s;
+}
+
 
 const char *GetIRodsObjectIcon (const IRodsObject *irods_obj_p, const struct HtmlTheme * const theme_p)
 {
@@ -686,25 +715,13 @@ const char *GetIRodsObjectIcon (const IRodsObject *irods_obj_p, const struct Htm
 
 			if (key_s)
 				{
-					icon_s = apr_table_get (theme_p -> ht_icons_map_p, key_s);
+					icon_s = GetIRodsObjectIconForExtension (key_s, theme_p);
 				}
 		}
 
 	if (!icon_s)
 		{
-			switch (irods_obj_p -> io_obj_type)
-				{
-					case DATA_OBJ_T:
-						icon_s = theme_p -> ht_object_icon_s;
-						break;
-
-					case COLL_OBJ_T:
-						icon_s = theme_p -> ht_collection_icon_s;
-						break;
-
-					default:
-						break;
-				}
+			icon_s = GetDefaultIconForObjectType (irods_obj_p -> io_obj_type, theme_p);
 		}
 
 	return icon_s;
@@ -873,7 +890,7 @@ apr_status_t GetAndPrintMetadataForIRodsObject (const IRodsObject *irods_obj_p, 
 			if (!apr_is_empty_array (metadata_array_p))
 				{
 
-					if (theme_p -> ht_show_download_metadata_links_flag)
+					if (theme_p -> ht_show_download_metadata_links_flag > 0)
 						{
 							status = PrintDownloadMetadataObjectAsLinks (theme_p, bb_p, api_root_url_s, irods_obj_p);
 						}
@@ -932,7 +949,7 @@ apr_status_t GetAndPrintMetadataRestLinkForIRodsObject (const IRodsObject *irods
 
 			if ((status = apr_brigade_printf (bb_p, NULL, NULL, "<td class=\"metatable\"><div class=\"metadata_toolbar\"><a class=\"get_metadata\"></a>", obj_type)) == APR_SUCCESS)
 				{
-					if (theme_p -> ht_show_download_metadata_links_flag)
+					if (theme_p -> ht_show_download_metadata_links_flag > 0)
 						{
 							status = PrintDownloadMetadataObjectAsLinks (theme_p, bb_p, apt_root_link_s, irods_obj_p);
 						}

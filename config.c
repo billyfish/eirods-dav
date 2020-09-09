@@ -682,5 +682,10 @@ const command_rec davrods_directives[] = {
 				NULL, ACCESS_CONF, "Use this key to look up the description value for a Frictionless Data Package resource in the iMeta Catalogue"
 		),
 
+		AP_INIT_TAKE1(
+				DAVRODS_CONFIG_PREFIX "FDDataPackageImage", SetFDDataPackageImage,
+				NULL, ACCESS_CONF, "Image for the Frictionless Data Packages"
+		),
+
 		{ NULL }
 };

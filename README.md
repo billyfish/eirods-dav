@@ -576,7 +576,7 @@ would be
 
   `/eirods-dav/api/general/list?ids=1.123%202.234`
 
-### Views
+#### Views
 
 As the REST API returns its results in JSON and other delimited formats, it's also useful to display the information 
 from these API functions in the web page so Eirods-dav has ***views*** for some of these functions.  
@@ -605,6 +605,43 @@ would be
 
   `/eirods-dav/views/list?ids=1.123%202.234`
 
+
+#### Configuring the Frictionless Data support
+
+[Frictionless Data](https://frictionlessdata.io)
+
+
+ * **DavRodsFrictionlessData**: 
+If ```DavRodsFrictionlessData``` is set to true, 
+
+ * **DavRodsFDResourceNameKey**: projectName
+
+ * **DavRodsFDResourceLicenseNameKey**: uuid
+
+ * **DavRodsFDResourceLicenseUrlKey**: projectName
+
+ * **DavRodsFDResourceIdKey**: uuid
+
+ * **DavRodsFDResourceTitleKey**: projectName
+
+ * **DavRodsFDResourceAuthorsKey**: uuid
+
+ * **DavRodsFDResourceDescriptionKey**: projectName
+
+ * **DavRodsFDDataPackageImage**: 
+
+ ```
+ # Generate Data Packages for all child directories directly below /data
+ <LocationMatch "/data/[^\/]+">
+	 DavRodsFrictionlessData true
+ </LocationMatch>
+
+ # Since Data Packages are generated for the child directories configured in
+ # the line above, exclude all directories further down
+ <LocationMatch "/data/[^\/]+/[^\/]+/">
+	 DavRodsFrictionlessData false
+ </LocationMatch>
+```
 
 ### The iRODS environment file ###
 

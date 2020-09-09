@@ -49,11 +49,11 @@ static json_t *GetResources (const dav_resource *resource_p);
 
 static bool AddResources (json_t *fd_p, const dav_resource *resource_p);
 
-static bool AddResource (collEnt_t * const entry_p, json_t *resources_p, rcComm_t *connection_p, apr_pool_t *pool_p);
+static bool AddResource (collEnt_t * const entry_p, json_t *resources_p, rcComm_t *connection_p, const char *data_package_root_path_s, apr_pool_t *pool_p);
 
-static json_t *PopulateResourceFromDataObject (collEnt_t * const entry_p,  rcComm_t *connection_p, apr_pool_t *pool_p);
+static json_t *PopulateResourceFromDataObject (collEnt_t * const entry_p,  rcComm_t *connection_p, const char *data_package_root_path_s, apr_pool_t *pool_p);
 
-static json_t *PopulateResourceFromCollection (collEnt_t * const entry_p,  rcComm_t *connection_p, apr_pool_t *pool_p);
+static json_t *PopulateResourceFromCollection (collEnt_t * const entry_p,  rcComm_t *connection_p, const char *data_package_root_path_s, apr_pool_t *pool_p);
 
 static bool AddLicense (json_t *resource_p, const char *name_s, const char *url_s, apr_pool_t *pool_p);
 
@@ -62,6 +62,8 @@ static bool AddAuthors (json_t *resource_p, const char *authors_s, apr_pool_t *p
 static char *ConvertFDCompliantName (char *name_s);
 
 static apr_status_t BuildDataPackage (json_t *data_package_p, const apr_array_header_t *metadata_list_p, const char *collection_name_s, const struct HtmlTheme *theme_p, apr_pool_t *pool_p);
+
+static const char *GetRelativePath (const char *data_package_root_path_s, const char *collection_s, apr_pool_t *pool_p);
 
 
 /*
@@ -76,6 +78,8 @@ dav_error *DeliverFDDataPackage (const dav_resource *resource_p, ap_filter_t *ou
 	apr_pool_t *pool_p = resource_p -> pool;
 	request_rec *req_p = resource_p -> info -> r;
 	apr_bucket_brigade *bb_p = apr_brigade_create (pool_p, output_p -> c -> bucket_alloc);
+
+	ap_set_content_type (req_p, CONTENT_TYPE_JSON_S);
 
 	if (bb_p)
 		{
@@ -125,7 +129,6 @@ dav_error *DeliverFDDataPackage (const dav_resource *resource_p, ap_filter_t *ou
 																{
 																	if ((apr_status = ap_pass_brigade (output_p, bb_p)) == APR_SUCCESS)
 																		{
-
 																		}
 																}
 
@@ -176,7 +179,7 @@ int IsFDDataPackageRequest (const char *request_uri_s, const davrods_dir_conf_t 
 {
 	int fd_data_package_flag = 0;
 
-	if ((conf_p -> theme_p) && (conf_p -> theme_p -> ht_show_fd_data_packages_flag))
+	if ((conf_p -> theme_p) && (conf_p -> theme_p -> ht_show_fd_data_packages_flag > 0))
 		{
 			/*
 			 * Check if the last part of the filename matches "/datapackage.json"
@@ -499,7 +502,7 @@ static json_t *GetResources (const dav_resource *resource_p)
 					memset (&collection_handle, 0, sizeof (collHandle_t));
 
 					// Open the collection
-					status = rclOpenCollection (davrods_resource_p -> rods_conn, davrods_resource_p -> rods_path, LONG_METADATA_FG, &collection_handle);
+					status = rclOpenCollection (davrods_resource_p -> rods_conn, davrods_resource_p -> rods_path, RECUR_QUERY_FG | LONG_METADATA_FG, &collection_handle);
 
 					if (status >= 0)
 						{
@@ -515,13 +518,21 @@ static json_t *GetResources (const dav_resource *resource_p)
 									if (status >= 0)
 										{
 											/*
-											 * Add resource
+											 * FD Data Packages don't appear to add the directory entries to the resources part.
 											 */
-
-											if (!AddResource (&coll_entry, resources_json_p, davrods_resource_p -> rods_conn, resource_p -> pool))
+											if (coll_entry.objType != COLL_OBJ_T) // || (strcmp (davrods_resource_p -> rods_path, coll_entry.collName) != 0))
 												{
-													status = -1;
-												}
+													/*
+													 * Add resource
+													 */
+
+													if (!AddResource (&coll_entry, resources_json_p, davrods_resource_p -> rods_conn, davrods_resource_p -> rods_path, resource_p -> pool))
+														{
+															status = -1;
+														}
+
+												}		/* if (strcmp (davrods_resource_p -> rods_path, coll_entry.collName) != 0) */
+
 										}		/* if (status >= 0) */
 									else if (status == CAT_NO_ROWS_FOUND)
 										{
@@ -555,17 +566,17 @@ static json_t *GetResources (const dav_resource *resource_p)
 }
 
 
-static bool AddResource (collEnt_t * const entry_p, json_t *resources_p, rcComm_t *connection_p, apr_pool_t *pool_p)
+static bool AddResource (collEnt_t * const entry_p, json_t *resources_p, rcComm_t *connection_p, const char *data_package_root_path_s, apr_pool_t *pool_p)
 {
 	json_t *resource_p = NULL;
 
 	if (entry_p -> objType == COLL_OBJ_T)
 		{
-			resource_p = PopulateResourceFromCollection (entry_p, connection_p, pool_p);
+			resource_p = PopulateResourceFromCollection (entry_p, connection_p, data_package_root_path_s, pool_p);
 		}
 	else if (entry_p -> objType == DATA_OBJ_T)
 		{
-			resource_p = PopulateResourceFromDataObject (entry_p, connection_p, pool_p);
+			resource_p = PopulateResourceFromDataObject (entry_p, connection_p, data_package_root_path_s, pool_p);
 		}
 
 	if (resource_p)
@@ -585,7 +596,7 @@ static bool AddResource (collEnt_t * const entry_p, json_t *resources_p, rcComm_
 }
 
 
-static json_t *PopulateResourceFromDataObject (collEnt_t * const entry_p,  rcComm_t *connection_p, apr_pool_t *pool_p)
+static json_t *PopulateResourceFromDataObject (collEnt_t * const entry_p, rcComm_t *connection_p, const char *data_package_root_path_s, apr_pool_t *pool_p)
 {
 	json_t *resource_p = json_object ();
 
@@ -593,7 +604,18 @@ static json_t *PopulateResourceFromDataObject (collEnt_t * const entry_p,  rcCom
 		{
 			if (json_object_set_new (resource_p, "bytes", json_integer (entry_p -> dataSize)) == 0)
 				{
-					char *name_s = entry_p -> dataName;
+					const char *relative_collection_s = GetRelativePath (data_package_root_path_s, entry_p -> collName, pool_p);
+					char *name_s = NULL;
+
+					if (strcmp (relative_collection_s, entry_p -> collName) == 0)
+						{
+							name_s = entry_p -> dataName;
+						}
+					else
+						{
+							name_s = apr_pstrcat (pool_p, relative_collection_s, "/",  entry_p -> dataName, NULL);
+						}
+
 
 					if (SetJSONString (resource_p, "path", name_s, pool_p))
 						{
@@ -640,21 +662,68 @@ static json_t *PopulateResourceFromDataObject (collEnt_t * const entry_p,  rcCom
 }
 
 
-static json_t *PopulateResourceFromCollection (collEnt_t * const entry_p,  rcComm_t *connection_p, apr_pool_t *pool_p)
+/**
+ * Get the relative path for a collection
+ *
+ * @param data_package_root_path_s The iRODS root path that we are using
+ * @param collection_s The collection path
+ * @return The relative path for the given collection.
+ */
+static const char *GetRelativePath (const char *data_package_root_path_s, const char *collection_s, apr_pool_t *pool_p)
+{
+	const char *relative_path_s = NULL;
+
+	if (strcmp (data_package_root_path_s, collection_s) != 0)
+		{
+			const size_t data_package_root_path_length = strlen (data_package_root_path_s);
+
+			if (strncmp (data_package_root_path_s, collection_s, data_package_root_path_length) == 0)
+				{
+					relative_path_s = collection_s + data_package_root_path_length;
+
+					/*
+					 * move past any trailing slash for the trailing slash
+					 */
+					if (*relative_path_s == '/')
+						{
+							++ relative_path_s;
+						}
+				}
+			else
+				{
+					ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to determine subcollection relative path for \"%s\" and \"%s\"", data_package_root_path_s, collection_s);
+
+				}
+
+		}		/* if (strcmp (data_package_root_path_s, collection_s) != 0) */
+	else
+		{
+			relative_path_s = data_package_root_path_s;
+		}
+
+	return relative_path_s;
+}
+
+
+static json_t *PopulateResourceFromCollection (collEnt_t * const entry_p, rcComm_t *connection_p, const char *data_package_root_path_s, apr_pool_t *pool_p)
 {
 	json_t *resource_p = json_object ();
 
 	if (resource_p)
 		{
-			char *name_s = strrchr (entry_p -> collName, '/');
+			//char *name_s = entry_p -> collName;
+			const char *name_s = GetRelativePath (data_package_root_path_s, entry_p -> collName, pool_p);
 
 			if (name_s)
 				{
-					++ name_s;
-
-					if (*name_s == '\0')
+					if (*name_s == '/')
 						{
-							name_s = NULL;
+							++ name_s;
+
+							if (*name_s == '\0')
+								{
+									name_s = NULL;
+								}
 						}
 				}
 
