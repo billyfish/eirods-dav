@@ -636,40 +636,40 @@ If ```DavRodsFrictionlessData``` is set to true, then the Frictionless Data supp
  * **DavRodsFDResourceNameKey**: This is the key to use when querying iMeta catalog for the value to use for the *name* field in the data package. If thie configuration variable is not set, then the default key name of *name* will be used to search in iMeta. For example, to get the value associated with the metadata key *project\_name*, you would need the following configuration setting:
  
  ```
- DavRodsFDResourceLicenseUrlKey project\_name
+ DavRodsFDResourceLicenseUrlKey project_name
  ```
 
  * **DavRodsFDResourceLicenseNameKey**: This is the key to use when querying iMeta catalog for the value to use for the *license* field in the data package. If thie configuration variable is not set, then the default key name of *license* will be used to search in iMeta. For example, to get the value associated with the metadata key *project\_license\_name*, you would need the following configuration setting:
 
  
  ```
- DavRodsFDResourceLicenseUrlKey project\_license\_name
+ DavRodsFDResourceLicenseUrlKey project_license_name
  ```
 
  * **DavRodsFDResourceLicenseUrlKey**: If this is set, then this key will be queried in the iMeta catalog for this collection. If it is not set, then the default key name of *license_url* will be used. For example, to get the value associated with the metadata key *project\_license\_web*, you would need the following configuration setting:
  
  ```
- DavRodsFDResourceLicenseUrlKey project\_license\_web
+ DavRodsFDResourceLicenseUrlKey project_license_web
  ```
 
  * **DavRodsFDResourceTitleKey**: This is the key to use when querying iMeta catalog for the value to use for the *title* field in the data package. If thie configuration variable is not set, then the default key name of *title* will be used to search in iMeta. For example, to get the value associated with the metadata key *project\_title*, you would need the following configuration setting:
 
  
  ```
- DavRodsFDResourceDescriptionKey project\_title
+ DavRodsFDResourceDescriptionKey project_title
  ```
 
  * **DavRodsFDResourceAuthorsKey**: If this is set, then this key will be queried in the iMeta catalog for this collection. If it is not set, then the default key name of *authors* will be used. For example, to get the value associated with the metadata key *project\_authors*, you would need the following configuration setting:
  
  ```
- DavRodsFDResourceDescriptionKey project\_authors
+ DavRodsFDResourceDescriptionKey project_authors
  ```
 
  * **DavRodsFDResourceDescriptionKey**: This is the key to use when querying iMeta catalog for the value to use for the *description* field in the data package. If thie configuration variable is not set, then the default key name of *description* will be used to search in iMeta. For example, to get the value associated with the metadata key *project\_description*, you would need the following configuration setting:
 
  
  ```
- DavRodsFDResourceDescriptionKey project\_description
+ DavRodsFDResourceDescriptionKey project_description
  ```
 
  * **DavRodsFDDataPackageImage**: You can use this directive to specify the image used for the data package.
