@@ -594,7 +594,7 @@ use the following directive:
 Then the various views endpoints would all begin with */views/* *e.g.* 
 */views/search* for the search view.
 
-Currently there are the following viewss:
+Currently there are the following views:
 
  * **search**: This generates a web page based upon the results of the REST metadata search function. It takes two parameters: *key*, which is the attribute to search for and, *value*, which specifies the metadata value. There is a third optional parameter, *units* for specifying the units that the metadata attribute-value pair must also have. So to search for all of the data objects and collections that have an attribute called *volume* with a value of *11*,  the URL to call would be  
 
@@ -606,13 +606,34 @@ would be
   `/eirods-dav/views/list?ids=1.123%202.234`
 
 
-#### Configuring the Frictionless Data support
+### Frictionless Data support
 
-[Frictionless Data](https://frictionlessdata.io)
+[Frictionless Data](https://frictionlessdata.io) is an open source toolkit and set of standards to make data integration as simple as possible. The standards cover datasets, files and tabular data and over time the goal is to cover all of these. For now though, we are starting with datasets which are covered by the [Data Package](https://specs.frictionlessdata.io/data-package/) format. So for each configured iRODS collection, a virtual Data Package will be created and appear in the listings as a normal file 
+available for download.
 
+To populate the various parts of the data package specification for a given collection, 
+eirods-dav will query the collection's iRODS metadata. This is for values such as the 
+license, authors, title, description, *etc.* By default, the metadata keys used are:
+
+ | Data Package field | Default iRODS metadata key |
+ |--------------------|----------------------------|
+ | license\_name      | license                    |
+ | license\_url       | license_url                |
+ | description        | description                |
+ | name               | name                       |
+ | authors            | authors                    |
+ | title              | title                      |
+ | id                 | id                         |
+ 
+	
+
+#### Configuring the Frictionless Data functionality
 
  * **DavRodsFrictionlessData**: 
-If ```DavRodsFrictionlessData``` is set to true, 
+If ```DavRodsFrictionlessData``` is set to true, then the Frictionless Data support is enabled.
+
+
+
 
  * **DavRodsFDResourceNameKey**: projectName
 
@@ -626,7 +647,11 @@ If ```DavRodsFrictionlessData``` is set to true,
 
  * **DavRodsFDResourceAuthorsKey**: uuid
 
- * **DavRodsFDResourceDescriptionKey**: projectName
+ * **DavRodsFDResourceDescriptionKey**: If this is set, then this key will be queried in the iMeta catalog for this collection. If it is not set, then the default key name of *description* will be used. For example, to get the value associated with the metadata key *project\_info*, you would need the following configuration setting:
+ 
+ ```
+ DavRodsFDResourceDescriptionKey project_info
+ ```
 
  * **DavRodsFDDataPackageImage**: 
 

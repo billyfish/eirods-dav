@@ -76,8 +76,6 @@ void PrintBasicGenQueryOut( genQueryOut_t *genQueryOut);
 
 static int CheckQueryResults (const genQueryOut_t * const results_p, const int min_rows, const int max_rows, const int num_attrs);
 
-static int CompareIrodsMetadata (const void *v0_p, const void *v1_p);
-
 static char *GetMetadataSqlClause (genQueryOut_t *meta_id_results_p, apr_pool_t *pool_p);
 
 static int SortStringPointers (const void  *v0_p, const void *v1_p);
@@ -98,6 +96,11 @@ static apr_status_t PrintDownloadMetadataObjectLink (const IRodsObject *irods_ob
 
 static objType_t GetObjTypeForIdString (const char * const id_s);
 
+static bool GetMetadata (rcComm_t *irods_connection_p, const objType_t object_type, const char *id_s, const char *coll_name_s, const char *zone_s, bool (*insert_fn) (IrodsMetadata *metadata_p, void *data_p, apr_pool_t *pool_p), void *data_p, apr_pool_t *pool_p);
+
+static bool AddToTable (IrodsMetadata *metadata_p, void *data_p, apr_pool_t *pool_p);
+
+static bool AddToArray (IrodsMetadata *metadata_p, void *data_p, apr_pool_t *pool_p);
 
 /*************************************/
 
@@ -105,7 +108,7 @@ static objType_t GetObjTypeForIdString (const char * const id_s);
 
 apr_array_header_t *GetMetadataForCollEntry (const dav_resource *resource_p, const collEnt_t *entry_p, const char *zone_s)
 {
-	return GetMetadata (resource_p -> info ->  rods_conn, entry_p -> objType, entry_p -> dataId, entry_p -> collName, zone_s, resource_p -> pool);
+	return GetMetadataAsArray (resource_p -> info ->  rods_conn, entry_p -> objType, entry_p -> dataId, entry_p -> collName, zone_s, resource_p -> pool);
 }
 
 
@@ -181,7 +184,50 @@ char *GetParentCollectionId (const char *child_id_s, const objType_t object_type
 	return result_s;
 }
 
-apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t object_type, const char *id_s, const char *coll_name_s, const char *zone_s, apr_pool_t *pool_p)
+
+apr_array_header_t *GetMetadataAsArray (rcComm_t *irods_connection_p, const objType_t object_type, const char *id_s, const char *coll_name_s, const char *zone_s, apr_pool_t *pool_p)
+{
+	apr_array_header_t *metadata_array_p = apr_array_make (pool_p, S_INITIAL_ARRAY_SIZE, sizeof (IrodsMetadata *));
+
+	GetMetadata (irods_connection_p, object_type, id_s, coll_name_s, zone_s, AddToArray, metadata_array_p, pool_p);
+
+	SortIRodsMetadataArray (metadata_array_p, CompareIrodsMetadata);
+
+	return metadata_array_p;
+}
+
+
+apr_table_t *GetMetadataAsTable (rcComm_t *irods_connection_p, const objType_t object_type, const char *id_s, const char *coll_name_s, const char *zone_s, apr_pool_t *pool_p)
+{
+	apr_table_t *table_p = apr_table_make (pool_p, S_INITIAL_ARRAY_SIZE);
+
+	GetMetadata (irods_connection_p, object_type, id_s, coll_name_s, zone_s, AddToTable, table_p, pool_p);
+
+	return table_p;
+}
+
+
+static bool AddToTable (IrodsMetadata *metadata_p, void *data_p, apr_pool_t *pool_p)
+{
+	apr_table_t *table_p =  (apr_table_t *) data_p;
+
+	apr_table_setn (table_p, metadata_p -> im_key_s, (const char *) metadata_p);
+
+	return true;
+}
+
+
+static bool AddToArray (IrodsMetadata *metadata_p, void *data_p, apr_pool_t *pool_p)
+{
+	apr_array_header_t *metadata_array_p =  (apr_array_header_t *) data_p;
+
+	APR_ARRAY_PUSH (metadata_array_p, IrodsMetadata *) = metadata_p;
+
+	return true;
+}
+
+
+static bool GetMetadata (rcComm_t *irods_connection_p, const objType_t object_type, const char *id_s, const char *coll_name_s, const char *zone_s, bool (*insert_fn) (IrodsMetadata *metadata_p, void *data_p, apr_pool_t *pool_p), void *data_p, apr_pool_t *pool_p)
 {
 	apr_array_header_t *metadata_array_p = apr_array_make (pool_p, S_INITIAL_ARRAY_SIZE, sizeof (IrodsMetadata *));
 
@@ -368,7 +414,7 @@ apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t o
 
 																									if (metadata_p)
 																										{
-																											APR_ARRAY_PUSH (metadata_array_p, IrodsMetadata *) = metadata_p;
+																											insert_fn (metadata_p, data_p, pool_p);
 																										}
 
 																									key_s += metadata_query_results_p -> sqlResult [0].len;
@@ -434,8 +480,6 @@ apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t o
 				{
 					ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to get query arguments");
 				}
-
-			SortIRodsMetadataArray (metadata_array_p, CompareIrodsMetadata);
 
 		}		/* if (metadata_array_p) */
 	else
@@ -1111,7 +1155,7 @@ IRodsObjectNode *GetMatchingMetadataHits (const char * const key_s, const char *
 apr_status_t GetMetadataTableForId (char *id_s, davrods_dir_conf_t *config_p, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p, apr_bucket_brigade *bucket_brigade_p, OutputFormat format, const int editable_flag)
 {
 	apr_status_t status = APR_EGENERAL;
-	apr_array_header_t *metadata_array_p = GetMetadataForId (id_s, connection_p, req_p, pool_p);
+	apr_array_header_t *metadata_array_p = GetMetadataArrayForId (id_s, connection_p, req_p, pool_p);
 
 	if (metadata_array_p)
 		{
@@ -1154,7 +1198,7 @@ apr_status_t GetMetadataTableForId (char *id_s, davrods_dir_conf_t *config_p, rc
 
 
 
-apr_array_header_t *GetMetadataForId (char *id_s, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p)
+apr_array_header_t *GetMetadataArrayForId (char *id_s, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p)
 {
 	apr_array_header_t *metadata_array_p = NULL;
 	objType_t obj_type = UNKNOWN_OBJ_T;
@@ -1168,7 +1212,7 @@ apr_array_header_t *GetMetadataForId (char *id_s, rcComm_t *connection_p, reques
 
 			if (minor_id_s)
 				{
-					metadata_array_p = GetMetadata (connection_p, obj_type, minor_id_s, NULL, zone_s, pool_p);
+					metadata_array_p = GetMetadataAsArray (connection_p, obj_type, minor_id_s, NULL, zone_s, pool_p);
 
 					if (!metadata_array_p)
 						{
@@ -1670,7 +1714,7 @@ IrodsMetadata *AllocateIrodsMetadata (const char * const key_s, const char * con
 /*
  * Sort the metadata keys into alphabetical order
  */
-static int CompareIrodsMetadata (const void *v0_p, const void *v1_p)
+int CompareIrodsMetadata (const void *v0_p, const void *v1_p)
 {
 	int res = 0;
 	IrodsMetadata *md0_p = * ((IrodsMetadata **) v0_p);

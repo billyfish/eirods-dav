@@ -275,7 +275,7 @@ static char *ParseURIForVariables (const char *uri_s, char *current_id_s, rcComm
 															/* We have a metadata key to search for */
 															if (!metadata_array_p)
 																{
-																	metadata_array_p = GetMetadataForId (current_id_s, connection_p, req_p, pool_p);
+																	metadata_array_p = GetMetadataArrayForId (current_id_s, connection_p, req_p, pool_p);
 																}
 
 															if (metadata_array_p)

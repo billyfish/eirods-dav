@@ -520,8 +520,6 @@ const command_rec davrods_directives[] = {
         NULL, ACCESS_CONF, "Show the download metadata functionality as links rather than as a form "
     ),
 
-
-
     AP_INIT_TAKE1(
         DAVRODS_CONFIG_PREFIX "HTMLOkImage", SetOkImage,
         NULL, ACCESS_CONF, "Image for the OK button"
@@ -570,8 +568,6 @@ const command_rec davrods_directives[] = {
 				DAVRODS_CONFIG_PREFIX "ViewsPath", SetViewsPath,
 				NULL, ACCESS_CONF, "Set the location used for the html-based views. This is relative to the <Location> that davrods is hosted on."
 		),
-
-
 
 		AP_INIT_TAKE1(
 				DAVRODS_CONFIG_PREFIX "DefaultUsername", SetDefaultUsername,
@@ -641,24 +637,20 @@ const command_rec davrods_directives[] = {
 				NULL, ACCESS_CONF, "Set any html you you want between the closing body and html tags"
 		),
 
-
 		AP_INIT_TAKE1(
 				DAVRODS_CONFIG_PREFIX "FDResourceNameKey", SetFDNameKey,
 				NULL, ACCESS_CONF, "Use this key to look up the name value for a Frictionless Data Package resource in the iMeta Catalogue"
 		),
-
 
 		AP_INIT_TAKE1(
 				DAVRODS_CONFIG_PREFIX "FDResourceLicenseNameKey", SetFDLicenseNameKey,
 				NULL, ACCESS_CONF, "Use this key to look up the license name value for a Frictionless Data Package resource in the iMeta Catalogue"
 		),
 
-
 		AP_INIT_TAKE1(
 				DAVRODS_CONFIG_PREFIX "FDResourceLicenseUrlKey", SetFDLicenseUrlKey,
 				NULL, ACCESS_CONF, "Use this key to look up the licene url value for a Frictionless Data Package resource in the iMeta Catalogue"
 		),
-
 
 		AP_INIT_TAKE1(
 				DAVRODS_CONFIG_PREFIX "FDResourceTitleKey", SetFDTitleKey,
@@ -669,8 +661,6 @@ const command_rec davrods_directives[] = {
 				DAVRODS_CONFIG_PREFIX "FDResourceIdKey", SetFDIdKey,
 				NULL, ACCESS_CONF, "Use this key to look up the Id value for a Frictionless Data Package resource in the iMeta Catalogue"
 		),
-
-
 
 		AP_INIT_TAKE1(
 				DAVRODS_CONFIG_PREFIX "FDResourceAuthorsKey", SetFDAuthorsKey,

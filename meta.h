@@ -64,8 +64,6 @@ extern "C"
 
 apr_array_header_t *GetMetadataForCollEntry (const dav_resource *resource_p, const collEnt_t *entry_p, const char *zone_s);
 
-apr_array_header_t *GetMetadata (rcComm_t *irods_connection_p, const objType_t object_type, const char *id_s, const char *coll_name_s, const char *zone_s, apr_pool_t *pool_p);
-
 
 int printGenQI( genQueryInp_t *genQueryInp );
 
@@ -98,13 +96,21 @@ char *GetParentCollectionId (const char *child_id_s, const objType_t object_type
 
 apr_status_t GetMetadataTableForId (char *id_s, davrods_dir_conf_t *config_p, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p, apr_bucket_brigade *bucket_brigade_p, OutputFormat format, const int editable_flag);
 
-apr_array_header_t *GetMetadataForId (char *id_s, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p);
+apr_array_header_t *GetMetadataArrayForId (char *id_s, rcComm_t *connection_p, request_rec *req_p, apr_pool_t *pool_p);
 
 apr_status_t PrintDownloadMetadataObjectAsLinks (const struct HtmlTheme *theme_p, apr_bucket_brigade *bb_p, const char *api_root_url_s, const IRodsObject *irods_obj_p);
 
 
 char *GetCollectionId (const char *collection_s, rcComm_t *connection_p, apr_pool_t *pool_p);
 
+
+int CompareIrodsMetadata (const void *v0_p, const void *v1_p);
+
+
+
+apr_array_header_t *GetMetadataAsArray (rcComm_t *irods_connection_p, const objType_t object_type, const char *id_s, const char *coll_name_s, const char *zone_s, apr_pool_t *pool_p);
+
+apr_table_t *GetMetadataAsTable (rcComm_t *irods_connection_p, const objType_t object_type, const char *id_s, const char *coll_name_s, const char *zone_s, apr_pool_t *pool_p);
 
 
 #ifdef __cplusplus

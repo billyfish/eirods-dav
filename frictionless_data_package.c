@@ -1,18 +1,18 @@
 /*
-** Copyright 2014-2018 The Earlham Institute
-**
-** Licensed under the Apache License, Version 2.0 (the "License");
-** you may not use this file except in compliance with the License.
-** You may obtain a copy of the License at
-**
-**     http://www.apache.org/licenses/LICENSE-2.0
-**
-** Unless required by applicable law or agreed to in writing, software
-** distributed under the License is distributed on an "AS IS" BASIS,
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-** See the License for the specific language governing permissions and
-** limitations under the License.
-*/
+ ** Copyright 2014-2018 The Earlham Institute
+ **
+ ** Licensed under the Apache License, Version 2.0 (the "License");
+ ** you may not use this file except in compliance with the License.
+ ** You may obtain a copy of the License at
+ **
+ **     http://www.apache.org/licenses/LICENSE-2.0
+ **
+ ** Unless required by applicable law or agreed to in writing, software
+ ** distributed under the License is distributed on an "AS IS" BASIS,
+ ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ ** See the License for the specific language governing permissions and
+ ** limitations under the License.
+ */
 /*
  * frictionless_data_package.c
  *
@@ -28,6 +28,7 @@
 #include "theme.h"
 
 #include "httpd.h"
+#include "http_protocol.h"
 
 #include "irods/rcConnect.h"
 
@@ -61,7 +62,7 @@ static bool AddAuthors (json_t *resource_p, const char *authors_s, apr_pool_t *p
 
 static char *ConvertFDCompliantName (char *name_s);
 
-static apr_status_t BuildDataPackage (json_t *data_package_p, const apr_array_header_t *metadata_list_p, const char *collection_name_s, const struct HtmlTheme *theme_p, apr_pool_t *pool_p);
+static apr_status_t BuildDataPackage (json_t *data_package_p, const apr_table_t *metadata_list_p, const char *collection_name_s, const struct HtmlTheme *theme_p, apr_pool_t *pool_p);
 
 static const char *GetRelativePath (const char *data_package_root_path_s, const char *collection_s, apr_pool_t *pool_p);
 
@@ -91,7 +92,7 @@ dav_error *DeliverFDDataPackage (const dav_resource *resource_p, ap_filter_t *ou
 
 					if (collection_id_s)
 						{
-							apr_array_header_t *metadata_p = GetMetadata (davrods_resource_p -> rods_conn, COLL_OBJ_T, collection_id_s, NULL, davrods_resource_p -> rods_env -> rodsZone, pool_p);
+							apr_table_t *metadata_p = GetMetadataAsTable (davrods_resource_p -> rods_conn, COLL_OBJ_T, collection_id_s, NULL, davrods_resource_p -> rods_env -> rodsZone, pool_p);
 
 							if (metadata_p)
 								{
@@ -209,133 +210,115 @@ int IsFDDataPackageRequest (const char *request_uri_s, const davrods_dir_conf_t 
 }
 
 
-static apr_status_t BuildDataPackage (json_t *data_package_p, const apr_array_header_t *metadata_list_p, const char *collection_name_s, const struct HtmlTheme *theme_p, apr_pool_t *pool_p)
+static apr_status_t BuildDataPackage (json_t *data_package_p, const apr_table_t *metadata_table_p, const char *collection_name_s, const struct HtmlTheme *theme_p, apr_pool_t *pool_p)
 {
 	apr_status_t status = APR_SUCCESS;
-	const int size = metadata_list_p -> nelts;
 
-	const char *license_name_key_s = "license";
-	const char *license_name_value_s = NULL;
-
-	const char *license_url_key_s = "license_url";
-	const char *license_url_value_s = NULL;
-
-	/*
-	 * name
-	 *
-	 * A short url-usable (and preferably human-readable) name of the package. This MUST be lower-case and contain
-	 * only alphanumeric characters along with “.”, “_” or “-” characters. It will function as a unique identifier
-	 * and therefore SHOULD be unique in relation to any registry in which this package will be deposited (and
-	 * preferably globally unique).
-	 */
-	const char *name_key_s = "name";
-	char *name_value_s = NULL;
-
-	const char *description_key_s = "description";
-	char *description_value_s = NULL;
-
-	const char *authors_key_s = "authors";
-	char *authors_value_s = NULL;
-
-	const char *title_key_s = "title";
-	const char *title_value_s = NULL;
-
-	const char *id_key_s = "id";
-	const char *id_value_s = NULL;
-
-	if (theme_p)
+	if (!apr_is_empty_table (metadata_table_p))
 		{
-			if (theme_p -> ht_fd_resource_license_name_key_s)
-				{
-					license_name_key_s = theme_p -> ht_fd_resource_license_name_key_s;
-				}
+			const IrodsMetadata *metadata_p = NULL;
 
-			if (theme_p -> ht_fd_resource_license_url_key_s)
-				{
-					license_url_key_s = theme_p -> ht_fd_resource_license_url_key_s;
-				}
+			const char *license_name_key_s = "license";
+			const char *license_name_value_s = NULL;
 
-			if (theme_p -> ht_fd_resource_name_key_s)
-				{
-					name_key_s = theme_p -> ht_fd_resource_name_key_s;
-				}
-
-			if (theme_p -> ht_fd_resource_description_key_s)
-				{
-					description_key_s = theme_p -> ht_fd_resource_description_key_s;
-				}
-
-			if (theme_p -> ht_fd_resource_authors_key_s)
-				{
-					authors_key_s = theme_p -> ht_fd_resource_authors_key_s;
-				}
-
-			if (theme_p -> ht_fd_resource_title_key_s)
-				{
-					title_key_s = theme_p -> ht_fd_resource_title_key_s;
-				}
-
-			if (theme_p -> ht_fd_resource_id_key_s)
-				{
-					id_key_s = theme_p -> ht_fd_resource_id_key_s;
-				}
-		}
-
-	/*
-	 * How many keys are we looking for
-	 */
-	const size_t num_to_do = 7;
-	size_t num_done = 0;
-
-	if (size > 0)
-		{
-			int i = 0;
+			const char *license_url_key_s = "license_url";
+			const char *license_url_value_s = NULL;
 
 			/*
-			 * Collect all of the metadata
+			 * name
+			 *
+			 * A short url-usable (and preferably human-readable) name of the package. This MUST be lower-case and contain
+			 * only alphanumeric characters along with “.”, “_” or “-” characters. It will function as a unique identifier
+			 * and therefore SHOULD be unique in relation to any registry in which this package will be deposited (and
+			 * preferably globally unique).
 			 */
-			while ((i < size) && (num_done < num_to_do))
+			const char *name_key_s = "name";
+			char *name_value_s = NULL;
+
+			const char *description_key_s = "description";
+			char *description_value_s = NULL;
+
+			const char *authors_key_s = "authors";
+			char *authors_value_s = NULL;
+
+			const char *title_key_s = "title";
+			const char *title_value_s = NULL;
+
+			const char *id_key_s = "id";
+			const char *id_value_s = NULL;
+
+			if (theme_p)
 				{
-					const IrodsMetadata *metadata_p = APR_ARRAY_IDX (metadata_list_p, i, IrodsMetadata *);
-
-					if ((license_name_value_s == NULL) && (strcmp (metadata_p -> im_key_s, license_name_key_s) == 0))
+					if (theme_p -> ht_fd_resource_license_name_key_s)
 						{
-							license_name_value_s = metadata_p -> im_value_s;
-							++ num_done;
-						}
-					else if ((license_url_value_s == NULL) && (strcmp (metadata_p -> im_key_s, license_url_key_s) == 0))
-						{
-							license_url_value_s = metadata_p -> im_value_s;
-							++ num_done;
-						}
-					else if ((name_value_s == NULL) && (strcmp (metadata_p -> im_key_s, name_key_s) == 0))
-						{
-							name_value_s = metadata_p -> im_value_s;
-							++ num_done;
-						}
-					else if ((title_value_s == NULL) && (strcmp (metadata_p -> im_key_s, title_key_s) == 0))
-						{
-							title_value_s = metadata_p -> im_value_s;
-							++ num_done;
-						}
-					else if ((id_value_s == NULL) && (strcmp (metadata_p -> im_key_s, id_key_s) == 0))
-						{
-							id_value_s = metadata_p -> im_value_s;
-							++ num_done;
-						}
-					else if ((description_value_s == NULL) && (strcmp (metadata_p -> im_key_s, description_key_s) == 0))
-						{
-							description_value_s = metadata_p -> im_value_s;
-							++ num_done;
-						}
-					else if ((authors_value_s == NULL) && (strcmp (metadata_p -> im_key_s, authors_key_s) == 0))
-						{
-							authors_value_s = metadata_p -> im_value_s;
-							++ num_done;
+							license_name_key_s = theme_p -> ht_fd_resource_license_name_key_s;
 						}
 
-					++ i;
-				}		/* while ((i < size) && (num_done < num_to_do)) */
+					if (theme_p -> ht_fd_resource_license_url_key_s)
+						{
+							license_url_key_s = theme_p -> ht_fd_resource_license_url_key_s;
+						}
+
+					if (theme_p -> ht_fd_resource_name_key_s)
+						{
+							name_key_s = theme_p -> ht_fd_resource_name_key_s;
+						}
+
+					if (theme_p -> ht_fd_resource_description_key_s)
+						{
+							description_key_s = theme_p -> ht_fd_resource_description_key_s;
+						}
+
+					if (theme_p -> ht_fd_resource_authors_key_s)
+						{
+							authors_key_s = theme_p -> ht_fd_resource_authors_key_s;
+						}
+
+					if (theme_p -> ht_fd_resource_title_key_s)
+						{
+							title_key_s = theme_p -> ht_fd_resource_title_key_s;
+						}
+
+					if (theme_p -> ht_fd_resource_id_key_s)
+						{
+							id_key_s = theme_p -> ht_fd_resource_id_key_s;
+						}
+				}		/* if (theme_p) */
+
+			if ((metadata_p = (const IrodsMetadata *) apr_table_get (metadata_table_p, license_name_key_s)) != NULL)
+				{
+					license_name_value_s = metadata_p -> im_value_s;
+				}
+
+			if ((metadata_p = (const IrodsMetadata *) apr_table_get (metadata_table_p, license_url_key_s)) != NULL)
+				{
+					license_url_value_s = metadata_p -> im_value_s;
+				}
+
+			if ((metadata_p = (const IrodsMetadata *) apr_table_get (metadata_table_p, name_key_s)) != NULL)
+				{
+					name_value_s = metadata_p -> im_value_s;
+				}
+
+			if ((metadata_p = (const IrodsMetadata *) apr_table_get (metadata_table_p, title_key_s)) != NULL)
+				{
+					title_value_s = metadata_p -> im_value_s;
+				}
+
+			if ((metadata_p = (const IrodsMetadata *) apr_table_get (metadata_table_p, id_key_s)) != NULL)
+				{
+					id_value_s = metadata_p -> im_value_s;
+				}
+
+			if ((metadata_p = (const IrodsMetadata *) apr_table_get (metadata_table_p, description_key_s)) != NULL)
+				{
+					description_value_s = metadata_p -> im_value_s;
+				}
+
+			if ((metadata_p = (const IrodsMetadata *) apr_table_get (metadata_table_p, authors_key_s)) != NULL)
+				{
+					authors_value_s = metadata_p -> im_value_s;
+				}
 
 
 			if (license_name_value_s && license_url_value_s)
@@ -395,8 +378,7 @@ static apr_status_t BuildDataPackage (json_t *data_package_p, const apr_array_he
 						}
 				}
 
-
-		}		/* if (size > 0) */
+		}		/* if (!apr_is_empty_table (metadata_table_p)) */
 	else
 		{
 			ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_SUCCESS, pool_p, "No metadata results");
@@ -541,9 +523,9 @@ static json_t *GetResources (const dav_resource *resource_p)
 									else
 										{
 											ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_EGENERAL,
-																		req_p,
-																		"rcReadCollection failed for collection <%s> with error <%s>",
-																		davrods_resource_p->rods_path, get_rods_error_msg(status));
+													req_p,
+													"rcReadCollection failed for collection <%s> with error <%s>",
+													davrods_resource_p->rods_path, get_rods_error_msg(status));
 										}
 								}
 							while (status >= 0);
@@ -645,7 +627,7 @@ static json_t *PopulateResourceFromDataObject (collEnt_t * const entry_p, rcComm
 
 									if (checksum_s)
 										{
-											 SetJSONString (resource_p, "checksum", checksum_s, pool_p);
+											SetJSONString (resource_p, "checksum", checksum_s, pool_p);
 										}
 
 									return resource_p;
