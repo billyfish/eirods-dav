@@ -633,27 +633,54 @@ license, authors, title, description, *etc.* By default, the metadata keys used 
 If ```DavRodsFrictionlessData``` is set to true, then the Frictionless Data support is enabled.
 
 
-
-
- * **DavRodsFDResourceNameKey**: projectName
-
- * **DavRodsFDResourceLicenseNameKey**: uuid
-
- * **DavRodsFDResourceLicenseUrlKey**: projectName
-
- * **DavRodsFDResourceIdKey**: uuid
-
- * **DavRodsFDResourceTitleKey**: projectName
-
- * **DavRodsFDResourceAuthorsKey**: uuid
-
- * **DavRodsFDResourceDescriptionKey**: If this is set, then this key will be queried in the iMeta catalog for this collection. If it is not set, then the default key name of *description* will be used. For example, to get the value associated with the metadata key *project\_info*, you would need the following configuration setting:
+ * **DavRodsFDResourceNameKey**: This is the key to use when querying iMeta catalog for the value to use for the *name* field in the data package. If thie configuration variable is not set, then the default key name of *name* will be used to search in iMeta. For example, to get the value associated with the metadata key *project\_name*, you would need the following configuration setting:
  
  ```
- DavRodsFDResourceDescriptionKey project_info
+ DavRodsFDResourceLicenseUrlKey project\_name
  ```
 
- * **DavRodsFDDataPackageImage**: 
+ * **DavRodsFDResourceLicenseNameKey**: This is the key to use when querying iMeta catalog for the value to use for the *license* field in the data package. If thie configuration variable is not set, then the default key name of *license* will be used to search in iMeta. For example, to get the value associated with the metadata key *project\_license\_name*, you would need the following configuration setting:
+
+ 
+ ```
+ DavRodsFDResourceLicenseUrlKey project\_license\_name
+ ```
+
+ * **DavRodsFDResourceLicenseUrlKey**: If this is set, then this key will be queried in the iMeta catalog for this collection. If it is not set, then the default key name of *license_url* will be used. For example, to get the value associated with the metadata key *project\_license\_web*, you would need the following configuration setting:
+ 
+ ```
+ DavRodsFDResourceLicenseUrlKey project\_license\_web
+ ```
+
+ * **DavRodsFDResourceTitleKey**: This is the key to use when querying iMeta catalog for the value to use for the *title* field in the data package. If thie configuration variable is not set, then the default key name of *title* will be used to search in iMeta. For example, to get the value associated with the metadata key *project\_title*, you would need the following configuration setting:
+
+ 
+ ```
+ DavRodsFDResourceDescriptionKey project\_title
+ ```
+
+ * **DavRodsFDResourceAuthorsKey**: If this is set, then this key will be queried in the iMeta catalog for this collection. If it is not set, then the default key name of *authors* will be used. For example, to get the value associated with the metadata key *project\_authors*, you would need the following configuration setting:
+ 
+ ```
+ DavRodsFDResourceDescriptionKey project\_authors
+ ```
+
+ * **DavRodsFDResourceDescriptionKey**: This is the key to use when querying iMeta catalog for the value to use for the *description* field in the data package. If thie configuration variable is not set, then the default key name of *description* will be used to search in iMeta. For example, to get the value associated with the metadata key *project\_description*, you would need the following configuration setting:
+
+ 
+ ```
+ DavRodsFDResourceDescriptionKey project\_description
+ ```
+
+ * **DavRodsFDDataPackageImage**: You can use this directive to specify the image used for the data package.
+
+ ```
+DavRodsFDDataPackageImage /eirods_dav_files/images/archive
+ ```
+
+
+
+#### Apache configuration example
 
  ```
  # Generate Data Packages for all child directories directly below /data
