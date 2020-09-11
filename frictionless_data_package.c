@@ -66,6 +66,7 @@ static apr_status_t BuildDataPackage (json_t *data_package_p, const apr_table_t 
 
 static const char *GetRelativePath (const char *data_package_root_path_s, const char *collection_s, apr_pool_t *pool_p);
 
+static char *GetMetadataValue (const char *full_key_s, const apr_table_t *metadata_table_p, apr_pool_t *pool_p);
 
 /*
  * API definitions
@@ -216,8 +217,6 @@ static apr_status_t BuildDataPackage (json_t *data_package_p, const apr_table_t 
 
 	if (!apr_is_empty_table (metadata_table_p))
 		{
-			const IrodsMetadata *metadata_p = NULL;
-
 			const char *license_name_key_s = "license";
 			const char *license_name_value_s = NULL;
 
@@ -249,6 +248,9 @@ static apr_status_t BuildDataPackage (json_t *data_package_p, const apr_table_t 
 
 			if (theme_p)
 				{
+					/*
+					 * Get any key names that have been configured.
+					 */
 					if (theme_p -> ht_fd_resource_license_name_key_s)
 						{
 							license_name_key_s = theme_p -> ht_fd_resource_license_name_key_s;
@@ -285,40 +287,14 @@ static apr_status_t BuildDataPackage (json_t *data_package_p, const apr_table_t 
 						}
 				}		/* if (theme_p) */
 
-			if ((metadata_p = (const IrodsMetadata *) apr_table_get (metadata_table_p, license_name_key_s)) != NULL)
-				{
-					license_name_value_s = metadata_p -> im_value_s;
-				}
 
-			if ((metadata_p = (const IrodsMetadata *) apr_table_get (metadata_table_p, license_url_key_s)) != NULL)
-				{
-					license_url_value_s = metadata_p -> im_value_s;
-				}
-
-			if ((metadata_p = (const IrodsMetadata *) apr_table_get (metadata_table_p, name_key_s)) != NULL)
-				{
-					name_value_s = metadata_p -> im_value_s;
-				}
-
-			if ((metadata_p = (const IrodsMetadata *) apr_table_get (metadata_table_p, title_key_s)) != NULL)
-				{
-					title_value_s = metadata_p -> im_value_s;
-				}
-
-			if ((metadata_p = (const IrodsMetadata *) apr_table_get (metadata_table_p, id_key_s)) != NULL)
-				{
-					id_value_s = metadata_p -> im_value_s;
-				}
-
-			if ((metadata_p = (const IrodsMetadata *) apr_table_get (metadata_table_p, description_key_s)) != NULL)
-				{
-					description_value_s = metadata_p -> im_value_s;
-				}
-
-			if ((metadata_p = (const IrodsMetadata *) apr_table_get (metadata_table_p, authors_key_s)) != NULL)
-				{
-					authors_value_s = metadata_p -> im_value_s;
-				}
+			license_name_value_s = GetMetadataValue (license_name_key_s, metadata_table_p, pool_p);
+			license_url_value_s = GetMetadataValue (license_url_key_s, metadata_table_p, pool_p);
+			name_value_s = GetMetadataValue (name_key_s, metadata_table_p, pool_p);
+			title_value_s = GetMetadataValue (title_key_s, metadata_table_p, pool_p);
+			id_value_s = GetMetadataValue (id_key_s, metadata_table_p, pool_p);
+			description_value_s = GetMetadataValue (description_key_s, metadata_table_p, pool_p);
+			authors_value_s = GetMetadataValue (authors_key_s, metadata_table_p, pool_p);
 
 
 			if (license_name_value_s && license_url_value_s)
@@ -386,6 +362,72 @@ static apr_status_t BuildDataPackage (json_t *data_package_p, const apr_table_t 
 
 	return status;
 }
+
+
+static char *GetMetadataValue (const char *full_key_s, const apr_table_t *metadata_table_p, apr_pool_t *pool_p)
+{
+	const char *sep_s = ",";
+	char *context_s = NULL;
+	char *copied_full_key_s = apr_pstrdup (pool_p, full_key_s);
+	char *key_s = apr_strtok (copied_full_key_s, sep_s, &context_s);
+	char *value_s = NULL;
+
+	while (key_s)
+		{
+			char *next_value_s = NULL;
+
+			if (strcmp (key_s, " ") == 0)
+				{
+					next_value_s = " ";
+				}
+			else if (strcmp (key_s, ".") == 0)
+				{
+					next_value_s = ".";
+				}
+			else if (strcmp (key_s, "\\n") == 0)
+				{
+
+					next_value_s = "\n";
+				}
+			else
+				{
+					const IrodsMetadata *metadata_p = (const IrodsMetadata *) apr_table_get (metadata_table_p, key_s);
+
+					if (metadata_p)
+						{
+							next_value_s = metadata_p -> im_value_s;
+						}
+				}
+
+			if (next_value_s)
+				{
+					if (value_s)
+						{
+							char *new_value_s = apr_pstrcat (pool_p, value_s, next_value_s, NULL);
+
+							if (new_value_s)
+								{
+									value_s = new_value_s;
+								}
+							else
+								{
+
+								}
+						}		/* if (value_s) */
+					else
+						{
+							value_s = apr_pstrdup (pool_p, next_value_s);
+						}
+
+				}
+
+			key_s = apr_strtok (NULL, sep_s, &context_s);
+		}		/* while (key_s) */
+
+	return value_s;
+}
+
+
 
 
 /*
