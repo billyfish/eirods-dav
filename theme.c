@@ -2092,7 +2092,7 @@ const char *SetFDDescriptionKey (cmd_parms *cmd_p, void *config_p, const char *a
 {
 	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t*) config_p;
 
-	conf_p -> theme_p -> ht_fd_resource_title_key_s = arg_p;
+	conf_p -> theme_p -> ht_fd_resource_description_key_s = arg_p;
 
 	return NULL;
 }
