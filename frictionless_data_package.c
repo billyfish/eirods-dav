@@ -133,6 +133,9 @@ dav_error *DeliverFDDataPackage (const dav_resource *resource_p, ap_filter_t *ou
 																		}
 																}
 
+
+															CacheDataPackage (collection_s, dp_s, davrods_resource_p -> rods_conn, pool_p);
+
 															free (dp_s);
 														}
 
@@ -150,6 +153,65 @@ dav_error *DeliverFDDataPackage (const dav_resource *resource_p, ap_filter_t *ou
 		}		/* if (bb_p) */
 
 	return res_p;
+}
+
+
+static bool CacheDataPackageToDisk (const char *collection_s, const char *package_data_s, const char *output_path_s, apr_pool_t *pool_p)
+{
+	bool success_flag = false;
+
+	return success_flag;
+}
+
+
+static bool CacheDataPackageToIRODS (const char *collection_s, const char *package_data_s, rcComm_t *rods_conn_p, apr_pool_t *pool_p)
+{
+	bool success_flag = false;
+	dataObjInp_t input;
+	openedDataObjInp_t handle;
+	char *full_path_s = apr_pstrcat (pool_p, collection_s, S_DATA_PACKAGE_S, NULL);
+
+	memset (&handle, 0, sizeof (openedDataObjInp_t));
+	memset (&input, 0, sizeof (dataObjInp_t));
+
+	rstrcpy (input.objPath, full_path_s, MAX_NAME_LEN);
+
+	input.openFlags = O_WRONLY;
+	handle.l1descInx = rcDataObjOpen (rods_conn_p, &input);
+
+	if (handle.l1descInx >= 0)
+		{
+			bytesBuf_t buffer;
+			int status;
+			const int data_length = strlen (package_data_s);
+
+			bzero (&buffer, sizeof (bytesBuf_t));
+
+			buffer.len = data_length;
+			buffer.buf = package_data_s;
+
+			status = rcDataObjWrite (rods_conn_p, &handle, &buffer);
+			if (status == data_length)
+				{
+					success_flag = true;
+				}
+			else
+				{
+					ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_EGENERAL, pool_p, "Failed to write buffer for cached datapackage at \"%s\", %d bytes out of %d", full_path_s, status, data_length);
+				}
+
+			status = rcDataObjClose (rods_conn_p, &handle);
+			if (status < 0)
+				{
+					ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_EGENERAL, pool_p, "Failed to close cached datapackage at \"%s\"", full_path_s);
+				}
+		}
+	else
+		{
+			ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_EGENERAL, pool_p, "Failed to open cache datapackage at \"%s\"", full_path_s);
+		}
+
+	return success_flag;
 }
 
 
