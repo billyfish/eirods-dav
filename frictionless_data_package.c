@@ -68,6 +68,12 @@ static const char *GetRelativePath (const char *data_package_root_path_s, const 
 
 static char *GetMetadataValue (const char *full_key_s, const apr_table_t *metadata_table_p, apr_pool_t *pool_p);
 
+static bool CacheDataPackageToDisk (const char *collection_s, const char *package_data_s, const char *output_path_s, apr_pool_t *pool_p);
+
+
+static bool CacheDataPackageToIRODS (const char *collection_s, const char *package_data_s, rcComm_t *rods_conn_p, apr_pool_t *pool_p);
+
+
 /*
  * API definitions
  */
@@ -135,7 +141,7 @@ dav_error *DeliverFDDataPackage (const dav_resource *resource_p, ap_filter_t *ou
 																}
 
 
-															CacheDataPackage (collection_s, dp_s, davrods_resource_p -> rods_conn, pool_p);
+															CacheDataPackageToIRODS (collection_s, dp_s, davrods_resource_p -> rods_conn, pool_p);
 
 															free (dp_s);
 														}
