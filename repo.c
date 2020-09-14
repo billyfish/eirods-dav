@@ -1693,7 +1693,14 @@ static dav_error *dav_repo_deliver (const dav_resource *resource,
 
 			if (IsFDDataPackageRequest (resource -> uri, conf_p))
 				{
-					return DeliverFDDataPackage (resource, output);
+					if (DoesFDDataPackageExist (resource))
+						{
+							return DeliverFile (resource, output);
+						}
+					else
+						{
+							return DeliverFDDataPackage (resource, output);
+						}
 				}
 			else
 				{
@@ -1710,7 +1717,7 @@ static dav_error *dav_repo_create_collection (dav_resource *resource)
 	dav_error *err = dav_repo_get_parent_resource (resource, &parent);
 	if (err)
 		{
-			ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, resource->info->r,
 					"Getting parent resource of <%s> failed in create_collection()",
 					resource->uri);
 			return err;
@@ -1728,7 +1735,7 @@ static dav_error *dav_repo_create_collection (dav_resource *resource)
 	int status = rcCollCreate (resource->info->rods_conn, &coll_inp);
 	if (status < 0)
 		{
-			ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, resource->info->r,
 					"rcCollCreate failed: %d = %s", status, get_rods_error_msg (status));
 
 			return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0,

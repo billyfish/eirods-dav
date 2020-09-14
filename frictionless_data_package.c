@@ -74,9 +74,47 @@ static bool CacheDataPackageToDisk (const char *collection_s, const char *packag
 static bool CacheDataPackageToIRODS (const char *collection_s, const char *package_data_s, rcComm_t *rods_conn_p, apr_pool_t *pool_p);
 
 
+
 /*
  * API definitions
  */
+
+
+
+
+bool DoesFDDataPackageExist (const dav_resource *resource_p)
+{
+	struct dav_resource_private *davrods_resource_p = (struct dav_resource_private *) resource_p -> info;
+	apr_pool_t *pool_p = resource_p -> pool;
+	dataObjInp_t input;
+	rodsObjStat_t *stat_p = NULL;
+	int status;
+	bool exists_flag = false;
+
+	memset (&input, 0, sizeof (dataObjInp_t));
+
+	rstrcpy (input.objPath, davrods_resource_p -> rods_path, MAX_NAME_LEN);
+
+	status = rcObjStat (davrods_resource_p -> rods_conn, &input, &stat_p);
+
+	if (status >= 0)
+		{
+			exists_flag = (stat_p -> objSize) > 0;
+		}
+	else
+		{
+			const char *error_s = get_rods_error_msg (status);
+			ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_EGENERAL, pool_p, "Failed to stat \"%s\", error %s", davrods_resource_p -> rods_path, error_s);
+		}
+
+	if (stat_p)
+		{
+			freeRodsObjStat (stat_p);
+		}
+
+	return exists_flag;
+}
+
 
 
 dav_error *DeliverFDDataPackage (const dav_resource *resource_p, ap_filter_t *output_p)
@@ -85,6 +123,7 @@ dav_error *DeliverFDDataPackage (const dav_resource *resource_p, ap_filter_t *ou
 	struct dav_resource_private *davrods_resource_p = (struct dav_resource_private *) resource_p -> info;
 	apr_pool_t *pool_p = resource_p -> pool;
 	request_rec *req_p = resource_p -> info -> r;
+
 	apr_bucket_brigade *bb_p = apr_brigade_create (pool_p, output_p -> c -> bucket_alloc);
 
 	ap_set_content_type (req_p, CONTENT_TYPE_JSON_S);
@@ -974,3 +1013,6 @@ static char *ConvertFDCompliantName (char *name_s)
 
 	return name_s;
 }
+
+
+
