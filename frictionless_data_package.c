@@ -594,13 +594,13 @@ static bool AddResource (collEnt_t * const entry_p, json_t *resources_p, rcComm_
 {
 	json_t *resource_p = NULL;
 
-	if (entry_p -> objType == COLL_OBJ_T)
+	if (entry_p -> objType == DATA_OBJ_T)
+			{
+				resource_p = PopulateResourceFromDataObject (entry_p, connection_p, data_package_root_path_s, pool_p);
+			}
+	else if (entry_p -> objType == COLL_OBJ_T)
 		{
 			resource_p = PopulateResourceFromCollection (entry_p, connection_p, data_package_root_path_s, pool_p);
-		}
-	else if (entry_p -> objType == DATA_OBJ_T)
-		{
-			resource_p = PopulateResourceFromDataObject (entry_p, connection_p, data_package_root_path_s, pool_p);
 		}
 
 	if (resource_p)
