@@ -141,7 +141,7 @@ dav_error *DeliverFDDataPackage (const dav_resource *resource_p, ap_filter_t *ou
 																}
 
 
-															CacheDataPackageToIRODS (collection_s, dp_s, davrods_resource_p -> rods_conn, pool_p);
+															CacheDataPackageToIRODS (davrods_resource_p -> rods_path, dp_s, davrods_resource_p -> rods_conn, pool_p);
 
 															free (dp_s);
 														}
@@ -171,31 +171,33 @@ static bool CacheDataPackageToDisk (const char *collection_s, const char *packag
 }
 
 
-static bool CacheDataPackageToIRODS (const char *collection_s, const char *package_data_s, rcComm_t *rods_conn_p, apr_pool_t *pool_p)
+static bool CacheDataPackageToIRODS (const char *full_path_to_collection_s, const char *package_data_s, rcComm_t *rods_conn_p, apr_pool_t *pool_p)
 {
 	bool success_flag = false;
 	dataObjInp_t input;
 	openedDataObjInp_t handle;
-	char *full_path_s = apr_pstrcat (pool_p, collection_s, S_DATA_PACKAGE_S, NULL);
+	char *full_path_s = apr_pstrcat (pool_p, full_path_to_collection_s, "/", S_DATA_PACKAGE_S, NULL);
+	const int data_length = strlen (package_data_s);
 
 	memset (&handle, 0, sizeof (openedDataObjInp_t));
 	memset (&input, 0, sizeof (dataObjInp_t));
 
 	rstrcpy (input.objPath, full_path_s, MAX_NAME_LEN);
 
-	input.openFlags = O_WRONLY;
-	handle.l1descInx = rcDataObjOpen (rods_conn_p, &input);
+	input.createMode = 0750;
+	input.dataSize = data_length;
+	handle.l1descInx = rcDataObjCreate (rods_conn_p, &input);
 
 	if (handle.l1descInx >= 0)
 		{
 			bytesBuf_t buffer;
 			int status;
-			const int data_length = strlen (package_data_s);
 
 			bzero (&buffer, sizeof (bytesBuf_t));
 
 			buffer.len = data_length;
 			buffer.buf = package_data_s;
+			handle.len = data_length;
 
 			status = rcDataObjWrite (rods_conn_p, &handle, &buffer);
 			if (status == data_length)
@@ -204,18 +206,21 @@ static bool CacheDataPackageToIRODS (const char *collection_s, const char *packa
 				}
 			else
 				{
-					ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_EGENERAL, pool_p, "Failed to write buffer for cached datapackage at \"%s\", %d bytes out of %d", full_path_s, status, data_length);
+					const char *error_s = get_rods_error_msg (status);
+					ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_EGENERAL, pool_p, "Failed to write buffer for cached datapackage at \"%s\", %d bytes out of %d, error %s", full_path_s, status, data_length, error_s);
 				}
 
 			status = rcDataObjClose (rods_conn_p, &handle);
 			if (status < 0)
 				{
-					ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_EGENERAL, pool_p, "Failed to close cached datapackage at \"%s\"", full_path_s);
+					const char *error_s = get_rods_error_msg (status);
+					ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_EGENERAL, pool_p, "Failed to close cached datapackage at \"%s\", \"%s\"", full_path_s, error_s);
 				}
 		}
 	else
 		{
-			ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_EGENERAL, pool_p, "Failed to open cache datapackage at \"%s\"", full_path_s);
+			const char *error_s = get_rods_error_msg (handle.l1descInx);
+			ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_EGENERAL, pool_p, "Failed to open cache datapackage at \"%s\", %s\"", full_path_s, error_s);
 		}
 
 	return success_flag;
@@ -594,7 +599,7 @@ static json_t *GetResources (const dav_resource *resource_p)
 					memset (&collection_handle, 0, sizeof (collHandle_t));
 
 					// Open the collection
-					status = rclOpenCollection (davrods_resource_p -> rods_conn, davrods_resource_p -> rods_path, RECUR_QUERY_FG | LONG_METADATA_FG, &collection_handle);
+					status = rclOpenCollection (davrods_resource_p -> rods_conn, davrods_resource_p -> rods_path, RECUR_QUERY_FG, &collection_handle);
 
 					if (status >= 0)
 						{
