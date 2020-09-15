@@ -219,51 +219,58 @@ dav_error *DeliverThemedDirectory (const dav_resource *resource_p, ap_filter_t *
 							 */
 							if (theme_p -> ht_show_fd_data_packages_flag > 0)
 								{
-									status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<tr class=\"odd\">");
-									const char *icon_s = theme_p -> ht_fd_resource_data_package_icon_s;
-
-									if (!icon_s)
+									/*
+									 * Don't add it if it already exists
+									 */
+									if (!DoesFDDataPackageExist (resource_p))
 										{
-											icon_s = GetIRodsObjectIconForExtension ("json", theme_p);
+											status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<tr class=\"odd\">");
+											const char *icon_s = theme_p -> ht_fd_resource_data_package_icon_s;
+
+											if (!icon_s)
+												{
+													icon_s = GetIRodsObjectIconForExtension ("json", theme_p);
+												}
+
+											if (icon_s)
+												{
+													status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<td class=\"icon\"><img src=\"%s\" alt=\"Frictionless Data Data Package\" /></td>", icon_s);
+												}
+											else
+												{
+													status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<td class=\"icon\"></td>");
+												}
+
+											if (IsColumnDisplayed (theme_p -> ht_name_heading_s))
+												{
+													status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<td class=\"name\"><a href=\"./datapackage.json\">datapackage.json</a></td>");
+												}
+
+											if (IsColumnDisplayed (theme_p -> ht_size_heading_s))
+												{
+													status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<td class=\"size\"></td>");
+												}
+
+
+											if (IsColumnDisplayed (theme_p -> ht_date_heading_s))
+												{
+													status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<td class=\"time\"></td>");
+												}
+
+											if (IsColumnDisplayed (theme_p -> ht_checksum_heading_s))
+												{
+													status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<td class=\"checksum\"></td>");
+												}
+
+											if (theme_p -> ht_show_metadata_flag != MD_NONE)
+												{
+													status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<td class=\"metatable empty\"></td>");
+												}
+
+											++ row_index;
+
 										}
 
-									if (icon_s)
-										{
-											status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<td class=\"icon\"><img src=\"%s\" alt=\"Frictionless Data Data Package\" /></td>", icon_s);
-										}
-									else
-										{
-											status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<td class=\"icon\"></td>");
-										}
-
-
-									if (IsColumnDisplayed (theme_p -> ht_name_heading_s))
-										{
-											status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<td class=\"name\"><a href=\"./datapackage.json\">datapackage.json</a></td>");
-										}
-
-									if (IsColumnDisplayed (theme_p -> ht_size_heading_s))
-										{
-											status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<td class=\"size\"></td>");
-										}
-
-
-									if (IsColumnDisplayed (theme_p -> ht_date_heading_s))
-										{
-											status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<td class=\"time\"></td>");
-										}
-
-									if (IsColumnDisplayed (theme_p -> ht_checksum_heading_s))
-										{
-											status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<td class=\"checksum\"></td>");
-										}
-
-										if (theme_p -> ht_show_metadata_flag != MD_NONE)
-										{
-											status = apr_brigade_printf (bucket_brigade_p, NULL, NULL, "<td class=\"metatable empty\"></td>");
-										}
-
-									++ row_index;
 								}
 
 							memset (&coll_entry, 0, sizeof (collEnt_t));

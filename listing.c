@@ -27,6 +27,7 @@
 #include "meta.h"
 #include "theme.h"
 #include "rest.h"
+#include "frictionless_data_package.h"
 
 #include "apr_strings.h"
 #include "apr_time.h"
@@ -695,33 +696,49 @@ const char *GetIRodsObjectIcon (const IRodsObject *irods_obj_p, const struct Htm
 {
 	const char *icon_s = NULL;
 
-	if (theme_p -> ht_icons_map_p)
+
+	if (theme_p -> ht_show_fd_data_packages_flag > 0)
 		{
-			const char *key_s = NULL;
-
-			switch (irods_obj_p -> io_obj_type)
+			if (irods_obj_p -> io_obj_type == DATA_OBJ_T)
 				{
-					case DATA_OBJ_T:
-						key_s = strrchr (irods_obj_p -> io_data_s, '.');
-						break;
-
-					case COLL_OBJ_T:
-						key_s = get_basename (irods_obj_p -> io_collection_s);
-						break;
-
-					default:
-						break;
-				}
-
-			if (key_s)
-				{
-					icon_s = GetIRodsObjectIconForExtension (key_s, theme_p);
+					if (strcmp (irods_obj_p -> io_data_s, GetDataPackageFilename ()) == 0)
+						{
+							icon_s = theme_p -> ht_fd_resource_data_package_icon_s;
+						}
 				}
 		}
 
 	if (!icon_s)
 		{
-			icon_s = GetDefaultIconForObjectType (irods_obj_p -> io_obj_type, theme_p);
+			if (theme_p -> ht_icons_map_p)
+				{
+					const char *key_s = NULL;
+
+					switch (irods_obj_p -> io_obj_type)
+						{
+							case DATA_OBJ_T:
+								key_s = strrchr (irods_obj_p -> io_data_s, '.');
+								break;
+
+							case COLL_OBJ_T:
+								key_s = get_basename (irods_obj_p -> io_collection_s);
+								break;
+
+							default:
+								break;
+						}
+
+					if (key_s)
+						{
+							icon_s = GetIRodsObjectIconForExtension (key_s, theme_p);
+						}
+				}
+
+
+			if (!icon_s)
+				{
+					icon_s = GetDefaultIconForObjectType (irods_obj_p -> io_obj_type, theme_p);
+				}
 		}
 
 	return icon_s;

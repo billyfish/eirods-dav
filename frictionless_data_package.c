@@ -80,6 +80,10 @@ static bool CacheDataPackageToIRODS (const char *collection_s, const char *packa
  */
 
 
+const char *GetDataPackageFilename (void)
+{
+	return S_DATA_PACKAGE_S;
+}
 
 
 bool DoesFDDataPackageExist (const dav_resource *resource_p)
@@ -90,10 +94,38 @@ bool DoesFDDataPackageExist (const dav_resource *resource_p)
 	rodsObjStat_t *stat_p = NULL;
 	int status;
 	bool exists_flag = false;
+	const size_t data_package_length = strlen (S_DATA_PACKAGE_S);
+	const size_t path_length = strlen (davrods_resource_p -> rods_path);
+	const char *value_s = (davrods_resource_p -> rods_path) + path_length - data_package_length;
+	const char *full_path_s = NULL;
+
+	/*
+	 * check whether the path ends in the datapackage.json
+	 */
+	if (strcmp (value_s, S_DATA_PACKAGE_S) == 0)
+		{
+			full_path_s = davrods_resource_p -> rods_path;
+		}
+
+	/*
+	 * If the "datapackage.json" is missing at the end, add it
+	 */
+	if (!full_path_s)
+		{
+			-- value_s;
+
+			if (*value_s == '/')
+				{
+					full_path_s = apr_pstrcat (pool_p, davrods_resource_p -> rods_path, S_DATA_PACKAGE_S, NULL);
+				}
+			else
+				{
+					full_path_s = apr_pstrcat (pool_p, davrods_resource_p -> rods_path, "/", S_DATA_PACKAGE_S, NULL);
+				}
+		}
 
 	memset (&input, 0, sizeof (dataObjInp_t));
-
-	rstrcpy (input.objPath, davrods_resource_p -> rods_path, MAX_NAME_LEN);
+	rstrcpy (input.objPath, full_path_s, MAX_NAME_LEN);
 
 	status = rcObjStat (davrods_resource_p -> rods_conn, &input, &stat_p);
 

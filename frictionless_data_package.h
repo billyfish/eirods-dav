@@ -46,6 +46,9 @@ char *GetFDDataPackageRequestCollectionPath (const char *request_uri_s, apr_pool
 
 bool DoesFDDataPackageExist (const dav_resource *resource_p);
 
+const char *GetDataPackageFilename (void);
+
+
 #ifdef __cplusplus
 }
 #endif

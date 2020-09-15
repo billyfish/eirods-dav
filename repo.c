@@ -177,7 +177,7 @@ static dav_error *SetRodsPathFromResourceAndURI (dav_resource *resource, const c
 				}
 			else
 				{
-					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
+					ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_EBADPATH, resource->info->r,
 							"Assertion failure: Root dir <%s> not in URI <%s>.",
 							root_dir_s, uri_s);
 					return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0,
@@ -191,7 +191,7 @@ static dav_error *SetRodsPathFromResourceAndURI (dav_resource *resource, const c
 
 	if (strlen (prefixed_path) >= MAX_NAME_LEN)
 		{
-			ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, resource->info->r,
 					"Generated an iRODS path exceeding iRODS path length limits for URI <%s>",
 					uri_s);
 			return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0,
@@ -202,7 +202,7 @@ static dav_error *SetRodsPathFromResourceAndURI (dav_resource *resource, const c
 
 	if (status < 0)
 		{
-			ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_SUCCESS, resource->info->r,
+			ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_EBADPATH, resource->info->r,
 					"Could not translate URI <%s> to an iRODS path: %s", uri_s,
 					get_rods_error_msg (status));
 			return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0,
@@ -316,13 +316,16 @@ static dav_error *get_dav_resource_rods_info (dav_resource *resource)
 
 	if (status < 0)
 		{
-			ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_SUCCESS, r,
+			ap_log_rerror (APLOG_MARK, APLOG_DEBUG, APR_EEXIST, r,
 					"Could not stat object <%s>: %s", res_private->rods_path,
 					get_rods_error_msg (status));
 
 			if (status == USER_FILE_DOES_NOT_EXIST)
 				{
 					resource->exists = 0;
+
+					return dav_new_error (resource->pool, HTTP_INTERNAL_SERVER_ERROR, 0,
+							0, "File does not exist");
 				}
 			else
 				{
@@ -476,36 +479,41 @@ static dav_error *dav_repo_get_resource (request_rec *r, const char *root_dir,
 
 	if (!err_p)
 		{
-			int done_flag = 0;
+			err_p = get_dav_resource_rods_info (resource_p);
 
-			struct dav_resource_private *priv_p = resource_p -> info;
-
-			if (IsFDDataPackageRequest (r -> uri, priv_p -> conf))
+			/*
+			 * If it is a fd request and the file does not exist
+			 * we would get an error, so let's check for that
+			 */
+			if (err_p)
 				{
-					char *uri_s = GetFDDataPackageRequestCollectionPath (r -> uri,  r -> pool);
+					struct dav_resource_private *priv_p = resource_p -> info;
 
-					if (uri_s)
+					if (IsFDDataPackageRequest (r -> uri, priv_p -> conf))
 						{
-							err_p = SetRodsPathFromResourceAndURI (resource_p, uri_s);
+							char *uri_s = GetFDDataPackageRequestCollectionPath (r -> uri,  r -> pool);
 
-							if (!err_p)
+							if (uri_s)
 								{
-									resource_p -> exists = 1;
-									resource_p -> collection = 0;
+									err_p = SetRodsPathFromResourceAndURI (resource_p, uri_s);
+
+									if (!err_p)
+										{
+											resource_p -> exists = 1;
+											resource_p -> collection = 0;
+										}
 								}
-						}
-					else
-						{
-							err_p = dav_new_error (r -> pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0, "Invalid URL for FD Data Package");
+							else
+								{
+									err_p = dav_new_error (r -> pool, HTTP_INTERNAL_SERVER_ERROR, 0, 0, "Invalid URL for FD Data Package");
+								}
+
 						}
 
-					done_flag = 1;
 				}
 
-			if (!done_flag)
-				{
-					err_p = get_dav_resource_rods_info (resource_p);
-				}
+
+
 
 			if (!err_p)
 				{
@@ -1661,8 +1669,7 @@ static dav_error *deliver_directory (const dav_resource *resource,
 	return NULL;
 }
 
-static dav_error *dav_repo_deliver (const dav_resource *resource,
-		ap_filter_t *output)
+static dav_error *dav_repo_deliver (const dav_resource *resource, ap_filter_t *output)
 {
 	// Deliver response body for GET requests.
 
@@ -1695,6 +1702,10 @@ static dav_error *dav_repo_deliver (const dav_resource *resource,
 				{
 					if (DoesFDDataPackageExist (resource))
 						{
+							request_rec *req_p = resource -> info -> r;
+
+							ap_set_content_type (req_p, CONTENT_TYPE_JSON_S);
+
 							return DeliverFile (resource, output);
 						}
 					else
