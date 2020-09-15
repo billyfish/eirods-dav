@@ -35,7 +35,7 @@ searching and linking is available at the [Designing Future Wheat Data Portal](h
 ## Changelog
 
 ### 1.7 (15 Sep 2020)
- - Added support for [Frictionless Data](https://frictionlessdata.io) Data Packages.
+ - Added support for [Frictionless Data](https://frictionlessdata.io) Data Packages. The details are [here](#frictionless-data-support).
 
 ### 1.6 (15 Jul 2020)
  - Added ability to show the data object checksums in the listings table. See the documentation on the 
