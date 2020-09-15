@@ -680,6 +680,13 @@ If ```DavRodsFrictionlessData``` is set to true, then the Frictionless Data supp
 DavRodsFDDataPackageImage /eirods_dav_files/images/archive
  ```
 
+ * **DavRodsFDSaveDataPackages**: By default, the *datapackage.json* files are virtual and generated on the fly. Although this may be fine for smaller datasets, you may find that the time that is taken to generate these files is too long. So this configuration directive can be used to store the *datapackage.json* file within the relevant collection. This is equivalent to running the iRODS command *iput*. So you must make sure that the iRODS user configured by *DavRodsDefaultUsername* or the currently logged in user has the permissions to be able to write files to the given collection. By default, this directive is false. To enable it, set it to true.
+
+
+ ```
+DavRodsSetSaveFDDataPackages true
+ ```
+
 #### Combining multiple keys
 
 These keys can be concatenated so that multiple metadata values can be combined where necessary as a comma-separated string. For instance, if the value that you wish to use for the description is the combination of *short\_info* and *detailed\_info* metadata keys, then the configuration would be.

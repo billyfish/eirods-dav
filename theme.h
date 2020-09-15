@@ -158,6 +158,8 @@ struct HtmlTheme
 	const char *ht_fd_resource_description_key_s;
 
 	const char *ht_fd_resource_data_package_icon_s;
+
+	int ht_fd_save_datapackages_flag;
 };
 
 

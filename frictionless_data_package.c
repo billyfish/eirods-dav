@@ -151,6 +151,7 @@ bool DoesFDDataPackageExist (const dav_resource *resource_p)
 
 dav_error *DeliverFDDataPackage (const dav_resource *resource_p, ap_filter_t *output_p)
 {
+	bool success_flag = false;
 	dav_error *res_p = NULL;
 	struct dav_resource_private *davrods_resource_p = (struct dav_resource_private *) resource_p -> info;
 	apr_pool_t *pool_p = resource_p -> pool;
@@ -174,6 +175,7 @@ dav_error *DeliverFDDataPackage (const dav_resource *resource_p, ap_filter_t *ou
 
 							if (metadata_p)
 								{
+									const struct HtmlTheme *theme_p = davrods_resource_p -> conf -> theme_p;
 									apr_status_t status;
 
 									/* the local collection name */
@@ -193,7 +195,7 @@ dav_error *DeliverFDDataPackage (const dav_resource *resource_p, ap_filter_t *ou
 												}
 										}
 
-									status = BuildDataPackage (dp_p, metadata_p, collection_s, davrods_resource_p -> conf -> theme_p, pool_p);
+									status = BuildDataPackage (dp_p, metadata_p, collection_s, theme_p, pool_p);
 
 									if (status == APR_SUCCESS)
 										{
@@ -208,27 +210,71 @@ dav_error *DeliverFDDataPackage (const dav_resource *resource_p, ap_filter_t *ou
 																{
 																	if ((apr_status = ap_pass_brigade (output_p, bb_p)) == APR_SUCCESS)
 																		{
+																			success_flag = true;
+																		}
+																	else
+																		{
+																			ap_log_rerror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_EGENERAL, req_p, "ap_pass_brigade failed for \"%s\" at brigade \"%s\"", dp_s, davrods_resource_p -> rods_path);
 																		}
 																}
+															else
+																{
+																	ap_log_rerror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_EGENERAL, req_p, "Failed to write \"%s\" to brigade \"%s\"", dp_s, davrods_resource_p -> rods_path);
+																}
 
-
-															CacheDataPackageToIRODS (davrods_resource_p -> rods_path, dp_s, davrods_resource_p -> rods_conn, pool_p);
+															if (theme_p -> ht_fd_save_datapackages_flag > 0)
+																{
+																	CacheDataPackageToIRODS (davrods_resource_p -> rods_path, dp_s, davrods_resource_p -> rods_conn, pool_p);
+																}
 
 															free (dp_s);
 														}
+													else
+														{
+															ap_log_rerror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_EGENERAL, req_p, "Failed to dump JSON for \"%s\"", davrods_resource_p -> rods_path);
+														}
 
+												}		/* if (AddResources (dp_p, resource_p)) */
+											else
+												{
+													ap_log_rerror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_EGENERAL, req_p, "AddResources failed for \"%s\"", davrods_resource_p -> rods_path);
 												}
+										}
+									else
+										{
+											ap_log_rerror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_EGENERAL, req_p, "BuildDataPackage failed for \"%s\"", davrods_resource_p -> rods_path);
 										}
 
 								}		/* if (metadata_p) */
+							else
+								{
+									ap_log_rerror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_EGENERAL, req_p, "GetMetadataAsTable failed for \"%s\"", davrods_resource_p -> rods_path);
+								}
 
 						}		/* if (collection_id_s) */
+					else
+						{
+							ap_log_rerror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_EGENERAL, req_p, "GetCollectionId failed for \"%s\"", davrods_resource_p -> rods_path);
+						}
 
 					json_decref (dp_p);
 				}		/* if (dp_p) */
+			else
+				{
+					ap_log_rerror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_EGENERAL, req_p, "Failed to create output json for \"%s\"", davrods_resource_p -> rods_path);
+				}
 
 			apr_brigade_destroy (bb_p);
 		}		/* if (bb_p) */
+	else
+		{
+			ap_log_rerror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_INFO, APR_EGENERAL, req_p, "Failed to create output bucket brigade for \"%s\"", davrods_resource_p -> rods_path);
+		}
+
+	if (!success_flag)
+		{
+			res_p = dav_new_error (pool_p, HTTP_NOT_FOUND, 0, 0, "Failed to get file.");
+		}
 
 	return res_p;
 }

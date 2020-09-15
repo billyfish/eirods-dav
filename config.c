@@ -439,6 +439,11 @@ const command_rec davrods_directives[] = {
     ),
 
 
+    AP_INIT_TAKE1(
+        DAVRODS_CONFIG_PREFIX "FDSaveDataPackages", SetSaveFDDataPackages,
+        NULL, ACCESS_CONF, "Save generated Frictionless Data Packages, default is false"
+    )
+
 		AP_INIT_RAW_ARGS(
 	        DAVRODS_CONFIG_PREFIX "SelectedResources", SetShowSelectedResourcesOnly,
 	        NULL, ACCESS_CONF, "List of resources to show with each entry separated by spaces"

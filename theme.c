@@ -140,7 +140,6 @@ struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 
 			theme_p -> ht_show_fd_data_packages_flag = 0;
 
-
 			theme_p -> ht_fd_resource_name_key_s = NULL;
 
 			theme_p -> ht_fd_resource_license_name_key_s = NULL;
@@ -156,6 +155,8 @@ struct HtmlTheme *AllocateHtmlTheme (apr_pool_t *pool_p)
 			theme_p -> ht_fd_resource_authors_key_s = NULL;
 
 			theme_p -> ht_fd_resource_data_package_icon_s = NULL;
+
+			theme_p -> ht_fd_save_datapackages_flag = 0;
 
 		}
 
@@ -1810,6 +1811,7 @@ void MergeThemeConfigs (davrods_dir_conf_t *conf_p, davrods_dir_conf_t *parent_p
 
 	DAVRODS_PROP_MERGE (theme_p -> ht_fd_resource_data_package_icon_s);
 
+	DAVRODS_PROP_MERGE (theme_p -> ht_fd_save_datapackages_flag);
 
 	conf_p -> theme_p -> ht_icons_map_p = MergeAPRTables (parent_p -> theme_p -> ht_icons_map_p, child_p -> theme_p -> ht_icons_map_p, pool_p);
 
@@ -2032,6 +2034,24 @@ const char *SetShowFDDataPackages (cmd_parms *cmd_p, void *config_p, const char 
 	else if (strcasecmp (arg_p, "false") == 0)
 		{
 			conf_p -> theme_p -> ht_show_fd_data_packages_flag = -1;
+		}
+
+	return NULL;
+}
+
+
+
+const char *SetSaveFDDataPackages (cmd_parms *cmd_p, void *config_p, const char *arg_p)
+{
+	davrods_dir_conf_t *conf_p = (davrods_dir_conf_t *) config_p;
+
+	if (strcasecmp (arg_p, "true") == 0)
+		{
+			conf_p -> theme_p -> ht_fd_save_datapackages_flag = 1;
+		}
+	else if (strcasecmp (arg_p, "false") == 0)
+		{
+			conf_p -> theme_p -> ht_fd_save_datapackages_flag = -1;
 		}
 
 	return NULL;
