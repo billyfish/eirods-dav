@@ -680,6 +680,7 @@ If ```DavRodsFrictionlessData``` is set to true, then the Frictionless Data supp
 DavRodsFDDataPackageImage /eirods_dav_files/images/archive
  ```
 
+#### Combining multiple keys
 
 These keys can be concatenated so that multiple metadata values can be combined where necessary as a comma-separated string. For instance, if the value that you wish to use for the description is the combination of *short\_info* and *detailed\_info* metadata keys, then the configuration would be.
 
