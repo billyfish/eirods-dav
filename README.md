@@ -34,6 +34,9 @@ searching and linking is available at the [Designing Future Wheat Data Portal](h
 
 ## Changelog
 
+### 1.7 (15 Sep 2020)
+ - Added support for [Frictionless Data](https://frictionlessdata.io) Data Packages.
+
 ### 1.6 (15 Jul 2020)
  - Added ability to show the data object checksums in the listings table. See the documentation on the 
 **DavRodsShowChecksum** and **DavRodsChecksumHeading** directives for more information. If you are building with an existing *user.prefs* file, you will need to add the **DIR_BOOST** and **DIR_JANSSON** directives to this. See the included *example-user.prefs* file for more details.
@@ -625,7 +628,6 @@ license, authors, title, description, *etc.* By default, the metadata keys used 
  | title              | title                      |
  | id                 | id                         |
  
-	
 
 #### Configuring the Frictionless Data functionality
 
@@ -679,13 +681,34 @@ DavRodsFDDataPackageImage /eirods_dav_files/images/archive
  ```
 
 
+These keys can be concatenated so that multiple metadata values can be combined where necessary as a comma-separated string. For instance, if the value that you wish to use for the description is the combination of *short\_info* and *detailed\_info* metadata keys, then the configuration would be.
+
+ ```
+DavRodsFDResourceDescriptionKey short_info,detailed_info
+ ```
+
+As well as specifying the keys, white space or full stops can be specified in the configuration value too. With the example above, if you would like to have  a full stop and two blank lines the *short\_info* and a space and the *footnote* metadata value after the *detailed\_info*, the configuration would be
+
+ ```
+DavRodsFDResourceDescriptionKey short_info,.,\n,\n,detailed_info, ,footnote
+ ```
+
+
 
 #### Apache configuration example
 
+The Frictionless Data support can be configured to only be active at particular points in the directory hierarchy. For example, to have the data packages appear in all of the child directories of */data*, the configuration might be
+
  ```
  # Generate Data Packages for all child directories directly below /data
- <LocationMatch "/data/[^\/]+">
-	 DavRodsFrictionlessData true
+ <LocationMatch "/data/[^\/]+/">
+	DavRodsFrictionlessData true
+
+	DavRodsFDResourceTitleKey projectName
+	DavRodsFDResourceIdKey uuid
+	DavRodsFDResourceDescriptionKey projectName,.,\n,\n,description
+
+	DavRodsFDDataPackageImage /images/archive
  </LocationMatch>
 
  # Since Data Packages are generated for the child directories configured in
