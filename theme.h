@@ -312,6 +312,8 @@ const char *SetFDAuthorsKey (cmd_parms *cmd_p, void *config_p, const char *arg_p
 
 const char *SetFDDataPackageImage (cmd_parms *cmd_p, void *config_p, const char *arg_p);
 
+const char *SetSaveFDDataPackages (cmd_parms *cmd_p, void *config_p, const char *arg_p);
+
 
 #ifdef __cplusplus
 }

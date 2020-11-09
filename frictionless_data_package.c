@@ -42,6 +42,20 @@
 static const char * const S_DATA_PACKAGE_S = "datapackage.json";
 
 
+static const char * const S_TYPES_SS [] =
+{
+	"string",
+	"number",
+	"integer",
+	"boolean",
+	"object",
+	"array",
+	"null",
+	"any",
+	NULL
+};
+
+
 static const char *GetJSONString (const json_t *json_p, const char * const key_s);
 
 static bool SetJSONString (json_t *json_p, const char * const key_s, const char * const value_s, apr_pool_t *pool_p);
@@ -50,9 +64,9 @@ static json_t *GetResources (const dav_resource *resource_p);
 
 static bool AddResources (json_t *fd_p, const dav_resource *resource_p);
 
-static bool AddResource (collEnt_t * const entry_p, json_t *resources_p, rcComm_t *connection_p, const char *data_package_root_path_s, apr_pool_t *pool_p);
+static bool AddResource (collEnt_t * const entry_p, json_t *resources_p, struct dav_resource_private *davrods_resource_p, apr_pool_t *pool_p);
 
-static json_t *PopulateResourceFromDataObject (collEnt_t * const entry_p,  rcComm_t *connection_p, const char *data_package_root_path_s, apr_pool_t *pool_p);
+static json_t *PopulateResourceFromDataObject (collEnt_t * const entry_p, struct dav_resource_private *davrods_resource_p, apr_pool_t *pool_p);
 
 static json_t *PopulateResourceFromCollection (collEnt_t * const entry_p,  rcComm_t *connection_p, const char *data_package_root_path_s, apr_pool_t *pool_p);
 
@@ -70,10 +84,17 @@ static char *GetMetadataValue (const char *full_key_s, const apr_table_t *metada
 
 static bool CacheDataPackageToDisk (const char *collection_s, const char *package_data_s, const char *output_path_s, apr_pool_t *pool_p);
 
+static bool CacheDataPackageToIRODS (const char *collection_s, char *package_data_s, rcComm_t *rods_conn_p, apr_pool_t *pool_p);
 
-static bool CacheDataPackageToIRODS (const char *collection_s, const char *package_data_s, rcComm_t *rods_conn_p, apr_pool_t *pool_p);
+static bool IsTabularPackage (const char *name_s);
 
+static json_t *GetTabularSchema (struct dav_resource_private *davrods_resource_p, apr_table_t *metadata_p, apr_pool_t *pool_p);
 
+static struct	apr_array_header_t *GetColumnHeaders (struct dav_resource_private *davrods_resource_p, apr_table_t *metadata_p, apr_pool_t *pool_p);
+
+static bool AddColumn (const char *column_s, const char *type_s, json_t *fields_p, apr_pool_t *pool_p);
+
+static bool IsValidType (const char *value_s);
 
 /*
  * API definitions
@@ -206,9 +227,9 @@ dav_error *DeliverFDDataPackage (const dav_resource *resource_p, ap_filter_t *ou
 
 													if (dp_s)
 														{
-															if ((apr_status = apr_brigade_puts (bb_p, NULL, NULL, dp_s)) == APR_SUCCESS)
+															if ( (apr_status = apr_brigade_puts (bb_p, NULL, NULL, dp_s)) == APR_SUCCESS)
 																{
-																	if ((apr_status = ap_pass_brigade (output_p, bb_p)) == APR_SUCCESS)
+																	if ( (apr_status = ap_pass_brigade (output_p, bb_p)) == APR_SUCCESS)
 																		{
 																			success_flag = true;
 																		}
@@ -288,7 +309,7 @@ static bool CacheDataPackageToDisk (const char *collection_s, const char *packag
 }
 
 
-static bool CacheDataPackageToIRODS (const char *full_path_to_collection_s, const char *package_data_s, rcComm_t *rods_conn_p, apr_pool_t *pool_p)
+static bool CacheDataPackageToIRODS (const char *full_path_to_collection_s, char *package_data_s, rcComm_t *rods_conn_p, apr_pool_t *pool_p)
 {
 	bool success_flag = false;
 	dataObjInp_t input;
@@ -317,6 +338,7 @@ static bool CacheDataPackageToIRODS (const char *full_path_to_collection_s, cons
 			handle.len = data_length;
 
 			status = rcDataObjWrite (rods_conn_p, &handle, &buffer);
+
 			if (status == data_length)
 				{
 					success_flag = true;
@@ -328,6 +350,7 @@ static bool CacheDataPackageToIRODS (const char *full_path_to_collection_s, cons
 				}
 
 			status = rcDataObjClose (rods_conn_p, &handle);
+
 			if (status < 0)
 				{
 					const char *error_s = get_rods_error_msg (status);
@@ -371,7 +394,7 @@ int IsFDDataPackageRequest (const char *request_uri_s, const davrods_dir_conf_t 
 {
 	int fd_data_package_flag = 0;
 
-	if ((conf_p -> theme_p) && (conf_p -> theme_p -> ht_show_fd_data_packages_flag > 0))
+	if ( (conf_p -> theme_p) && (conf_p -> theme_p -> ht_show_fd_data_packages_flag > 0))
 		{
 			/*
 			 * Check if the last part of the filename matches "/datapackage.json"
@@ -740,7 +763,7 @@ static json_t *GetResources (const dav_resource *resource_p)
 													 * Add resource
 													 */
 
-													if (!AddResource (&coll_entry, resources_json_p, davrods_resource_p -> rods_conn, davrods_resource_p -> rods_path, resource_p -> pool))
+													if (!AddResource (&coll_entry, resources_json_p, davrods_resource_p, resource_p -> pool))
 														{
 															status = -1;
 														}
@@ -754,10 +777,10 @@ static json_t *GetResources (const dav_resource *resource_p)
 										}
 									else
 										{
-											ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_EGENERAL,
-													req_p,
-													"rcReadCollection failed for collection <%s> with error <%s>",
-													davrods_resource_p->rods_path, get_rods_error_msg(status));
+											ap_log_rerror (APLOG_MARK, APLOG_ERR, APR_EGENERAL,
+											               req_p,
+											               "rcReadCollection failed for collection <%s> with error <%s>",
+											               davrods_resource_p->rods_path, get_rods_error_msg (status));
 										}
 								}
 							while (status >= 0);
@@ -780,17 +803,17 @@ static json_t *GetResources (const dav_resource *resource_p)
 }
 
 
-static bool AddResource (collEnt_t * const entry_p, json_t *resources_p, rcComm_t *connection_p, const char *data_package_root_path_s, apr_pool_t *pool_p)
+static bool AddResource (collEnt_t * const entry_p, json_t *resources_p, struct dav_resource_private *davrods_resource_p, apr_pool_t *pool_p)
 {
 	json_t *resource_p = NULL;
 
 	if (entry_p -> objType == DATA_OBJ_T)
-			{
-				resource_p = PopulateResourceFromDataObject (entry_p, connection_p, data_package_root_path_s, pool_p);
-			}
+		{
+			resource_p = PopulateResourceFromDataObject (entry_p, davrods_resource_p, pool_p);
+		}
 	else if (entry_p -> objType == COLL_OBJ_T)
 		{
-			resource_p = PopulateResourceFromCollection (entry_p, connection_p, data_package_root_path_s, pool_p);
+			resource_p = PopulateResourceFromCollection (entry_p, davrods_resource_p -> rods_conn, davrods_resource_p -> rods_root, pool_p);
 		}
 
 	if (resource_p)
@@ -810,7 +833,7 @@ static bool AddResource (collEnt_t * const entry_p, json_t *resources_p, rcComm_
 }
 
 
-static json_t *PopulateResourceFromDataObject (collEnt_t * const entry_p, rcComm_t *connection_p, const char *data_package_root_path_s, apr_pool_t *pool_p)
+static json_t *PopulateResourceFromDataObject (collEnt_t * const entry_p, struct dav_resource_private *davrods_resource_p, apr_pool_t *pool_p)
 {
 	json_t *resource_p = json_object ();
 
@@ -818,7 +841,7 @@ static json_t *PopulateResourceFromDataObject (collEnt_t * const entry_p, rcComm
 		{
 			if (json_object_set_new (resource_p, "bytes", json_integer (entry_p -> dataSize)) == 0)
 				{
-					const char *relative_collection_s = GetRelativePath (data_package_root_path_s, entry_p -> collName, pool_p);
+					const char *relative_collection_s = GetRelativePath (davrods_resource_p -> rods_root, entry_p -> collName, pool_p);
 					char *name_s = NULL;
 
 					if (strcmp (relative_collection_s, entry_p -> collName) == 0)
@@ -855,12 +878,40 @@ static json_t *PopulateResourceFromDataObject (collEnt_t * const entry_p, rcComm
 
 							if (set_name_flag)
 								{
-									char *checksum_s = GetChecksum (entry_p, connection_p, pool_p);
+									char *checksum_s = GetChecksum (entry_p, davrods_resource_p -> rods_conn, pool_p);
 
 									if (checksum_s)
 										{
 											SetJSONString (resource_p, "checksum", checksum_s, pool_p);
 										}
+
+									/*
+									 * If it is tabular file, lets add the headings
+									 */
+									if (IsTabularPackage (name_s))
+										{
+											apr_table_t *metadata_p = GetMetadataAsTable (davrods_resource_p -> rods_conn, DATA_OBJ_T, entry_p -> dataId, entry_p -> dataName, davrods_resource_p -> rods_env -> rodsZone, pool_p);
+
+											if (metadata_p)
+												{
+													json_t *schema_p = GetTabularSchema (davrods_resource_p, metadata_p, pool_p);
+
+													if (schema_p)
+														{
+															if (json_object_set_new (resource_p, "schema", schema_p) == 0)
+																{
+
+																}
+															else
+																{
+																	json_decref (schema_p);
+																	ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to add schema to resource for \"%s\"", entry_p -> dataName);
+																}
+														}
+												}
+
+
+										}		/* if (IsTabularPackage (name_s)) */
 
 									return resource_p;
 								}		/* if (set_name == 0) */
@@ -906,7 +957,6 @@ static const char *GetRelativePath (const char *data_package_root_path_s, const 
 			else
 				{
 					ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to determine subcollection relative path for \"%s\" and \"%s\"", data_package_root_path_s, collection_s);
-
 				}
 
 		}		/* if (strcmp (data_package_root_path_s, collection_s) != 0) */
@@ -1074,7 +1124,7 @@ static char *ConvertFDCompliantName (char *name_s)
 {
 	char *c_p = name_s;
 
-	for ( ; *c_p != '\0'; ++ c_p)
+	for (; *c_p != '\0'; ++ c_p)
 		{
 			if (isupper (*c_p))
 				{
@@ -1093,4 +1143,211 @@ static char *ConvertFDCompliantName (char *name_s)
 }
 
 
+static bool IsTabularPackage (const char *name_s)
+{
+	bool tabular_flag = false;
+	const size_t name_length = strlen (name_s);
+	const size_t suffix_length = 4;
+
+	if (name_length > suffix_length)
+		{
+			const char *name_suffix_s = name_s + name_length - suffix_length;
+			
+			if (apr_strnatcasecmp (name_suffix_s, ".csv") == 0)
+				{
+					tabular_flag = true;
+				}
+			else if (apr_strnatcasecmp (name_suffix_s, ".tsv") == 0)
+				{
+					tabular_flag = true;
+				}
+			
+		}		/* if (name_length > cvs_suffix_length) */
+
+	return tabular_flag;
+}
+
+
+
+static struct	apr_array_header_t *GetColumnHeaders (struct dav_resource_private *davrods_resource_p, apr_table_t *metadata_p, apr_pool_t *pool_p)
+{
+	struct apr_array_header_t *columns_p = NULL;
+
+	/*
+	 * Get the column headers
+	 */
+	const char *columns_s = apr_table_get (metadata_p, "column headings");
+
+	if (columns_s)
+		{
+			columns_p = apr_array_make (pool_p, 16, sizeof (char *));
+
+			if (columns_p)
+				{
+					char *copied_columns_s = apr_pstrdup (pool_p, columns_s);
+
+					const char *sep_s = ",";
+					char *context_s = NULL;
+					char *heading_s = apr_strtok (copied_columns_s, sep_s, &context_s);
+
+					while (heading_s)
+						{
+							char *copied_heading_s = apr_pstrdup (pool_p, heading_s);
+
+							if (copied_heading_s)
+								{
+									* (char **) apr_array_push (columns_p) = copied_heading_s;
+									heading_s = apr_strtok (NULL, sep_s, &context_s);
+								}
+							else
+								{
+									ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to copy column heading \"%s\"", heading_s);
+									heading_s = NULL;
+								}
+
+						}		/* while (heading_s) */
+
+				}		/* if (columns_p) */
+			else
+				{
+					ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to make array for column heading \"%s\"", columns_s);
+				}
+
+		}		/* if (columns_s) */
+
+
+	return columns_p;
+}
+
+
+
+static json_t *GetTabularSchema (struct dav_resource_private *davrods_resource_p, apr_table_t *metadata_p, apr_pool_t *pool_p)
+{
+	json_t *schema_p = json_object ();
+
+	if (schema_p)
+		{
+			json_t *fields_p = json_array ();
+
+			if (fields_p)
+				{
+					if (json_object_set_new (schema_p, "fields", fields_p) == 0)
+						{
+							struct apr_array_header_t *columns_p = GetColumnHeaders (davrods_resource_p, metadata_p, pool_p);
+
+							/*
+							 * Iterate over the column headings and see if their types are specified in the metadata
+							 */
+							if (columns_p)
+								{
+							    int i;
+							    int num_cols_done = 0;
+
+							    for (i = 0; i < columns_p -> nelts; ++ i)
+							    	{
+							        const char *column_s = ((const char **) columns_p -> elts) [i];
+							        char *key_s = apr_pstrcat (pool_p, column_s, "_type", NULL);
+
+							        if (key_s)
+							        	{
+							        		const char *type_s = apr_table_get (metadata_p, key_s);
+
+							        		if (type_s)
+							        			{
+							        				if (IsValidType (type_s))
+							        					{
+							        						if (AddColumn (column_s, type_s, fields_p, pool_p))
+							        							{
+							        								++ num_cols_done;
+							        							}
+
+							        					}		/* if (IsValidType (type_s)) */
+
+							        			}		/* if (type_s) */
+
+							        	}		/* if (key_s) */
+
+							    	}
+
+							    return schema_p;
+
+								}		/* if (columns_p) */
+
+						}		/* if (json_object_set_new (schema_p, "fields", fields_p) == 0) */
+					else
+						{
+							json_decref (fields_p);
+						}
+
+				}		/* if (fields_p) */
+
+			json_decref (schema_p);
+		}		/* if (schema_p) */
+
+	return NULL;
+}
+
+
+
+static bool IsValidType (const char *value_s)
+{
+	const char **type_ss = S_TYPES_SS;
+
+	while (*type_ss)
+		{
+			if (strcmp (*type_ss, value_s) == 0)
+				{
+					return true;
+				}
+			else
+				{
+					++ type_ss;
+				}
+		}
+
+	return false;
+}
+
+
+
+static bool AddColumn (const char *column_s, const char *type_s, json_t *fields_p, apr_pool_t *pool_p)
+{
+	json_t *definition_p = json_object ();
+
+	if (definition_p)
+		{
+			if (SetJSONString (definition_p, "name", column_s, pool_p))
+				{
+					if (SetJSONString (definition_p, "type", type_s, pool_p))
+						{
+							if (json_array_append_new (fields_p, definition_p) == 0)
+								{
+									return true;
+								}
+							else
+								{
+									ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "AddColumn: Failed to append definition for \"%s\", \"%s\" or fields array", column_s, type_s);
+								}
+
+						}		/* if (SetJSONString (definition_p, "type", type_s, pool_p)) */
+					else
+						{
+							ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "AddColumn: Failed to set \"type\": \"%s\"", type_s);
+						}
+
+				}		/* if (SetJSONString (definition_p, "name", column_s, pool_p)) */
+			else
+				{
+					ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "AddColumn: Failed to set \"name\": \"%s\"", column_s);
+				}
+
+			json_decref (definition_p);
+		}		/* if (definition_p) */
+	else
+		{
+			ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "AddColumn: Failed to allocate definition for \"%s\", \"%s\"", column_s, type_s);
+		}
+
+	return false;
+}
 
