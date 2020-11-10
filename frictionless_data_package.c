@@ -42,7 +42,7 @@
 static const char * const S_DATA_PACKAGE_S = "datapackage.json";
 
 
-static const char * const S_TYPES_SS [] =
+static const char *S_TYPES_SS [] =
 {
 	"string",
 	"number",
@@ -133,7 +133,7 @@ bool DoesFDDataPackageExist (const dav_resource *resource_p)
 	 */
 	if (!full_path_s)
 		{
-			-- value_s;
+			value_s = (davrods_resource_p -> rods_path) + path_length - 1;
 
 			if (*value_s == '/')
 				{
@@ -1176,15 +1176,15 @@ static struct	apr_array_header_t *GetColumnHeaders (struct dav_resource_private 
 	/*
 	 * Get the column headers
 	 */
-	const char *columns_s = apr_table_get (metadata_p, "column headings");
+	IrodsMetadata *value_p = (IrodsMetadata *) apr_table_get (metadata_p, "column_headings");
 
-	if (columns_s)
+	if (value_p)
 		{
 			columns_p = apr_array_make (pool_p, 16, sizeof (char *));
 
 			if (columns_p)
 				{
-					char *copied_columns_s = apr_pstrdup (pool_p, columns_s);
+					char *copied_columns_s = apr_pstrdup (pool_p, value_p -> im_value_s);
 
 					const char *sep_s = ",";
 					char *context_s = NULL;
@@ -1210,10 +1210,10 @@ static struct	apr_array_header_t *GetColumnHeaders (struct dav_resource_private 
 				}		/* if (columns_p) */
 			else
 				{
-					ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to make array for column heading \"%s\"", columns_s);
+					ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to make array for column heading \"%s\"", value_p -> im_value_s);
 				}
 
-		}		/* if (columns_s) */
+		}		/* if (value_p) */
 
 
 	return columns_p;
@@ -1250,11 +1250,13 @@ static json_t *GetTabularSchema (struct dav_resource_private *davrods_resource_p
 
 							        if (key_s)
 							        	{
-							        		const char *type_s = apr_table_get (metadata_p, key_s);
+							        		IrodsMetadata *value_p = (IrodsMetadata *) apr_table_get (metadata_p, key_s);
 
-							        		if (type_s)
+							        		if (value_p)
 							        			{
-							        				if (IsValidType (type_s))
+									        		const char *type_s = value_p -> im_value_s;
+
+									        		if (IsValidType (type_s))
 							        					{
 							        						if (AddColumn (column_s, type_s, fields_p, pool_p))
 							        							{
@@ -1263,7 +1265,7 @@ static json_t *GetTabularSchema (struct dav_resource_private *davrods_resource_p
 
 							        					}		/* if (IsValidType (type_s)) */
 
-							        			}		/* if (type_s) */
+							        			}		/* if (value_p) */
 
 							        	}		/* if (key_s) */
 
