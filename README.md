@@ -36,7 +36,8 @@ searching and linking is available at the [Designing Future Wheat Data Portal](h
 
 ### 1.8 (10 Nov 2020)
  - For Frictionless Data Packages, any CSV or TSV files are now specified as tabular data resources. For information on how to configure retreiving the required values
-from the iRODS repository, the details are [here](#frictionless-data-tabular-support)
+from the iRODS repository, the details are [here](#frictionless-data-tabular-support). This initial support is for the general column types and support for the format 
+and other fields defined by the [Frictionless Data Table Schema](https://specs.frictionlessdata.io/table-schema/) will follow in subsequent upgrades.
 
 ### 1.7 (15 Sep 2020)
  - Added support for [Frictionless Data](https://frictionlessdata.io) Data Packages. The details are [here](#frictionless-data-support).
@@ -707,6 +708,47 @@ DavRodsFDResourceDescriptionKey short_info,.,\n,\n,detailed_info, ,footnote
 
 #### Frictionless Data tabular support
 
+Any csv or tsv files in a Frictionless Data package can now be configured to display their tabular-sepcific data fields within a *datapackage.json* file. This is done by querying the iMeta catalog for the given data object.
+The first required key is *column_headings* which has a comma-separated list of the column headings for the tabular file. For each of these headings an additional key-value pair specify the type of data in the given column 
+of the file. The keys for these are the column name with a *_type* suffix and the values being ones of the types defined [here](#https://specs.frictionlessdata.io/table-schema/#types-and-formats). 
+
+So, using [this example](https://specs.frictionlessdata.io/tabular-data-package/#example) file *data.csv* which has there columns containing a string, an integer and a floating point number respectively.
+
+ ```
+var1,var2,var3
+A,1,2.1
+B,3,4.5
+ ```
+the required imeta fields would be 
+
+*column_headings*: var1,var2,var3
+*var1_type*: string
+*var2_type*: integer
+*var3_type*: number
+
+E.g.
+
+```
+billy@desktop:~/$ imeta ls -d datasets/tabular/data.csv
+
+AVUs defined for dataObj /grassrootsZone/home/rods/datasets/tabular/data.csv:
+attribute: column_headings
+value: var1,var2,var3
+units: 
+----
+attribute: var1_type
+value: string
+units: 
+----
+attribute: var2_type
+value: integer
+units: 
+----
+attribute: var3_type
+value: number
+units: 
+```
+ 
 
 #### Apache configuration example
 
