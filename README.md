@@ -721,10 +721,10 @@ B,3,4.5
  ```
 the required imeta fields would be 
 
-*column_headings*: var1,var2,var3
-*var1_type*: string
-*var2_type*: integer
-*var3_type*: number
+ * *column_headings*: var1,var2,var3
+ * *var1_type*: string
+ * *var2_type*: integer
+ * *var3_type*: number
 
 E.g.
 
