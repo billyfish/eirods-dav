@@ -900,6 +900,10 @@ static json_t *PopulateResourceFromDataObject (collEnt_t * const entry_p, struct
 														{
 															if (json_object_set_new (resource_p, "schema", schema_p) == 0)
 																{
+																	if (!SetJSONString (resource_p, "profile", "tabular-data-resource", pool_p))
+																		{
+																			ap_log_perror (APLOG_MARK, APLOG_ERR, APR_EGENERAL, pool_p, "Failed to add \"profile\": \"tabular-data-resource\" to resource for \"%s\"", entry_p -> dataName);
+																		}
 
 																}
 															else

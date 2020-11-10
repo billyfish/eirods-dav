@@ -34,6 +34,10 @@ searching and linking is available at the [Designing Future Wheat Data Portal](h
 
 ## Changelog
 
+### 1.8 (10 Nov 2020)
+ - For Frictionless Data Packages, any CSV or TSV files are now specified as tabular data resources. For information on how to configure retreiving the required values
+from the iRODS repository, the details are [here](#frictionless-data-tabular-support)
+
 ### 1.7 (15 Sep 2020)
  - Added support for [Frictionless Data](https://frictionlessdata.io) Data Packages. The details are [here](#frictionless-data-support).
 
@@ -695,12 +699,13 @@ These keys can be concatenated so that multiple metadata values can be combined 
 DavRodsFDResourceDescriptionKey short_info,detailed_info
  ```
 
-As well as specifying the keys, white space or full stops can be specified in the configuration value too. With the example above, if you would like to have  a full stop and two blank lines the *short\_info* and a space and the *footnote* metadata value after the *detailed\_info*, the configuration would be
+As well as specifying the keys, white space or full stops can be specified in the configuration value too. With the example above, if you would like to have a full stop and two blank lines the *short\_info* and a space and the *footnote* metadata value after the *detailed\_info*, the configuration would be
 
  ```
 DavRodsFDResourceDescriptionKey short_info,.,\n,\n,detailed_info, ,footnote
  ```
 
+#### Frictionless Data tabular support
 
 
 #### Apache configuration example
@@ -725,6 +730,8 @@ The Frictionless Data support can be configured to only be active at particular 
 	 DavRodsFrictionlessData false
  </LocationMatch>
 ```
+
+
 
 ### The iRODS environment file ###
 
