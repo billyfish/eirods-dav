@@ -712,7 +712,7 @@ Any csv or tsv files in a Frictionless Data package can now be configured to dis
 The first required key is *column_headings* which has a comma-separated list of the column headings for the tabular file. For each of these headings an additional key-value pair specify the type of data in the given column 
 of the file. The keys for these are the column name with a *_type* suffix and the values being ones of the types defined [here](#https://specs.frictionlessdata.io/table-schema/#types-and-formats). 
 
-So, using [this example](https://specs.frictionlessdata.io/tabular-data-package/#example) file *data.csv* which has there columns containing a string, an integer and a floating point number respectively.
+So, using [this example](https://specs.frictionlessdata.io/tabular-data-package/#example) file *data.csv* which has three columns containing a string, an integer and a floating point number respectively, shown below
 
  ```
 var1,var2,var3
@@ -726,7 +726,7 @@ the required imeta fields would be
  * *var2_type*: integer
  * *var3_type*: number
 
-E.g.
+The required imeta data would be
 
 ```
 billy@desktop:~/$ imeta ls -d datasets/tabular/data.csv
