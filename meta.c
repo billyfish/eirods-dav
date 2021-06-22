@@ -450,7 +450,7 @@ static bool GetMetadata (rcComm_t *irods_connection_p, const objType_t object_ty
 														}		/* if (meta_id_results_p -> attriCnt == 1) */
 													else
 														{
-															ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_EGENERAL, pool_p, "meta_id_results_p has too many attributes, %d", meta_id_results_p -> attriCnt);
+															ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_EGENERAL, pool_p, "meta_id_results_p doesn't have only one attributes, %d, for id %s", meta_id_results_p -> attriCnt, id_s);
 														}
 
 												}		/* if (success_code == 0) */

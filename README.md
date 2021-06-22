@@ -679,6 +679,14 @@ If ```DavRodsFrictionlessData``` is set to true, then the Frictionless Data supp
  DavRodsFDResourceDescriptionKey project_description
  ```
 
+ * **DavRodsFDResourceIdKey**: This is the key to use when querying iMeta catalog for the value to use for the *id* field in the data package. If thie configuration variable is not set, then the default key name of *id* will be used to search in iMeta. For example, to get the value associated with the metadata key *project\_id*, you would need the following configuration setting:
+
+ 
+ ```
+ DavRodsFDResourceIdKey project_id
+ ```
+
+
  * **DavRodsFDDataPackageImage**: You can use this directive to specify the image used for the data package.
 
  ```
