@@ -700,7 +700,7 @@ These keys can be concatenated so that multiple metadata values can be combined 
 DavRodsFDResourceDescriptionKey short_info,detailed_info
  ```
 
-As well as specifying the keys, white space or full stops can be specified in the configuration value too. With the example above, if you would like to have a full stop and two blank lines the *short\_info* and a space and the *footnote* metadata value after the *detailed\_info*, the configuration would be
+As well as specifying the keys, white space or full stops can be specified in the configuration value too. With the example above, if you would like to have s the *short\_info*, a full stop, two blank lines, the *detailed\_info*, a space and the *footnote* metadata value, the configuration would be
 
  ```
 DavRodsFDResourceDescriptionKey short_info,.,\n,\n,detailed_info, ,footnote
@@ -708,7 +708,7 @@ DavRodsFDResourceDescriptionKey short_info,.,\n,\n,detailed_info, ,footnote
 
 #### Frictionless Data tabular support
 
-Any csv or tsv files in a Frictionless Data package can now be configured to display their tabular-sepcific data fields within a *datapackage.json* file. This is done by querying the iMeta catalog for the given data object.
+Any csv or tsv files in a Frictionless Data package can now be configured to display their tabular-specific data fields within a *datapackage.json* file. This is done by querying the iMeta catalog for the given data object.
 The first required key is *column_headings* which has a comma-separated list of the column headings for the tabular file. For each of these headings an additional key-value pair specify the type of data in the given column 
 of the file. The keys for these are the column name with a *_type* suffix and the values being ones of the types defined [here](#https://specs.frictionlessdata.io/table-schema/#types-and-formats). 
 
