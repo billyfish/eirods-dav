@@ -27,7 +27,7 @@
 #include "mod_davrods.h"
 #include "config.h"
 
-#include "irods/rcConnect.h"
+#include "irods/rodsClient.h"
 #include "irods/miscUtil.h"
 
 #include "apr_tables.h"

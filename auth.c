@@ -25,11 +25,14 @@
 
 #include <http_request.h>
 
-#include <irods/rodsClient.h>
+#include "irods/pamAuthRequest.h"
+#include "irods/getMiscSvrInfo.h"
 #include <irods/sslSockComm.h>
 
 #include "http_core.h"
 #include "mod_session.h"
+
+#include "irods/rodsClient.h"
 
 
 #ifdef APLOG_USE_MODULE 

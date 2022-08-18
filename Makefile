@@ -61,17 +61,37 @@ LIB_PATHS += $(IRODS_DIR)/usr/lib $(DIR_JANSSON)/lib
 IRODS_VERSION_MAJOR := $(shell echo $(IRODS_VERSION) | cut -f1 -d ".")
 IRODS_VERSION_MINOR := $(shell echo $(IRODS_VERSION) | cut -f2 -d ".")
 
-IRODS_GT_4_2 := $(shell [ $(IRODS_VERSION_MAJOR) -gt 4 -o \( $(IRODS_VERSION_MAJOR) -eq 4 -a $(IRODS_VERSION_MINOR) -ge 2 \) ] && echo true)
 
-ifeq ($(IRODS_GT_4_2), true)
+ifeq ($(IRODS_VERSION_MAJOR), 4)
+
+ifeq ($(IRODS_VERSION_MINOR), 3)
+
 LIBS += \
 	irods_client \
 	irods_common \
 	irods_plugin_dependencies 
+MACROS += IRODS_4_3 \
+	API_NUMBER_H__=1
+
+else ifeq ($(IRODS_VERSION_MINOR), 2)
+
+LIBS += \
+	irods_client \
+	irods_common \
+	irods_plugin_dependencies \
+	boost_system     \
+	boost_filesystem \
+	boost_regex      \
+	boost_thread     \
+	boost_chrono     \
+	boost_program_options \
+	
 LIB_PATHS += \
 	$(DIR_BOOST)/lib 
 MACROS += IRODS_4_2
-else
+
+else ifeq ($(IRODS_VERSION_MINOR), 1)
+
 LIBS += \
 	irods_client_core    \
 	irods_client_api \
@@ -80,7 +100,11 @@ LIBS += \
 MACROS += IRODS_4_1        
 LIB_PATHS += \
 	      $(IRODS_EXTERNALS)
+
 endif
+
+endif # ifeq ($(IRODS_VERSION_MAJOR), 4)
+
 
 
 INCLUDE_PATHS += $(APACHE_INCLUDES_DIR)
@@ -91,12 +115,6 @@ LIBS +=                  \
 	m                \
 	pthread          \
 	crypto           \
-	boost_system     \
-	boost_filesystem \
-	boost_regex      \
-	boost_thread     \
-	boost_chrono     \
-	boost_program_options \
 	stdc++           \
 	ssl              \
 	jansson          \
@@ -169,6 +187,13 @@ $(SHARED): init $(OBJFILES)
 clean:
 	rm -rvf  $(BUILD_DIR)/*
 
+
+info:
+	@echo "IRODS_VERSION_MAJOR: $(IRODS_VERSION_MAJOR)"
+	@echo "IRODS_VERSION_MINOR: $(IRODS_VERSION_MINOR)"
+	@echo "MACROS: $(MACROS)"
+	@echo "LIB_PATHS: $(LIB_PATHS)"
+	@echo "LIBS: $(LIBS)"
 	
 #$(SHARED): apxs $(SRCFILES) 
 #	$(APXS) -c   \

@@ -23,7 +23,6 @@
 #ifndef FRICTIONLESS_DATA_PACKAGE_H_
 #define FRICTIONLESS_DATA_PACKAGE_H_
 
-#include "irods/rcConnect.h"
 
 #include "apr_pools.h"
 

@@ -26,7 +26,7 @@
 #include "config.h"
 
 #include <irods/rodsClient.h>
-#include <irods/rods.h>
+//#include <irods/rods.h>
 
 
 /**

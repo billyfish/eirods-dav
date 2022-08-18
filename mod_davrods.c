@@ -31,6 +31,12 @@
 #include <curl/curl.h>
 
 
+#ifdef API_NUMBER_H__
+#undef API_NUMBER_H__
+#include "irods/apiNumber.h"
+#define API_NUMBER_H__
+#endif
+
 APLOG_USE_MODULE(davrods);
 
 
@@ -49,6 +55,10 @@ static void register_davrods_hooks(apr_pool_t *p) {
     ap_hook_fixups (EIRodsDavFixUps, NULL, NULL, APR_HOOK_FIRST);
 
     ap_hook_handler (EIRodsDavAPIHandler, NULL, NULL, APR_HOOK_FIRST);
+
+#ifdef IRODS_4_3
+    load_client_api_plugins ();
+#endif
 }
 
 module AP_MODULE_DECLARE_DATA davrods_module = {

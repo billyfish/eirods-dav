@@ -25,7 +25,6 @@
 
 #include "config.h"
 
-#include "irods/rcConnect.h"
 
 #include "httpd.h"
 #include "listing.h"
