@@ -57,6 +57,9 @@ OUTFILES := $(OBJFILES) $(CFILES:%.c=%.lo) $(CFILES:%.c=%.slo) $(CFILES:%.c=%.la
 INCLUDE_PATHS += $(IRODS_DIR)/usr/include $(DIR_JANSSON)/include
 LIB_PATHS += $(IRODS_DIR)/usr/lib $(DIR_JANSSON)/lib
 
+INCLUDE_PATHS += $(MOD_UPLOAD_DIR)
+
+
 # Add in the appropriate irods libs and dependencies
 IRODS_VERSION_MAJOR := $(shell echo $(IRODS_VERSION) | cut -f1 -d ".")
 IRODS_VERSION_MINOR := $(shell echo $(IRODS_VERSION) | cut -f2 -d ".")

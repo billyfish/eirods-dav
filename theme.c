@@ -1973,7 +1973,7 @@ static apr_status_t PrintUserSection (const char *user_s, const char *escaped_zo
 								}
 							else
 								{
-									if ((status = apr_brigade_printf (bb_p, NULL, NULL, "<br /><a id=\"logout_link\" ref=\"%s\">", conf_p -> theme_p -> ht_logout_url_s)) == APR_SUCCESS)
+									if ((status = apr_brigade_printf (bb_p, NULL, NULL, "<br /><a id=\"logout_link\" href=\"%s\">", conf_p -> theme_p -> ht_logout_url_s)) == APR_SUCCESS)
 										{
 											if (theme_p -> ht_user_icon_s)
 												{

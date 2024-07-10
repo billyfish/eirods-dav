@@ -54,7 +54,12 @@ static void register_davrods_hooks(apr_pool_t *p) {
     ap_hook_child_init (EIRodsDavChildInit, NULL, NULL, APR_HOOK_FIRST);
     ap_hook_fixups (EIRodsDavFixUps, NULL, NULL, APR_HOOK_FIRST);
 
-    ap_hook_handler (EIRodsDavAPIHandler, NULL, NULL, APR_HOOK_FIRST);
+    ap_hook_handler (EIRodsDavAPIHandler, NULL, NULL, APR_HOOK_LAST);
+
+
+  //  static const char * const aszPre[]={ "mod_authz_owner.c", NULL };
+  //  ap_hook_auth_checker(check_user_access, aszPre,
+  //  NULL, APR_HOOK_MIDDLE);
 
 #ifdef IRODS_4_3
     load_client_api_plugins ();

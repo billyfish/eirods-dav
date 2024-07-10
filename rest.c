@@ -46,6 +46,9 @@
 
 #include "irods/mvUtil.h"
 
+
+#include "mod_upload.h"
+
 struct APICall;
 
 typedef struct APICall
@@ -84,6 +87,9 @@ static int GetInformationForEntry (const APICall *call_p, request_rec *req_p, ap
 
 
 static int ListInformationForEntries (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s);
+
+
+static int UploadFile (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s);
 
 
 static const char *GetIdParameter (apr_table_t *params_p, request_rec *req_p, rcComm_t *rods_connection_p, apr_pool_t *pool_p);
@@ -135,6 +141,9 @@ static APICall S_REST_API_ACTIONS_P [] =
 
 	{ REST_GET_INFO_S, GetInformationForEntry },
 	{ REST_LIST_S, ListInformationForEntries },
+
+	{ REST_UPLOAD_S, UploadFile },
+
 
 	{ NULL, NULL }
 };
@@ -982,6 +991,21 @@ static int DeleteMetadataForEntry (const APICall *call_p, request_rec *req_p, ap
 static int AddMetadataForEntry (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s)
 {
 	return EasyModifyMetadataForEntry (call_p, req_p, params_p, config_p, davrods_path_s, "add");
+}
+
+
+static int UploadFile (const APICall *call_p, request_rec *req_p, apr_table_t *params_p, davrods_dir_conf_t *config_p, const char *davrods_path_s)
+{
+	int res = APR_SUCCESS;
+
+	const char * data_s = apr_table_get (req_p -> notes, UP_DATA_KEY_S);
+
+	if (data_s)
+		{
+			ap_log_perror (__FILE__, __LINE__, APLOG_MODULE_INDEX, APLOG_ERR, APR_SUCCESS, req_p -> pool, "Uploaded file \"%s\"", data_s);
+		}
+
+	return res;
 }
 
 

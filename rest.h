@@ -52,6 +52,8 @@ REST_PREFIX const char REST_METADATA_MATCHING_VALUES_S [] REST_VAL ("metadata/va
 REST_PREFIX const char REST_GET_INFO_S [] REST_VAL ("general/info");
 REST_PREFIX const char REST_LIST_S [] REST_VAL ("general/list");
 
+//REST_PREFIX const char REST_UPLOAD_S [] REST_VAL ("general/upload");
+REST_PREFIX const char REST_UPLOAD_S [] REST_VAL ("/eirods-upload");
 
 REST_PREFIX const char VIEW_SEARCH_S [] REST_VAL ("search");
 REST_PREFIX const char VIEW_LIST_S [] REST_VAL ("list");

@@ -633,7 +633,7 @@ const command_rec davrods_directives[] = {
 		),
 
 		AP_INIT_TAKE1(
-				DAVRODS_CONFIG_PREFIX "ToolsPlacemnt", SetToolsPlacement,
+				DAVRODS_CONFIG_PREFIX "ToolsPlacement", SetToolsPlacement,
 				NULL, ACCESS_CONF, "Set where you want the user and search sections to appear"
 		),
 
