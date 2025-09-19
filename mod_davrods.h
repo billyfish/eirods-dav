@@ -35,9 +35,11 @@
 #include <mod_dav.h>
 
 
-
-module AP_MODULE_DECLARE_DATA davrods_module;
-
+#ifdef ALLOCATE_MODULE
+	module AP_MODULE_DECLARE_DATA davrods_module;
+#else
+	extern module davrods_module;
+#endif
 
 #if defined(DAVRODS_DEBUG_DESPERATE) || defined(DAVRODS_DEBUG_VERY_DESPERATE)
 

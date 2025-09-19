@@ -20,7 +20,7 @@
  * along with Davrods.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define ALLOCATE_MODULE
+#define ALLOCATE_MODULE (1)
 #include "mod_davrods.h"
 #include "config.h"
 #include "auth.h"
@@ -33,7 +33,7 @@
 
 #ifdef API_NUMBER_H__
 #undef API_NUMBER_H__
-#include "irods/apiNumber.h"
+//#include "irods/apiNumberData.h"
 #define API_NUMBER_H__
 #endif
 
